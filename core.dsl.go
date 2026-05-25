@@ -22,6 +22,7 @@ func Run(g *Game) error {
 	g.currentScene = g.startID
 	g.State.NoteVisit(g.startID)
 	g.placeActors(g.startID)
+	g.resetTriggers()
 	if s.Music != "" {
 		g.Audio.PlayMusic(s.Music)
 	}

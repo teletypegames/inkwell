@@ -445,8 +445,15 @@ type SceneActor struct {
 `OnLeave` runs on the transition out. `Actors` lists which registered
 characters are placed in the scene and where their feet start.
 
-`Walkboxes` is reserved for pathfinding (currently a stub — characters
-walk in a straight line). `Triggers` is also a stub at this milestone.
+`Walkboxes` constrain character movement. When non-empty, `Walk(...)`
+routes through a BFS over the polygon adjacency graph (polygons that
+share an edge are neighbours), with the midpoint of each shared edge
+used as a waypoint. Destinations outside every walkbox are clipped to
+the nearest boundary. With no walkboxes the character walks in a
+straight line — see [§6.7](#67-character) and [§15.4](#154-character-movement).
+
+`Triggers` fire on the rising edge of their `When` condition. The
+engine samples each trigger once per idle frame; see [§6.4](#64-trigger).
 
 ### 6.3 Hotspot
 
@@ -503,9 +510,17 @@ type Trigger struct {
 }
 ```
 
-Reserved for "fire when condition becomes true after scene enter" — the
-struct exists so domain code can declare them, but the engine doesn't
-sweep triggers yet.
+Triggers arm when the scene is entered. Every idle frame (when the
+script slot is free), the engine samples each trigger's `When`
+condition; on a **rising edge** (false → true) it queues `Do` into the
+script slot. `Once: true` makes the trigger fire at most once per
+arming. A trigger with `nil` `When` or `nil` `Do` is silently skipped.
+
+Triggers are not sampled while a cutscene or dialog is running, so a
+condition that becomes true mid-script is detected on the next idle
+frame — the edge is preserved across the busy window. Save/Load resets
+trigger state to "freshly armed", matching the behaviour of scene
+re-entry.
 
 ### 6.5 Item
 
@@ -575,8 +590,20 @@ When no real sprite is on disk, `drawCharacter` falls back to a stylised
 placeholder: humanoid if `W < H`, quadruped otherwise. `SpeechColor` (if
 an `RGBA`) colours both the speech-bubble text and the placeholder body.
 
-Movement is driven by the `Walk` action and `Game.tickCharacters`
-(straight-line stepping at `Speed` pixels/sec, default 60).
+`Animations` maps a clip name to an `AnimationClip`. The engine
+auto-selects clips by name: `"walk"` while the character has an active
+path, `"idle"` otherwise. If only one of the two is registered, it
+plays in both states. `FrameTime ≤ 0` or `Frames` empty disables the
+clip; missing clips fall back to the whole-sprite (or placeholder) draw.
+
+Each `Frames` entry is a source rectangle into the character's `Sprite`
+image, blitted via `SubImage` and scaled to the character's `W×H`
+footprint. `Loop: true` rewinds to frame 0 after the last frame;
+`Loop: false` freezes on the final frame.
+
+Movement is driven by the `Walk` action and `Game.tickCharacters` —
+stepping at `Speed` pixels/sec (default 60) along the waypoint list
+computed by [walkbox routing](#62-scene).
 
 ### 6.8 Dialogue
 
@@ -1308,8 +1335,9 @@ func (la *loadedAssets) isPlaceholder(name string) bool
 character placeholder (humanoid / quadruped) or the real sprite.
 
 Supported image formats: PNG and JPEG (registered via blank imports in
-`asset.manager.go`). Fonts and audio share the same registry but are not
-loaded by the library at this milestone.
+`asset.manager.go`). Audio assets (`AssetAudio`) are decoded on demand
+by `AudioPlayer` — see [§13](#13-audio). Fonts (`AssetFont`) share the
+same registry but are not loaded by the library at this milestone.
 
 ---
 
@@ -1326,11 +1354,27 @@ func (a *AudioPlayer) StopMusic()
 func (a *AudioPlayer) PlaySound(name string)
 ```
 
-Currently a **stub**: requests are logged via `logf` and the
-"current music" string is tracked so duplicate `PlayMusic(same)` calls
-no-op. The `PlayMusic` / `PlaySound` / `StopMusic` actions wire through
-unchanged, so when the real Ebiten audio backend lands the domain code
-keeps working.
+Backed by Ebiten's `audio` package. The shared `*audio.Context` is
+created lazily on the first `PlayMusic` / `PlaySound`, at a sample rate
+of 48 kHz; existing audio contexts (e.g. created by a host process) are
+detected via `audio.CurrentContext` and reused. The `Asset.Kind` must
+be `AssetAudio` for the player to consider it.
+
+- **Music** streams from disk and loops infinitely. `PlayMusic(name)`
+  on the currently-playing track no-ops, so it's safe to call from a
+  scene's `OnEnter` on every visit.
+- **Sound effects** are decoded once, cached as raw PCM, and replayed
+  via `NewPlayerFromBytes` for near-zero-latency triggering. Finished
+  players are pruned on the next `PlaySound` call.
+
+Supported formats: **WAV** (`.wav`), **OGG Vorbis** (`.ogg`), and
+**MP3** (`.mp3`), picked by file extension. Anything else fails to
+decode and the asset is flagged so subsequent plays no-op.
+
+Failure modes (missing file, unsupported codec, no audio device) all
+degrade to a debug-log line; the game keeps running with no sound. The
+`PlayMusic` / `PlaySound` / `StopMusic` actions route through the same
+methods, so a domain authored against the original stub still works.
 
 ---
 
@@ -1427,9 +1471,22 @@ Runs only after every widget had a chance. The flow:
 
 ### 15.4 Character movement
 
-`Game.tickCharacters` runs every frame, stepping moving characters towards
-their `target` at `def.Speed` pixels per second. The `Walk(name, to)`
-runner returns `StatusRunning` until `characterMoving(name)` is false.
+`Game.tickCharacters` runs every frame. For each moving character it
+steps the head of its waypoint queue at `def.Speed` pixels per second
+(default 60); on arrival, the waypoint is popped and the character
+proceeds to the next one. The character becomes idle when the queue
+empties.
+
+The waypoint queue is built when `Walk(name, to)` runs — see
+[§6.2](#62-scene) and [`scene.path.go`](#21-project-layout) for the
+walkbox routing. The `Walk` runner returns `StatusRunning` until
+`characterMoving(name)` reports false.
+
+Each frame also advances the character's animation clock via
+`tickAnimation`, which auto-selects `"walk"` (when `moving == true`)
+or `"idle"` from `Character.Animations`. The renderer uses the active
+clip's source rectangle to blit a sprite-sheet frame, or falls back to
+the whole-sprite / placeholder draw when no clip applies.
 
 ---
 
@@ -1490,14 +1547,38 @@ func (g *Game) Save(slot int) error
 func (g *Game) Load(slot int) error
 ```
 
-**Stub** at this milestone — both return `nil` without doing anything.
-The intended scope when filled in:
+Slots are written as JSON files under `g.SaveDir` (default `saves/`,
+relative to the working directory), one file per slot named
+`slot<N>.json`. The save captures the **mutable runtime state**:
 
-- Persist `currentScene`, character positions, the entire `State`
-  (flags, vars, visited, talked), inventory contents, and the active
-  script PC.
-- The managers themselves (Items, Scenes, …) are **not** persisted; they
-  are reconstructed by `domain.Build()` on every launch.
+- `currentScene`, the active verb, and the active theme.
+- Every character's position, target, and moving flag.
+- The full `State`: flags, vars, visited and talked counters.
+- The inventory item list plus the currently selected slot.
+
+Static registrations (items, scenes, characters, dialogues, scripts,
+assets, verbs, widgets, themes) are **not** persisted — they are
+reconstructed by `domain.Build()` on every launch. References in the
+save are validated against the current managers before any runtime
+state is touched, so a corrupt or schema-drift save returns an error
+without mutating the live `*Game`.
+
+What is **not** saved:
+
+- The in-flight script `Runner` or any active dialog. `Load` cancels
+  both, so saves are effectively taken at an idle/ready boundary.
+- The animation playback state. After load, characters are placed at
+  the saved position; the next idle frame re-derives the clip.
+- Walkbox path queues. If a character is still `moving`, `tickCharacters`
+  rebuilds a one-step straight-line path from `pos` to `target` so the
+  walk finishes.
+
+`Var` values are JSON-marshaled as-is. Numbers round-trip through
+`float64`, strings stay strings, and any value that survives
+`encoding/json` round-tripping survives the save.
+
+The save format is versioned (`saveVersion`); loading a file from a
+future version returns an error rather than silently truncating fields.
 
 ---
 
@@ -1588,13 +1669,14 @@ pncdsl/                            # module git.teletypegames.org/games/pncdsl
 │
 ├── asset.def.go                   # Asset, AssetKind
 ├── asset.manager.go               # AssetManager alias + lazy loader
-├── asset.audio.go                 # AudioPlayer (stub)
+├── asset.audio.go                 # AudioPlayer (WAV/OGG/MP3, looping music)
 ├── asset.text.go                  # drawText / wrapText helpers
 │
 ├── scene.def.go                   # Scene, SceneActor
 ├── scene.manager.go               # SceneManager alias
 ├── scene.hotspot.go               # Hotspot, CursorKind
-├── scene.trigger.go               # Trigger (stub)
+├── scene.trigger.go               # Trigger + rising-edge engine sweep
+├── scene.path.go                  # walkbox routing (BFS over polygon adjacency)
 ├── scene.transition.go            # fade-to-black overlay (internal)
 ├── scene.camera.go                # Camera (stub identity transform)
 │
@@ -1604,7 +1686,7 @@ pncdsl/                            # module git.teletypegames.org/games/pncdsl
 │
 ├── actor.def.go                   # Character
 ├── actor.manager.go               # CharacterManager alias
-├── actor.animation.go             # AnimationClip (stub)
+├── actor.animation.go             # AnimationClip + tickAnimation
 │
 ├── dialog.def.go                  # Dialogue, DialogueNode, DialogueChoice
 ├── dialog.manager.go              # DialogueManager alias
@@ -1615,7 +1697,7 @@ pncdsl/                            # module git.teletypegames.org/games/pncdsl
 ├── action.manager.go              # ScriptManager alias
 │
 ├── state.def.go                   # State (flags, vars, visited, talked)
-├── state.save.go                  # Save/Load (stub)
+├── state.save.go                  # Save/Load JSON persistence
 │
 ├── input.def.go                   # Input (consume-on-use)
 │

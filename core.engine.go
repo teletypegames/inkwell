@@ -52,6 +52,12 @@ func (e *engine) Update() error {
 	// Clear per-frame transient state that widgets / scene-resolution write.
 	g.SetHoverLabel("")
 
+	// Scene triggers run before widgets/input — a firing trigger queues
+	// an action that consumes the next frame's script slot, so this
+	// frame's UI work still happens, but the player's clicks won't
+	// race a cutscene that's about to start.
+	g.tickTriggers()
+
 	// Top-down input: the widget drawn last (= registered last) gets the
 	// click first, then the next-to-last, etc. A widget signals "I took it"
 	// via g.Input.ConsumeLeft / ConsumeRight.
@@ -222,6 +228,21 @@ func drawCharacter(dst *ebiten.Image, g *Game, c *runtimeChar) {
 	}
 	if c.def.Sprite != "" && !g.loaded.isPlaceholder(c.def.Sprite) {
 		img := g.loaded.image(g.AssetManager, c.def.Sprite)
+		// Active animation clip → blit only the current frame's sub-rect
+		// from the sprite sheet, scaled into the character's W×H box.
+		if r, ok := c.currentFrameRect(); ok {
+			ib := img.Bounds()
+			clamped := r.Intersect(ib)
+			fw, fh := clamped.Dx(), clamped.Dy()
+			if fw > 0 && fh > 0 {
+				sub := img.SubImage(clamped).(*ebiten.Image)
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(w/float64(fw), h/float64(fh))
+				op.GeoM.Translate(c.pos.X-w/2, c.pos.Y-h)
+				dst.DrawImage(sub, op)
+				return
+			}
+		}
 		sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
 		if sw > 0 && sh > 0 {
 			op := &ebiten.DrawImageOptions{}

@@ -55,6 +55,14 @@ type Game struct {
 	// in-game message log for ChatLog widgets; ring buffer behavior.
 	messages    []LogMessage
 	MaxLogLines int // 0 = unlimited (memory grows); set per-game.
+
+	// SaveDir overrides the on-disk directory used by Save/Load.
+	// Empty falls back to "saves" relative to the working directory.
+	SaveDir string
+
+	// triggerStates tracks per-trigger rising-edge / fired bookkeeping
+	// for the current scene. Cleared on scene change and on Load.
+	triggerStates map[string]*triggerState
 }
 
 // LogKind classifies a chat-log entry — UI widgets style them differently.
@@ -117,6 +125,7 @@ func NewGame(title string, w, h int) *Game {
 		transition:       &transition{},
 		selectedVerb:     "look",
 	}
+	g.Audio.attach(g.AssetManager)
 	for _, v := range defaultVerbs() {
 		g.VerbManager.Register(v)
 	}
@@ -248,10 +257,21 @@ func (g *Game) Validate() error {
 // ----- runtime: characters & scenes -------------------------------------
 
 type runtimeChar struct {
-	def    Character
-	pos    Point
+	def Character
+	pos Point
+	// path is the queue of remaining waypoints, head-first. Empty when
+	// idle. The last entry equals target.
+	path []Point
+	// target is the final destination — kept separately so saves and the
+	// post-Load resume in tickCharacters can rebuild a missing path.
 	target Point
 	moving bool
+
+	// animation playback state — see actor.animation.go for the rules
+	// that drive currentClip selection.
+	currentClip string
+	clipElapsed float64
+	clipFrame   int
 }
 
 func (g *Game) makeCtx() *Ctx {
@@ -279,6 +299,7 @@ func (g *Game) changeScene(name string) {
 		g.currentScene = name
 		g.State.NoteVisit(name)
 		g.placeActors(name)
+		g.resetTriggers()
 		s := g.SceneManager.MustGet(name)
 		if s.Music != "" {
 			g.Audio.PlayMusic(s.Music)
@@ -315,7 +336,18 @@ func (g *Game) walkCharacter(name string, to Point) {
 	if !ok {
 		return
 	}
-	c.target = to
+	var boxes []Polygon
+	if g.currentScene != "" {
+		s := g.SceneManager.MustGet(g.currentScene)
+		boxes = s.Walkboxes
+	}
+	path := pathfind(c.pos, to, boxes)
+	if len(path) == 0 {
+		c.moving = false
+		return
+	}
+	c.path = path
+	c.target = path[len(path)-1]
 	c.moving = true
 }
 
@@ -326,20 +358,35 @@ func (g *Game) characterMoving(name string) bool {
 
 func (g *Game) tickCharacters(dt float64) {
 	for _, c := range g.chars {
+		g.tickAnimation(c, dt)
 		if !c.moving {
 			continue
 		}
-		dx := c.target.X - c.pos.X
-		dy := c.target.Y - c.pos.Y
-		d := c.pos.Dist(c.target)
+		// Resume after Load: moving with no live path means we lost the
+		// route but still know the final destination; rebuild a trivial
+		// straight-line path so the character finishes its walk.
+		if len(c.path) == 0 {
+			if c.pos == c.target {
+				c.moving = false
+				continue
+			}
+			c.path = []Point{c.target}
+		}
+		next := c.path[0]
+		dx := next.X - c.pos.X
+		dy := next.Y - c.pos.Y
+		d := c.pos.Dist(next)
 		speed := c.def.Speed
 		if speed <= 0 {
 			speed = 60
 		}
 		step := speed * dt
 		if d <= step {
-			c.pos = c.target
-			c.moving = false
+			c.pos = next
+			c.path = c.path[1:]
+			if len(c.path) == 0 {
+				c.moving = false
+			}
 			continue
 		}
 		c.pos.X += dx / d * step
