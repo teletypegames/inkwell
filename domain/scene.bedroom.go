@@ -5,6 +5,7 @@ import p "pncdsl/pncdsl"
 func defineBedroom(g *p.Game) {
 	g.SceneManager.Register(p.Scene{
 		Name:       "bedroom",
+		Title:      "Hálószoba",
 		Background: "bg/bedroom",
 		Music:      "mus/wakeup",
 		Actors: []p.SceneActor{

@@ -5,6 +5,7 @@ import p "pncdsl/pncdsl"
 func defineKitchen(g *p.Game) {
 	g.SceneManager.Register(p.Scene{
 		Name:       "kitchen",
+		Title:      "Konyha",
 		Background: "bg/kitchen",
 		Music:      "mus/calm",
 		Actors: []p.SceneActor{

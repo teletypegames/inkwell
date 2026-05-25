@@ -19,6 +19,12 @@ type RadialVerbs struct {
 	Trigger MouseButton
 	Radius  float64
 
+	// AlwaysVisible turns the widget into a permanent verb-wheel fixed at
+	// Center. The trigger button is ignored in this mode; left-click picks
+	// the verb slice under the cursor.
+	AlwaysVisible bool
+	Center        Point
+
 	// runtime
 	visible bool
 	center  Point
@@ -30,6 +36,22 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 	g := ctx.Game
 	if r.Radius <= 0 {
 		r.Radius = 40
+	}
+
+	if r.AlwaysVisible {
+		r.visible = true
+		r.center = r.Center
+		if !g.Input.LeftClicked() {
+			return
+		}
+		idx := r.hitTest(g, g.Input.Point())
+		if idx < 0 {
+			return
+		}
+		g.Input.ConsumeLeft()
+		names := g.VerbManager.Names()
+		g.SetSelectedVerb(names[idx])
+		return
 	}
 
 	if !r.visible {
@@ -127,6 +149,23 @@ func (r *RadialVerbs) hitTest(g *Game, p Point) int {
 		idx = n - 1
 	}
 	return idx
+}
+
+// BlocksClickAt — when the wheel is open (or always visible), clicks on
+// it should not pass through to the scene underneath.
+func (r *RadialVerbs) BlocksClickAt(p Point) bool {
+	if !r.visible && !r.AlwaysVisible {
+		return false
+	}
+	c := r.center
+	if r.AlwaysVisible {
+		c = r.Center
+	}
+	dx := p.X - c.X
+	dy := p.Y - c.Y
+	d := dx*dx + dy*dy
+	radius := r.Radius * 1.4
+	return d <= radius*radius
 }
 
 func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {

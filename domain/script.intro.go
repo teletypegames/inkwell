@@ -10,6 +10,7 @@ func defineIntroScript(g *p.Game) {
 			p.Say("player", "Brr, hideg van."),
 			p.Say("player", "Egy kávé kéne, mielőtt szétszakad a fejem."),
 			p.Walk("player", p.Point{X: 200, Y: 145}),
+			p.SetVar("player.mood", "Eltökélt"),
 		),
 	})
 }

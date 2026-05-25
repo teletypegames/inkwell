@@ -35,6 +35,17 @@ func classicScummTheme() Theme {
 		CursorColor:             color.RGBA{255, 255, 255, 255},
 		HotspotOutline:          color.RGBA{255, 255, 0, 200},
 		SceneBackdrop:           color.RGBA{0, 0, 0, 255},
+
+		TopBarBG:             color.RGBA{15, 12, 22, 255},
+		TopBarText:           color.RGBA{220, 220, 230, 255},
+		TopBarAccent:         color.RGBA{255, 210, 110, 255},
+		ChatLogBG:            color.RGBA{12, 10, 18, 230},
+		ChatLogPrompt:        color.RGBA{255, 210, 110, 255},
+		ChatLogResponse:      color.RGBA{220, 220, 230, 255},
+		ChatLogSystem:        color.RGBA{160, 160, 180, 255},
+		CharacterPanelBG:     color.RGBA{10, 8, 14, 170},
+		CharacterPanelBorder: color.RGBA{120, 100, 60, 255},
+		CharacterPanelTitle:  color.RGBA{255, 210, 110, 255},
 	}
 }
 
@@ -62,6 +73,17 @@ func sierraCoinTheme() Theme {
 		CursorColor:             color.RGBA{255, 200, 140, 255},
 		HotspotOutline:          color.RGBA{200, 140, 255, 180},
 		SceneBackdrop:           color.RGBA{0, 0, 0, 255},
+
+		TopBarBG:             color.RGBA{12, 8, 24, 255},
+		TopBarText:           color.RGBA{210, 200, 240, 255},
+		TopBarAccent:         color.RGBA{255, 180, 110, 255},
+		ChatLogBG:            color.RGBA{10, 8, 20, 235},
+		ChatLogPrompt:        color.RGBA{255, 180, 110, 255},
+		ChatLogResponse:      color.RGBA{210, 200, 240, 255},
+		ChatLogSystem:        color.RGBA{150, 130, 190, 255},
+		CharacterPanelBG:     color.RGBA{8, 6, 18, 180},
+		CharacterPanelBorder: color.RGBA{120, 60, 180, 255},
+		CharacterPanelTitle:  color.RGBA{255, 180, 110, 255},
 	}
 }
 
@@ -91,6 +113,17 @@ func paperNotebookTheme() Theme {
 		CursorColor:             ink,
 		HotspotOutline:          color.RGBA{120, 70, 30, 200},
 		SceneBackdrop:           cream,
+
+		TopBarBG:             color.RGBA{220, 205, 170, 255},
+		TopBarText:           ink,
+		TopBarAccent:         color.RGBA{120, 70, 30, 255},
+		ChatLogBG:            color.RGBA{250, 240, 215, 230},
+		ChatLogPrompt:        color.RGBA{120, 70, 30, 255},
+		ChatLogResponse:      ink,
+		ChatLogSystem:        color.RGBA{120, 110, 90, 255},
+		CharacterPanelBG:     color.RGBA{250, 240, 215, 200},
+		CharacterPanelBorder: ink,
+		CharacterPanelTitle:  color.RGBA{120, 70, 30, 255},
 	}
 }
 
@@ -121,5 +154,16 @@ func terminalGreenTheme() Theme {
 		CursorColor:             green,
 		HotspotOutline:          dim,
 		SceneBackdrop:           black,
+
+		TopBarBG:             color.RGBA{0, 18, 0, 255},
+		TopBarText:           green,
+		TopBarAccent:         color.RGBA{220, 220, 100, 255},
+		ChatLogBG:            color.RGBA{0, 12, 0, 230},
+		ChatLogPrompt:        color.RGBA{220, 220, 100, 255},
+		ChatLogResponse:      green,
+		ChatLogSystem:        dim,
+		CharacterPanelBG:     color.RGBA{0, 10, 0, 200},
+		CharacterPanelBorder: green,
+		CharacterPanelTitle:  color.RGBA{220, 220, 100, 255},
 	}
 }

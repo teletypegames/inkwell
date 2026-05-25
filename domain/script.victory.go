@@ -11,6 +11,9 @@ func defineVictoryScript(g *p.Game) {
 			p.Wait(0.6),
 			p.Say("cat", "Mióóóóu. *boldog macska*"),
 			p.Say("player", "Reggeli kávé: megmentve."),
+			p.SetVar("score", 100),
+			p.SetVar("player.mood", "Boldog"),
+			p.SetVar("cat.mood", "Boldog"),
 			p.ShowEnd("Vége — kösz, hogy játszottál!"),
 		),
 	})

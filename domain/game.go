@@ -25,10 +25,20 @@ func Build() *p.Game {
 	defineBedroom(g)
 	defineKitchen(g)
 
-	// SCUMM-style HUD. Swap for p.RegisterRadialVerbUI(g) to try the
-	// verb-coin variant, or build a fully custom widget set by calling
-	// g.UIManager.Register(...) directly.
-	p.RegisterDefaultUI(g)
+	// Story-rich HUD: top bar + character panels + chat log + permanent
+	// verb wheel + small inventory. Swap for p.RegisterDefaultUI(g) to
+	// get the simpler SCUMM-style layout, or p.RegisterRadialVerbUI(g)
+	// for a verb-coin (right-click) layout.
+	p.RegisterRichUI(g, "player", "cat")
+	g.MaxLogLines = 64
+
+	// initial HUD vars
+	g.State.SetVar("score", 0)
+	g.State.SetVar("time", "Nap 1 - 07:23")
+	g.State.SetVar("player.state", "Ébren")
+	g.State.SetVar("player.mood", "Álmos")
+	g.State.SetVar("cat.state", "Várakozik")
+	g.State.SetVar("cat.mood", "Türelmetlen")
 
 	g.StartAt("bedroom").OnStart(p.RunScript("intro"))
 	return g

@@ -225,6 +225,7 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 		// duration scales with text length, with a 1.2s floor
 		r.duration = 1.2 + float64(len(r.spec.text))*0.05
 		ctx.Game.SetSpeech(r.spec.speaker, r.spec.text)
+		ctx.Game.LogResponse(r.spec.speaker, r.spec.text)
 	}
 	r.elapsed += ctx.DT
 	// skip on click

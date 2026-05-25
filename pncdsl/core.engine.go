@@ -97,9 +97,14 @@ func (e *engine) handleSceneInput() {
 		return
 	}
 	sel := g.Inventory.Selected()
+	targetLabel := h.Label
+	if targetLabel == "" {
+		targetLabel = h.Name
+	}
 	if sel != "" {
 		if h.OnUseWith != nil {
 			if a, ok := h.OnUseWith[sel]; ok && a != nil {
+				g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
 				g.queueAction(a, "useWith hotspot")
 				g.Inventory.Select("")
 				return
@@ -107,6 +112,7 @@ func (e *engine) handleSceneInput() {
 		}
 		if it, ok := g.ItemManager.Get(sel); ok && it.OnUseWith != nil {
 			if a, ok := it.OnUseWith[h.Name]; ok && a != nil {
+				g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
 				g.queueAction(a, "useWith item")
 				g.Inventory.Select("")
 				return
@@ -126,7 +132,15 @@ func (e *engine) handleSceneInput() {
 		g.FlashLine("Semmi említésre méltó.")
 		return
 	}
+	g.LogAction("> " + verbLabel(g, g.SelectedVerb()) + " " + targetLabel)
 	g.queueAction(a, "hotspot "+g.SelectedVerb()+" "+h.Name)
+}
+
+func verbLabel(g *Game, name string) string {
+	if v, ok := g.VerbManager.Get(name); ok {
+		return v.Label
+	}
+	return name
 }
 
 func (e *engine) hotspotAt(p Point) *Hotspot {
