@@ -12,7 +12,7 @@ func defineCat(g *p.Game) {
 		Sprite:      "spr/cat",
 		Speed:       40,
 		SpeechColor: color.RGBA{200, 200, 255, 255},
-		W:           18,
-		H:           14,
+		W:           34,
+		H:           20,
 	})
 }

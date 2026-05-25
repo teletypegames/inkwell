@@ -8,7 +8,7 @@ func defineBedroom(g *p.Game) {
 		Background: "bg/bedroom",
 		Music:      "mus/wakeup",
 		Actors: []p.SceneActor{
-			{CharacterName: "player", At: p.Point{X: 160, Y: 120}},
+			{CharacterName: "player", At: p.Point{X: 160, Y: 145}},
 		},
 		Hotspots: []p.Hotspot{
 			{
@@ -29,7 +29,7 @@ func defineBedroom(g *p.Game) {
 				OnTake: p.If(p.Flag(FlagKeyTaken),
 					p.Say("player", "Már elvittem."),
 					p.Seq(
-						p.Walk("player", p.Point{X: 130, Y: 120}),
+						p.Walk("player", p.Point{X: 130, Y: 145}),
 						p.Give("key"),
 						p.SetFlag(FlagKeyTaken),
 						p.Say("player", "Pont jól jöhet."),
@@ -38,7 +38,7 @@ func defineBedroom(g *p.Game) {
 				OnUse: p.If(p.Flag(FlagKeyTaken),
 					p.Say("player", "Már elvittem a kulcsot."),
 					p.Seq(
-						p.Walk("player", p.Point{X: 130, Y: 120}),
+						p.Walk("player", p.Point{X: 130, Y: 145}),
 						p.Give("key"),
 						p.SetFlag(FlagKeyTaken),
 						p.Say("player", "Megvan a kulcs."),
@@ -51,7 +51,7 @@ func defineBedroom(g *p.Game) {
 				Label:  "ajtó",
 				OnLook: p.Say("player", "Az ajtó a konyhába vezet."),
 				OnUse: p.Seq(
-					p.Walk("player", p.Point{X: 260, Y: 130}),
+					p.Walk("player", p.Point{X: 260, Y: 145}),
 					p.GoTo("kitchen"),
 				),
 			},

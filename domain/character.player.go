@@ -12,7 +12,7 @@ func definePlayer(g *p.Game) {
 		Sprite:      "spr/player",
 		Speed:       80,
 		SpeechColor: color.RGBA{255, 230, 160, 255},
-		W:           14,
-		H:           28,
+		W:           28,
+		H:           62,
 	})
 }

@@ -8,8 +8,8 @@ func defineKitchen(g *p.Game) {
 		Background: "bg/kitchen",
 		Music:      "mus/calm",
 		Actors: []p.SceneActor{
-			{CharacterName: "player", At: p.Point{X: 60, Y: 130}},
-			{CharacterName: "cat", At: p.Point{X: 210, Y: 132}},
+			{CharacterName: "player", At: p.Point{X: 60, Y: 145}},
+			{CharacterName: "cat", At: p.Point{X: 215, Y: 142}},
 		},
 		Hotspots: []p.Hotspot{
 			{
@@ -21,7 +21,7 @@ func defineKitchen(g *p.Game) {
 					p.Say("player", "Már nyitva van."),
 					p.If(p.HasItem("key"),
 						p.Seq(
-							p.Walk("player", p.Point{X: 70, Y: 130}),
+							p.Walk("player", p.Point{X: 70, Y: 145}),
 							p.Say("player", "Klikk."),
 							p.SetFlag(FlagCupboardOpen),
 							p.Give("beans"),
@@ -32,7 +32,7 @@ func defineKitchen(g *p.Game) {
 				),
 				OnUseWith: map[string]p.Action{
 					"key": p.Seq(
-						p.Walk("player", p.Point{X: 70, Y: 130}),
+						p.Walk("player", p.Point{X: 70, Y: 145}),
 						p.Say("player", "Klikk."),
 						p.SetFlag(FlagCupboardOpen),
 						p.Give("beans"),
@@ -48,7 +48,7 @@ func defineKitchen(g *p.Game) {
 				OnTake: p.If(p.Flag(FlagMugTaken),
 					p.Say("player", "Tiszta már mind elfogyott."),
 					p.Seq(
-						p.Walk("player", p.Point{X: 125, Y: 130}),
+						p.Walk("player", p.Point{X: 125, Y: 145}),
 						p.Give("mug"),
 						p.SetFlag(FlagMugTaken),
 						p.Say("player", "Egy bögre, kérem."),
@@ -57,7 +57,7 @@ func defineKitchen(g *p.Game) {
 				OnUse: p.If(p.Flag(FlagMugTaken),
 					p.Say("player", "Már elvettem egyet."),
 					p.Seq(
-						p.Walk("player", p.Point{X: 125, Y: 130}),
+						p.Walk("player", p.Point{X: 125, Y: 145}),
 						p.Give("mug"),
 						p.SetFlag(FlagMugTaken),
 						p.Say("player", "Egy bögre, kérem."),
@@ -75,7 +75,7 @@ func defineKitchen(g *p.Game) {
 				),
 				OnUseWith: map[string]p.Action{
 					"beans": p.Seq(
-						p.Walk("player", p.Point{X: 180, Y: 130}),
+						p.Walk("player", p.Point{X: 180, Y: 145}),
 						p.SetFlag(FlagCoffeeHasBeans),
 						p.TakeAway("beans"),
 						p.Say("player", "Bab a helyén."),
@@ -83,7 +83,7 @@ func defineKitchen(g *p.Game) {
 							p.RunScript("victory")),
 					),
 					"mug": p.Seq(
-						p.Walk("player", p.Point{X: 180, Y: 130}),
+						p.Walk("player", p.Point{X: 180, Y: 145}),
 						p.SetFlag(FlagCoffeeHasMug),
 						p.TakeAway("mug"),
 						p.Say("player", "Bögre a helyén."),
@@ -105,7 +105,7 @@ func defineKitchen(g *p.Game) {
 				Label:  "ajtó",
 				OnLook: p.Say("player", "Vissza a hálóba."),
 				OnUse: p.Seq(
-					p.Walk("player", p.Point{X: 20, Y: 130}),
+					p.Walk("player", p.Point{X: 20, Y: 145}),
 					p.GoTo("bedroom"),
 				),
 			},
