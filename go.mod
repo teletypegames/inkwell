@@ -1,4 +1,4 @@
-module git.teletype.hu/games/pncdsl
+module git.teletypegames.org/games/pncdsl
 
 go 1.26.3
 

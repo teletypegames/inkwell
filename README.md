@@ -8,14 +8,14 @@ cutscenes, HUD, themes and lazy asset loading; the domain only declares
 content.
 
 This document is the full library reference. The companion `pncdsl-demo`
-repo at <ssh://git@git.teletype.hu:2222/games/pncdsl-demo> is a small
+repo at <ssh://git@git.teletypegames.org:2222/games/pncdsl-demo> is a small
 end-to-end example ("Morning Coffee") that consumes this library as a
 plain Go module.
 
-**Module path:** `git.teletype.hu/games/pncdsl`
+**Module path:** `git.teletypegames.org/games/pncdsl`
 
 ```go
-import "git.teletype.hu/games/pncdsl"
+import "git.teletypegames.org/games/pncdsl"
 ```
 
 ---
@@ -90,7 +90,7 @@ items, scenes, characters, dialogues, scripts, assets, verbs, widgets and
 themes alike.
 
 A complete example game ("Morning Coffee") lives in the separate
-[`pncdsl-demo`](ssh://git@git.teletype.hu:2222/games/pncdsl-demo) repo
+[`pncdsl-demo`](ssh://git@git.teletypegames.org:2222/games/pncdsl-demo) repo
 and consumes this library as a regular Go module.
 
 ---
@@ -104,7 +104,7 @@ context. Ebitengine handles windowing and the render loop.
 
 ```bash
 go mod init my-game
-go get git.teletype.hu/games/pncdsl
+go get git.teletypegames.org/games/pncdsl
 ```
 
 If the private host can't be reached over HTTPS, point Go at the SSH
@@ -112,8 +112,8 @@ endpoint:
 
 ```bash
 git config --global \
-    url."ssh://git@git.teletype.hu:2222/".insteadOf "https://git.teletype.hu/"
-export GOPRIVATE=git.teletype.hu/*
+    url."ssh://git@git.teletypegames.org:2222/".insteadOf "https://git.teletypegames.org/"
+export GOPRIVATE=git.teletypegames.org/*
 ```
 
 **Minimum game:**
@@ -123,7 +123,7 @@ package main
 
 import (
     "log"
-    "git.teletype.hu/games/pncdsl"
+    "git.teletypegames.org/games/pncdsl"
 )
 
 func main() {
@@ -1571,7 +1571,7 @@ directory. The naming convention is `theme.identifier.go` — `ls core.*`
 or `ls ui.*` instantly groups related sources.
 
 ```
-pncdsl/                            # module git.teletype.hu/games/pncdsl
+pncdsl/                            # module git.teletypegames.org/games/pncdsl
 ├── go.mod
 ├── go.sum
 │
@@ -1639,14 +1639,13 @@ pncdsl/                            # module git.teletype.hu/games/pncdsl
 ├── ui.character_panel.go          # CharacterPanel widget + CharStat
 ├── ui.chat_log.go                 # ChatLog widget
 │
-├── UIPLAN.md                      # widget-system design rationale
 ├── LICENSE.md                     # MIT
 └── README.md                      # this file
 ```
 
 The companion demo project (`pncdsl-demo`) lives in its own repo at
-<ssh://git@git.teletype.hu:2222/games/pncdsl-demo>. It consumes this
-package via `require git.teletype.hu/games/pncdsl …` in its `go.mod` —
+<ssh://git@git.teletypegames.org:2222/games/pncdsl-demo>. It consumes this
+package via `require git.teletypegames.org/games/pncdsl …` in its `go.mod` —
 no in-tree coupling.
 
 ---
