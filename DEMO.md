@@ -29,6 +29,8 @@ Controls:
 - **left click** on a hotspot while an item is selected: use-with
 - **right click**: deselect the held item, or reset the verb to "Look"
 - click during dialog: advance
+- **F1**: toggle the hotspot debug overlay (yellow rectangles + names on
+  every clickable region in the current scene)
 
 ## Walkthrough (spoilers)
 
@@ -153,6 +155,9 @@ return `false` forever.
 | `Walk` with straight-line stepping | every interaction is preceded by a walk target                 |
 | `ShowEnd`                          | last action of the victory script                              |
 | `Validate()`                       | `domain/build_test.go` CI-friendly smoke test                  |
+| `RegisterDefaultUI` + widget tree  | `game.go` registers the SCUMM-style HUD widgets                |
+| Theme system (`classic-scumm`)     | every color comes from the active theme; runtime-switchable    |
+| `HotspotDebug` widget              | F1 in-game toggles a yellow outline over every clickable area  |
 
 ## Files in `domain/`
 
@@ -199,6 +204,36 @@ Adding a new scene/item: one new file + one line in `Build()` inside
   `g.ScriptManager`, then fire it anywhere with
   `p.RunScript("<name>")`.
 
+## UI customisation
+
+The demo calls `p.RegisterDefaultUI(g)` for the classic SCUMM HUD, but
+the whole UI is a tree of `Widget`s in `g.UIManager` — swap pieces or
+add your own:
+
+```go
+// 1. Verb coin instead of verb bar
+p.RegisterRadialVerbUI(g)        // alternative preset
+
+// 2. Or: start from the SCUMM default, then customise
+p.RegisterDefaultUI(g)
+g.UIManager.Remove("verbs")      // drop the verb bar
+g.UIManager.Register(&p.RadialVerbs{Name: "verbs", Radius: 40})
+
+// 3. Add a custom widget — anything implementing pncdsl.Widget plugs in
+g.UIManager.Register(&ChatPanel{Name: "chat", Bounds: p.Rect(220, 4, 96, 130)})
+
+// 4. Change the theme at any point
+g.UseTheme("terminal-green")     // classic-scumm | sierra-coin | paper-notebook | terminal-green
+```
+
+The built-in widget catalogue (each in its own `pncdsl/ui.<name>.go`):
+`Panel`, `StatusLine`, `VerbBar`, `RadialVerbs`, `InventoryBar`,
+`SpeechBubble`, `DialogBox`, `EndCard`, `Cursor`, `HotspotDebug`.
+
+`Widget` is a three-method interface (`GetName`, `Tick`, `Draw`); see
+[`UIPLAN.md`](UIPLAN.md) for the design rationale and a chat-panel
+example.
+
 ## Graphics
 
 The library substitutes a **deterministic colored rectangle** for every
@@ -213,4 +248,5 @@ Prompts and positioning tips for an image AI: [`GFX.md`](GFX.md).
 ## Back to the library
 
 For the framework structure and the Manager pattern itself, see
-[`README.md`](README.md) and [`PLAN.md`](PLAN.md).
+[`README.md`](README.md) and [`PLAN.md`](PLAN.md). The widget-based UI
+design is in [`UIPLAN.md`](UIPLAN.md).

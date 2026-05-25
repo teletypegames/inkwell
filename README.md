@@ -3,9 +3,9 @@
 A point-and-click adventure game framework for Go, built on top of
 [Ebitengine](https://ebitengine.org/). You describe your game with
 **declarative struct literals**: every entity (item, scene, character,
-dialogue, script, asset, verb) is registered through its matching
-`XxxManager.Register(...)` call, and the library handles the rest —
-input, rendering, state, dialog trees, cutscenes.
+dialogue, script, asset, verb, theme, widget) is registered through its
+matching `XxxManager.Register(...)` call, and the library handles the rest —
+input, rendering, state, dialog trees, cutscenes, HUD.
 
 ## What it is
 
@@ -15,10 +15,14 @@ Island, Day of the Tentacle). The framework doesn't try to be a generic
 you the fixed skeleton of the adventure genre:
 
 - scenes with hotspots and click zones,
-- a verb-bar UI: Look / Use / Talk / Take,
+- a fully configurable HUD as a tree of `Widget`s — verb bar, inventory,
+  speech, dialog box, end card, cursor, hotspot debug, or your own,
+- pluggable verb input modes — built-in `VerbBar` (SCUMM-style) and
+  `RadialVerbs` (verb-coin, right-click radial menu),
 - inventory, item-on-item and item-on-hotspot interactions,
 - dialog trees with conditional choices,
 - a script/cutscene system with composite actions (`Seq`, `Par`, `If`, `Wait`),
+- swappable color themes (4 presets shipped: SCUMM, Sierra, Paper, Terminal),
 - world state (flags, vars), validation.
 
 The approach deliberately collapses to **one single pattern**: every
@@ -38,7 +42,8 @@ go run .
 
 Opens an Ebiten window at 1280×800 (internal resolution 320×200, scaled
 4×). No asset files are required — the library generates deterministic
-colored placeholders for anything missing under `assets/`.
+colored placeholders for anything missing under `assets/`. Press **F1**
+in-game to toggle the hotspot debug overlay.
 
 ## One-minute example
 
@@ -76,6 +81,9 @@ func main() {
 
     g.CharacterManager.Register(pncdsl.Character{Name: "player", W: 28, H: 62})
 
+    pncdsl.RegisterDefaultUI(g)        // SCUMM-style HUD widgets
+    g.UseTheme("classic-scumm")        // or sierra-coin / paper-notebook / terminal-green
+
     g.StartAt("kitchen")
     if err := pncdsl.Run(g); err != nil {
         log.Fatal(err)
@@ -95,22 +103,110 @@ func (m *Manager[T]) Register(v T)
 func (m *Manager[T]) Get(name string) (T, bool)
 func (m *Manager[T]) MustGet(name string) T
 func (m *Manager[T]) Has(name string) bool
-func (m *Manager[T]) Names() []string
+func (m *Manager[T]) Names() []string       // insertion order
+func (m *Manager[T]) SortedNames() []string // alphabetical
+func (m *Manager[T]) Remove(name string)
 ```
 
 Each entity kind gets a generic alias (`ItemManager = Manager[Item]`,
-`SceneManager = Manager[Scene]`, …) so usage is uniform:
+`SceneManager = Manager[Scene]`, `UIManager = Manager[Widget]`, …) so
+usage is uniform:
 
 ```go
 g.ItemManager.Register(pncdsl.Item{Name: "key", ...})
 g.SceneManager.Register(pncdsl.Scene{Name: "kitchen", ...})
-g.AssetManager.Register(pncdsl.Asset{Name: "bg/kitchen", Path: "..."})
+g.UIManager.Register(&pncdsl.RadialVerbs{Name: "verbs"})
+g.ThemeManager.Register(pncdsl.Theme{Name: "my-theme", ...})
 ```
 
 A duplicate or empty `Name` panics — that's a construction-time bug,
 not a runtime error.
 
 Full design rationale: [`PLAN.md`](PLAN.md).
+
+## HUD as a widget tree
+
+The whole HUD is built from `Widget` instances registered into
+`g.UIManager`. The interface is minimal — three methods:
+
+```go
+type Widget interface {
+    GetName() string
+    Tick(ctx *UICtx)              // input + state per frame
+    Draw(dst *ebiten.Image, ctx *UICtx)
+}
+```
+
+`Tick` runs in **reverse registration order** so the top widget claims
+input first; `Draw` runs in **registration order** so later widgets paint
+on top. Built-in widgets the library ships:
+
+| Widget         | Purpose                                                |
+|----------------|--------------------------------------------------------|
+| `Panel`        | Generic background panel (group/frame other widgets)   |
+| `StatusLine`   | Hover hint + 2s flash messages                         |
+| `VerbBar`      | SCUMM-style permanent verb grid                        |
+| `RadialVerbs`  | Verb-coin: secondary-click radial menu                 |
+| `InventoryBar` | Item slots, click to select/inspect                    |
+| `SpeechBubble` | Renders the line set by the `Say` action              |
+| `DialogBox`    | Active conversation with conditional choices           |
+| `EndCard`      | Fullscreen overlay for `ShowEnd`                       |
+| `Cursor`       | Mouse cursor + selected-item sprite                    |
+| `HotspotDebug` | F1-toggleable hotspot outlines                         |
+
+Convenience helpers:
+
+```go
+pncdsl.RegisterDefaultUI(g)     // SCUMM-style: verb bar + inv + dialog + speech + cursor
+pncdsl.RegisterRadialVerbUI(g)  // Verb-coin instead of verb bar
+```
+
+### Adding your own widget
+
+Anything that implements the `Widget` interface plugs in — a chat panel,
+minimap, hotbar, scrollable journal, whatever:
+
+```go
+type ChatPanel struct {
+    Name   string
+    Bounds pncdsl.Rectangle
+    lines  []string
+}
+
+func (c *ChatPanel) GetName() string                       { return c.Name }
+func (c *ChatPanel) Tick(ctx *pncdsl.UICtx)                {}
+func (c *ChatPanel) Draw(dst *ebiten.Image, ctx *pncdsl.UICtx) {
+    th := ctx.Game.Theme()
+    vector.DrawFilledRect(dst, /* … */, th.PanelBG, false)
+    for i, ln := range c.lines {
+        ctx.Game.DrawText(dst, ln, int(c.Bounds.X)+2, int(c.Bounds.Y)+2+i*14, th.StatusText)
+    }
+}
+
+g.UIManager.Register(&ChatPanel{Name: "chat", Bounds: pncdsl.Rect(220, 4, 96, 130)})
+```
+
+## Themes
+
+Colors live on a registered `Theme` entity, addressed by name. Four
+presets are pre-registered by `NewGame`; `classic-scumm` is selected by
+default. Switch at any time (including at runtime):
+
+```go
+g.UseTheme("paper-notebook")    // light cream + ink
+g.UseTheme("terminal-green")    // retro CRT
+```
+
+Register your own theme by copying any preset and tweaking the fields:
+
+```go
+g.ThemeManager.Register(pncdsl.Theme{
+    Name:      "midnight-noir",
+    PanelBG:   color.RGBA{6, 6, 12, 255},
+    // ... ~25 color fields ...
+})
+g.UseTheme("midnight-noir")
+```
 
 ## File layout
 
@@ -122,10 +218,14 @@ pncdsl/
 │   ├── scene.*.go           # Scene, Hotspot, Trigger, Camera, Transition
 │   ├── item.*.go            # Item, Inventory
 │   ├── actor.*.go           # Character, Animation
-│   ├── dialog.*.go          # Dialogue, DialogBox
+│   ├── dialog.*.go          # Dialogue (entity + manager)
 │   ├── action.*.go          # Action/Runner, built-in actions, Condition
 │   ├── state.*.go           # State, Save (stub)
-│   ├── ui.*.go              # VerbBar, Cursor, SpeechBubble
+│   ├── ui.widget.go         # Widget interface, UICtx, Size, Align
+│   ├── ui.manager.go        # UIManager alias
+│   ├── ui.theme*.go         # Theme + preset themes
+│   ├── ui.<widget>.go       # one file per built-in widget
+│   ├── ui.defaults.go       # RegisterDefaultUI, RegisterRadialVerbUI
 │   ├── asset.*.go           # Registry, lazy load, Audio (stub), Text
 │   └── util.*.go            # geometry, timer, log
 ├── domain/                  # the concrete game — one file per entity
@@ -134,6 +234,7 @@ pncdsl/
 │   ├── item.key.go          # ↔ g.ItemManager.Register(...Name: "key"...)
 │   └── ...
 ├── PLAN.md                  # detailed design document
+├── UIPLAN.md                # widget-system design
 ├── DEMO.md                  # demo game overview  ◀────────
 ├── GFX.md                   # asset prompts for image-AI
 └── README.md                # this file
@@ -157,22 +258,26 @@ If you want to generate art for the game, prompts for image AIs are in
 
 ## Current status
 
-| Area                          | State                                                    |
-|-------------------------------|----------------------------------------------------------|
-| Manager registries            | ✅ complete (Item, Scene, Character, Dialogue, Script, Asset, Verb) |
-| Hotspot + verb interaction    | ✅                                                       |
-| Inventory, use-with-item      | ✅ (both `hotspot.OnUseWith` and `item.OnUseWith`)       |
-| Dialog tree + conditional choices | ✅ (`Show` condition, `Once` flag)                    |
-| `Action`/`Runner` engine      | ✅ Seq / Par / If / Wait / Say / Walk / Give / GoTo / …   |
-| Condition library             | ✅ Flag, HasItem, SelectedItem, InScene, VarEq, Not/And/Or |
-| Scene transitions (fade)      | ✅ on scene change                                       |
-| Asset placeholders            | ✅ deterministic color for missing files                 |
-| Stylized character placeholder | ✅ humanoid / quadruped shape when no sprite art       |
-| Audio (PlayMusic/PlaySound)   | 🟡 log-only — Ebiten audio backend not wired up yet      |
-| Animation (sprite sheet)      | 🟡 `AnimationClip` field exists, rendering not yet       |
-| Walkbox + A\*                 | 🟡 straight-line movement only                           |
-| Save / Load (JSON)            | 🟡 API in place, implementation stubbed                  |
-| Trigger processing            | 🟡 struct exists, engine doesn't run them yet            |
+| Area                              | State                                                    |
+|-----------------------------------|----------------------------------------------------------|
+| Manager registries                | ✅ Item, Scene, Character, Dialogue, Script, Asset, Verb, UI, Theme |
+| Hotspot + verb interaction        | ✅                                                       |
+| Inventory, use-with-item          | ✅ (both `hotspot.OnUseWith` and `item.OnUseWith`)       |
+| Dialog tree + conditional choices | ✅ (`Show` condition, `Once` flag)                       |
+| `Action`/`Runner` engine          | ✅ Seq / Par / If / Wait / Say / Walk / Give / GoTo / …  |
+| Condition library                 | ✅ Flag, HasItem, SelectedItem, InScene, VarEq, Not/And/Or |
+| Widget HUD (`Widget` interface)   | ✅ 10 built-in widgets, custom widgets via interface     |
+| Verb-coin (`RadialVerbs`)         | ✅ secondary-click radial menu                           |
+| Theme system + presets            | ✅ 4 presets, runtime switching                          |
+| Scene transitions (fade)          | ✅ on scene change                                       |
+| Asset placeholders                | ✅ deterministic color for missing files                 |
+| Stylized character placeholder    | ✅ humanoid / quadruped shape when no sprite art         |
+| Audio (PlayMusic/PlaySound)       | 🟡 log-only — Ebiten audio backend not wired up yet      |
+| Animation (sprite sheet)          | 🟡 `AnimationClip` field exists, rendering not yet       |
+| Walkbox + A\*                     | 🟡 straight-line movement only                           |
+| Save / Load (JSON)                | 🟡 API in place, implementation stubbed                  |
+| Trigger processing                | 🟡 struct exists, engine doesn't run them yet            |
+| Custom fonts                      | 🟡 ebitenutil debug font for now                          |
 
 ## Testing
 
