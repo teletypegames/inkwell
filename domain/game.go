@@ -25,11 +25,12 @@ func Build() *p.Game {
 	defineBedroom(g)
 	defineKitchen(g)
 
-	// Story-rich HUD: top bar + character panels + chat log + permanent
-	// verb wheel + small inventory. Swap for p.RegisterDefaultUI(g) to
-	// get the simpler SCUMM-style layout, or p.RegisterRadialVerbUI(g)
-	// for a verb-coin (right-click) layout.
-	p.RegisterRichUI(g, "player", "cat")
+	// Story-rich HUD: top bar + NPC character panel + chat log + permanent
+	// verb wheel + small inventory. The player panel is skipped — the
+	// player avatar is always visible in the scene, so the floating card
+	// in the corner just gets in the way. Pass "player" as the second
+	// arg to put it back.
+	p.RegisterRichUI(g, "", "cat")
 	g.MaxLogLines = 64
 
 	// initial HUD vars

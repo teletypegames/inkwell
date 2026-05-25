@@ -25,6 +25,11 @@ type RadialVerbs struct {
 	AlwaysVisible bool
 	Center        Point
 
+	// Labels overrides the rendered verb label per verb Name. Useful when
+	// the regular Verb.Label is too long to fit inside the wheel — e.g.
+	// {"use": "Tedd", "take": "Vedd"}. Falls back to Verb.Label.
+	Labels map[string]string
+
 	// runtime
 	visible bool
 	center  Point
@@ -180,28 +185,45 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 		return
 	}
 	radius := r.Radius
-	// translucent backdrop disk
-	vector.DrawFilledCircle(dst, float32(r.center.X), float32(r.center.Y), float32(radius*1.15), color.RGBA{0, 0, 0, 140}, true)
+
+	cx, cy := float32(r.center.X), float32(r.center.Y)
+
+	// translucent backdrop disk that defines the wheel area
+	vector.DrawFilledCircle(dst, cx, cy, float32(radius), color.RGBA{0, 0, 0, 170}, true)
 
 	hover := r.hitTest(g, g.Input.Point())
 	slice := 2 * math.Pi / float64(n)
+
+	// Labels live INSIDE the disk, at 0.62×radius from the center, so a
+	// short (3–5 char) word stays comfortably within the rim.
+	labelDist := radius * 0.62
 	for i, name := range verbs {
 		a := slice*float64(i) + slice/2
-		x := r.center.X + math.Cos(a)*radius
-		y := r.center.Y + math.Sin(a)*radius
-		bg := th.VerbButtonBG
+		lx := r.center.X + math.Cos(a)*labelDist
+		ly := r.center.Y + math.Sin(a)*labelDist
+
+		label := r.labelFor(g, name)
+		tw := textWidth(label)
+		col := th.VerbButtonText
 		if i == hover {
-			bg = th.VerbButtonSelectedBG
+			// hover halo behind the text
+			vector.DrawFilledCircle(dst, float32(lx), float32(ly+4), float32(radius*0.28), th.VerbButtonSelectedBG, true)
 		}
-		bw, bh := 34, 14
-		bx := int(x) - bw/2
-		by := int(y) - bh/2
-		vector.DrawFilledRect(dst, float32(bx), float32(by), float32(bw), float32(bh), bg, false)
-		verb := g.VerbManager.MustGet(name)
-		// center label as best we can
-		tw := textWidth(verb.Label)
-		g.DrawText(dst, verb.Label, bx+(bw-tw)/2, by-1, th.VerbButtonText)
+		g.DrawText(dst, label, int(lx)-tw/2, int(ly)-7, col)
 	}
+
 	// center dot
-	vector.DrawFilledCircle(dst, float32(r.center.X), float32(r.center.Y), 2, th.CursorColor, true)
+	vector.DrawFilledCircle(dst, cx, cy, 2.5, th.CursorColor, true)
+}
+
+func (r *RadialVerbs) labelFor(g *Game, verbName string) string {
+	if r.Labels != nil {
+		if alt, ok := r.Labels[verbName]; ok {
+			return alt
+		}
+	}
+	if v, ok := g.VerbManager.Get(verbName); ok {
+		return v.Label
+	}
+	return verbName
 }

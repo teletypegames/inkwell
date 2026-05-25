@@ -88,8 +88,14 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 	g.UIManager.Register(&RadialVerbs{
 		Name:          "verbs",
 		AlwaysVisible: true,
-		Center:        Point{X: 290, Y: 90},
-		Radius:        28,
+		Center:        Point{X: 282, Y: 90},
+		Radius:        36,
+		Labels: map[string]string{
+			"look": "Néz",
+			"use":  "Tedd",
+			"talk": "Szól",
+			"take": "Vedd",
+		},
 	})
 	g.UIManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 18})
 	g.UIManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 90, float64(g.Width), 56), LineHeight: 12, Padding: 6})
