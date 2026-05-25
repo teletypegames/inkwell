@@ -8,9 +8,11 @@ type Named interface {
 }
 
 // Manager is the single registry shape used by every entity type. Each entity
-// kind gets a named alias (ItemManager = Manager[Item], etc.).
+// kind gets a named alias (ItemManager = Manager[Item], etc.). Insertion
+// order is preserved — Names() returns it. SortedNames() returns alphabetical.
 type Manager[T Named] struct {
 	items map[string]T
+	order []string
 }
 
 func NewManager[T Named]() *Manager[T] {
@@ -28,6 +30,7 @@ func (m *Manager[T]) Register(v T) {
 		panic("pncdsl: Register: duplicate " + typeName(v) + " name: " + name)
 	}
 	m.items[name] = v
+	m.order = append(m.order, name)
 }
 
 func (m *Manager[T]) Get(name string) (T, bool) {
@@ -50,18 +53,36 @@ func (m *Manager[T]) Has(name string) bool {
 
 func (m *Manager[T]) Len() int { return len(m.items) }
 
+// Names returns the registered names in insertion order. Use SortedNames
+// when iteration order needs to be stable across runs.
 func (m *Manager[T]) Names() []string {
-	names := make([]string, 0, len(m.items))
-	for n := range m.items {
-		names = append(names, n)
-	}
+	return append([]string(nil), m.order...)
+}
+
+func (m *Manager[T]) SortedNames() []string {
+	names := append([]string(nil), m.order...)
 	sort.Strings(names)
 	return names
 }
 
 func (m *Manager[T]) Each(fn func(T)) {
-	for _, n := range m.Names() {
+	for _, n := range m.order {
 		fn(m.items[n])
+	}
+}
+
+// Remove drops a registered entry. Used by hot-reload / dynamic UI changes.
+// Silently no-ops on unknown names.
+func (m *Manager[T]) Remove(name string) {
+	if _, ok := m.items[name]; !ok {
+		return
+	}
+	delete(m.items, name)
+	for i, n := range m.order {
+		if n == name {
+			m.order = append(m.order[:i], m.order[i+1:]...)
+			return
+		}
 	}
 }
 

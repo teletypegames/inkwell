@@ -25,6 +25,11 @@ func Build() *p.Game {
 	defineBedroom(g)
 	defineKitchen(g)
 
+	// SCUMM-style HUD. Swap for p.RegisterRadialVerbUI(g) to try the
+	// verb-coin variant, or build a fully custom widget set by calling
+	// g.UIManager.Register(...) directly.
+	p.RegisterDefaultUI(g)
+
 	g.StartAt("bedroom").OnStart(p.RunScript("intro"))
 	return g
 }

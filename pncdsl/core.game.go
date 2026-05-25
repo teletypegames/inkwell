@@ -2,11 +2,14 @@ package pncdsl
 
 import (
 	"fmt"
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Game is the root aggregate. It carries every Manager plus the runtime
-// state. A domain package builds one via NewGame, registers entities, then
-// calls Run (or hands it to pncdsl.Run).
+// state. A domain package builds one via NewGame, registers entities,
+// optionally calls RegisterDefaultUI / UseTheme, then hands it to Run.
 type Game struct {
 	Title         string
 	Width, Height int
@@ -18,30 +21,58 @@ type Game struct {
 	ScriptManager    *ScriptManager
 	AssetManager     *AssetManager
 	VerbManager      *VerbManager
+	UIManager        *UIManager
+	ThemeManager     *ThemeManager
 
 	State     *State
 	Inventory *Inventory
-	UI        *UI
 	Audio     *AudioPlayer
 	Camera    *Camera
+	Input     *Input
 
-	startID string
-	onStart Action
+	startID     string
+	onStart     Action
+	activeTheme string
 
 	// runtime
 	loaded       *loadedAssets
-	input        *Input
 	currentScene string
 	chars        map[string]*runtimeChar
 	scriptRunner Runner
-	scriptCtx    *Ctx // for click consumption
+	scriptCtx    *Ctx
 	transition   *transition
-	dialog       *dialogBox
-	activeDialog string
 	selectedVerb string
+
+	// UI runtime state (read by widgets, written by actions / engine)
+	hoverLabel string
+	flash      string
+	flashTimer float64
+	endCard    string
+	speech     speechState
+	dialog     *runtimeDialog
+	activeDialog string
 }
 
-// NewGame initializes a game with empty managers and the SCUMM-style verb set.
+// speechState is what the SpeechBubble widget renders. Mutated by Say.
+type speechState struct {
+	Active  bool
+	Speaker string
+	Text    string
+}
+
+// runtimeDialog holds the in-flight Dialogue state. Mutated by the
+// startDialogue/gotoDialogueNode/endDialogue plumbing and read by the
+// DialogBox widget.
+type runtimeDialog struct {
+	Dialogue   *Dialogue
+	Node       *DialogueNode
+	LineIdx    int
+	ChoiceHits []Rectangle
+}
+
+// NewGame initializes a game with empty entity managers, the SCUMM-style
+// verb set, all preset themes, and "classic-scumm" selected. Widgets are
+// NOT auto-registered — call RegisterDefaultUI(g) explicitly.
 func NewGame(title string, w, h int) *Game {
 	g := &Game{
 		Title:            title,
@@ -54,27 +85,77 @@ func NewGame(title string, w, h int) *Game {
 		ScriptManager:    NewManager[Script](),
 		AssetManager:     NewManager[Asset](),
 		VerbManager:      NewManager[Verb](),
+		UIManager:        NewManager[Widget](),
+		ThemeManager:     NewManager[Theme](),
 		State:            NewState(),
 		Inventory:        NewInventory(),
 		Audio:            NewAudioPlayer(),
 		Camera:           NewCamera(),
+		Input:            newInput(),
 		loaded:           newLoadedAssets(w, h),
-		input:            newInput(),
 		chars:            make(map[string]*runtimeChar),
 		transition:       &transition{},
 		selectedVerb:     "look",
 	}
-	g.UI = newUI(g)
 	for _, v := range defaultVerbs() {
 		g.VerbManager.Register(v)
 	}
+	RegisterPresetThemes(g)
+	g.UseTheme("classic-scumm")
 	return g
 }
 
 func (g *Game) StartAt(name string) *Game { g.startID = name; return g }
 func (g *Game) OnStart(a Action) *Game    { g.onStart = a; return g }
 
-// Validate cross-checks name references between managers.
+// ----- theme + UI conveniences ------------------------------------------
+
+func (g *Game) Theme() Theme            { return g.ThemeManager.MustGet(g.activeTheme) }
+func (g *Game) UseTheme(name string)    { g.activeTheme = name }
+func (g *Game) SelectedVerb() string    { return g.selectedVerb }
+func (g *Game) SetSelectedVerb(s string) { g.selectedVerb = s }
+func (g *Game) HoverLabel() string      { return g.hoverLabel }
+func (g *Game) SetHoverLabel(s string)  { g.hoverLabel = s }
+
+// SetSpeech / ClearSpeech are called by the Say action; widgets render
+// whatever the current state says.
+func (g *Game) SetSpeech(speaker, text string) {
+	g.speech = speechState{Active: true, Speaker: speaker, Text: text}
+}
+func (g *Game) ClearSpeech() { g.speech = speechState{} }
+
+// FlashLine shows a status-line message for ~2 seconds.
+func (g *Game) FlashLine(text string) {
+	g.flash = text
+	g.flashTimer = 2.0
+}
+
+// DrawText is a thin wrapper that lets widgets accept a Theme-supplied color
+// today and switch to text/v2 later without changing call sites.
+func (g *Game) DrawText(dst *ebiten.Image, s string, x, y int, c color.Color) {
+	drawText(dst, s, x, y, c)
+}
+
+// HoverHint composes the "verb + target" string used by the StatusLine.
+func (g *Game) HoverHint() string {
+	verbLabel := ""
+	if v, ok := g.VerbManager.Get(g.selectedVerb); ok {
+		verbLabel = v.Label
+	}
+	if sel := g.Inventory.Selected(); sel != "" {
+		if g.hoverLabel != "" {
+			return verbLabel + " " + sel + " ezen: " + g.hoverLabel
+		}
+		return verbLabel + " " + sel
+	}
+	if g.hoverLabel == "" {
+		return ""
+	}
+	return verbLabel + " " + g.hoverLabel
+}
+
+// ----- validation -------------------------------------------------------
+
 func (g *Game) Validate() error {
 	if !g.SceneManager.Has(g.startID) {
 		return fmt.Errorf("%w: %q", ErrNoStartScene, g.startID)
@@ -96,10 +177,13 @@ func (g *Game) Validate() error {
 			}
 		}
 	}
+	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
+		return fmt.Errorf("pncdsl: no active theme (got %q)", g.activeTheme)
+	}
 	return nil
 }
 
-// ----- runtime helpers ---------------------------------------------------
+// ----- runtime: characters & scenes -------------------------------------
 
 type runtimeChar struct {
 	def    Character
@@ -231,7 +315,7 @@ func (g *Game) startDialogue(name string) {
 		return
 	}
 	g.activeDialog = name
-	g.dialog = newDialogBox(&d, &node)
+	g.dialog = &runtimeDialog{Dialogue: &d, Node: &node, LineIdx: 0}
 }
 
 func (g *Game) endDialogue() {
@@ -249,11 +333,11 @@ func (g *Game) gotoDialogueNode(name string) {
 		logf("gotoNode: unknown %q in %q", name, g.activeDialog)
 		return
 	}
-	g.dialog.node = &node
-	g.dialog.lineIdx = 0
-	g.dialog.choiceHits = nil
+	g.dialog.Node = &node
+	g.dialog.LineIdx = 0
+	g.dialog.ChoiceHits = nil
 }
 
 func (g *Game) dialogueActive() bool { return g.dialog != nil }
 
-func (g *Game) showEndCard(text string) { g.UI.endCard = text }
+func (g *Game) showEndCard(text string) { g.endCard = text }

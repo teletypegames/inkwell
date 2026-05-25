@@ -224,15 +224,15 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 		r.started = true
 		// duration scales with text length, with a 1.2s floor
 		r.duration = 1.2 + float64(len(r.spec.text))*0.05
-		ctx.Game.UI.SetSpeech(r.spec.speaker, r.spec.text)
+		ctx.Game.SetSpeech(r.spec.speaker, r.spec.text)
 	}
 	r.elapsed += ctx.DT
 	// skip on click
-	if ctx.Game.input.consumedClick() {
+	if ctx.Game.Input.consumedClick() {
 		r.elapsed = r.duration
 	}
 	if r.elapsed >= r.duration {
-		ctx.Game.UI.ClearSpeech()
+		ctx.Game.ClearSpeech()
 		return StatusDone
 	}
 	return StatusRunning
@@ -279,7 +279,7 @@ func (a *requireItemAction) Tick(ctx *Ctx) Status {
 	if ctx.Game.Inventory.Has(a.item) {
 		return StatusDone
 	}
-	ctx.Game.UI.FlashLine("Ehhez kell egy " + a.item + ".")
+	ctx.Game.FlashLine("Ehhez kell egy " + a.item + ".")
 	return StatusFailed
 }
 

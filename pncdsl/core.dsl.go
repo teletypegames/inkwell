@@ -10,7 +10,11 @@ func Run(g *Game) error {
 	if err := g.Validate(); err != nil {
 		return err
 	}
-	g.UI.rebuildVerbButtons()
+	// If the domain didn't register any widgets, fall back to the SCUMM
+	// preset so the game is still playable.
+	if g.UIManager.Len() == 0 {
+		RegisterDefaultUI(g)
+	}
 
 	// Initial scene goes in directly (no transition) so OnEnter / OnStart
 	// run cleanly as one composed sequence on the first script tick.
