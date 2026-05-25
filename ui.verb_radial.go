@@ -25,14 +25,21 @@ type RadialVerbs struct {
 	AlwaysVisible bool
 	Center        Point
 
+	// HotspotOnly (trigger mode only) makes the wheel open only when the
+	// trigger lands on a registered hotspot in the current scene. Right-
+	// clicks on empty space fall through to handleSceneInput (so the
+	// SCUMM "reset verb to look" behaviour still works there).
+	HotspotOnly bool
+
 	// Labels overrides the rendered verb label per verb Name. Useful when
 	// the regular Verb.Label is too long to fit inside the wheel — e.g.
 	// {"use": "Tedd", "take": "Vedd"}. Falls back to Verb.Label.
 	Labels map[string]string
 
 	// runtime
-	visible bool
-	center  Point
+	visible        bool
+	center         Point
+	pendingHotspot *Hotspot // remembered hotspot when HotspotOnly opens the coin
 }
 
 func (r *RadialVerbs) GetName() string { return r.Name }
@@ -64,6 +71,16 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 			return
 		}
 		mp := g.Input.Point()
+		// HotspotOnly: only open when the trigger lands on a hotspot.
+		// Empty-space clicks fall through (so the scene's right-click
+		// "reset verb" behaviour still fires from handleSceneInput).
+		var pending *Hotspot
+		if r.HotspotOnly {
+			pending = g.HotspotAt(mp)
+			if pending == nil {
+				return
+			}
+		}
 		// Don't open over a widget that would also claim this click —
 		// e.g. an InventoryBar. Each widget can declare its dead-zone
 		// via the optional clickBlocker interface.
@@ -73,12 +90,14 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 		r.consumeTrigger(g)
 		r.center = mp
 		r.visible = true
+		r.pendingHotspot = pending
 		return
 	}
 	// modal: swallow secondary clicks (close without picking)
 	if r.triggerPressed(g) {
 		r.consumeTrigger(g)
 		r.visible = false
+		r.pendingHotspot = nil
 		return
 	}
 	if !g.Input.LeftClicked() {
@@ -88,9 +107,18 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 	idx := r.hitTest(g, g.Input.Point())
 	if idx >= 0 {
 		names := g.VerbManager.Names()
-		g.SetSelectedVerb(names[idx])
+		verb := names[idx]
+		g.SetSelectedVerb(verb)
+		// Verb-coin behaviour: when the coin was opened over a hotspot
+		// (HotspotOnly mode), picking a slice immediately fires that
+		// verb's action on that hotspot — one round-trip per command,
+		// instead of forcing a follow-up left-click on the same target.
+		if r.pendingHotspot != nil {
+			g.invokeHotspotVerb(r.pendingHotspot, verb)
+		}
 	}
 	r.visible = false
+	r.pendingHotspot = nil
 }
 
 func (r *RadialVerbs) triggerPressed(g *Game) bool {
@@ -117,6 +145,21 @@ func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
 			continue
 		}
 		w := ctx.Game.UIManager.MustGet(name)
+		// DialogBox advertises its bounds via clickBlocker even when no
+		// dialog is open, so the verb-coin would refuse to pop up over
+		// scenery that happens to sit under the dialog rect. Skip the
+		// dialog when it's actually inactive.
+		if _, isDialog := w.(*DialogBox); isDialog && !ctx.Game.dialogueActive() {
+			continue
+		}
+		// CharacterPanel auto-hides when its character isn't in the
+		// current scene; treat the hidden panel as transparent so the
+		// coin can open over the empty space it would occupy.
+		if cp, isCP := w.(*CharacterPanel); isCP {
+			if cp.Character == "" || !ctx.Game.CharacterInScene(cp.Character) {
+				continue
+			}
+		}
 		if b, ok := w.(clickBlocker); ok && b.BlocksClickAt(p) {
 			return true
 		}

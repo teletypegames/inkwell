@@ -102,6 +102,17 @@ func (e *engine) handleSceneInput() {
 	if h == nil {
 		return
 	}
+	g.invokeHotspotVerb(h, g.SelectedVerb())
+}
+
+// invokeHotspotVerb runs the action bound to verb on hotspot h, honoring
+// the SCUMM use-with-item flow when an inventory item is selected.
+// Shared by left-click hotspot resolution and the verb-coin widget so
+// both paths log, flash and queue identically.
+func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
+	if h == nil {
+		return
+	}
 	sel := g.Inventory.Selected()
 	targetLabel := h.Label
 	if targetLabel == "" {
@@ -128,9 +139,9 @@ func (e *engine) handleSceneInput() {
 		g.Inventory.Select("")
 		return
 	}
-	a := h.handler(g.SelectedVerb())
+	a := h.handler(verb)
 	if a == nil {
-		if v, ok := g.VerbManager.Get(g.SelectedVerb()); ok && v.Default != nil {
+		if v, ok := g.VerbManager.Get(verb); ok && v.Default != nil {
 			a = v.Default
 		}
 	}
@@ -138,8 +149,8 @@ func (e *engine) handleSceneInput() {
 		g.FlashLine("Semmi említésre méltó.")
 		return
 	}
-	g.LogAction("> " + verbLabel(g, g.SelectedVerb()) + " " + targetLabel)
-	g.queueAction(a, "hotspot "+g.SelectedVerb()+" "+h.Name)
+	g.LogAction("> " + verbLabel(g, verb) + " " + targetLabel)
+	g.queueAction(a, "hotspot "+verb+" "+h.Name)
 }
 
 func verbLabel(g *Game, name string) string {
@@ -149,20 +160,7 @@ func verbLabel(g *Game, name string) string {
 	return name
 }
 
-func (e *engine) hotspotAt(p Point) *Hotspot {
-	g := e.g
-	if g.currentScene == "" {
-		return nil
-	}
-	s := g.SceneManager.MustGet(g.currentScene)
-	for i := range s.Hotspots {
-		h := &s.Hotspots[i]
-		if h.Area != nil && h.Area.Contains(p) {
-			return h
-		}
-	}
-	return nil
-}
+func (e *engine) hotspotAt(p Point) *Hotspot { return e.g.HotspotAt(p) }
 
 func (e *engine) Draw(screen *ebiten.Image) {
 	g := e.g

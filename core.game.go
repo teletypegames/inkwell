@@ -185,6 +185,25 @@ func (g *Game) appendLog(m LogMessage) {
 // Messages returns the current log buffer (read-only).
 func (g *Game) Messages() []LogMessage { return g.messages }
 
+// HotspotAt returns the topmost hotspot in the current scene whose Area
+// contains p, or nil if none. Exposed so widgets (e.g., a verb coin
+// that only opens over hotspots) can do their own hit-tests in their
+// Tick — the engine's own resolution runs only after every widget had a
+// chance, so widgets can't rely on it.
+func (g *Game) HotspotAt(p Point) *Hotspot {
+	if g.currentScene == "" {
+		return nil
+	}
+	s := g.SceneManager.MustGet(g.currentScene)
+	for i := range s.Hotspots {
+		h := &s.Hotspots[i]
+		if h.Area != nil && h.Area.Contains(p) {
+			return h
+		}
+	}
+	return nil
+}
+
 // CharacterInScene reports whether a registered character is listed as
 // an actor in the current scene. Used by the CharacterPanel widget so
 // it auto-hides when the character isn't in view.
