@@ -192,6 +192,7 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 	vector.DrawFilledCircle(dst, cx, cy, float32(radius), color.RGBA{0, 0, 0, 170}, true)
 
 	hover := r.hitTest(g, g.Input.Point())
+	selected := g.SelectedVerb()
 	slice := 2 * math.Pi / float64(n)
 
 	// Labels live INSIDE the disk, at 0.62×radius from the center, so a
@@ -205,9 +206,19 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 		label := r.labelFor(g, name)
 		tw := textWidth(label)
 		col := th.VerbButtonText
-		if i == hover {
-			// hover halo behind the text
-			vector.DrawFilledCircle(dst, float32(lx), float32(ly+4), float32(radius*0.28), th.VerbButtonSelectedBG, true)
+		isSelected := name == selected
+		isHover := i == hover
+		if isSelected || isHover {
+			// Filled halo behind the label. Selected = stronger, hover =
+			// lighter overlay on top so a hover over a non-selected verb
+			// still shows feedback.
+			haloR := float32(radius * 0.28)
+			if isSelected {
+				vector.DrawFilledCircle(dst, float32(lx), float32(ly+4), haloR, th.VerbButtonSelectedBG, true)
+			}
+			if isHover && !isSelected {
+				vector.DrawFilledCircle(dst, float32(lx), float32(ly+4), haloR, th.VerbButtonBG, true)
+			}
 		}
 		g.DrawText(dst, label, int(lx)-tw/2, int(ly)-7, col)
 	}
