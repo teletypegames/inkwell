@@ -7,8 +7,16 @@ single `*Game` root. The library handles input, rendering, dialog trees,
 cutscenes, HUD, themes and lazy asset loading; the domain only declares
 content.
 
-This document is the full library reference. For a 5-minute tour of the
-shipped demo, see [`DEMO.md`](DEMO.md).
+This document is the full library reference. The companion `pncdsl-demo`
+repo at <ssh://git@git.teletype.hu:2222/games/pncdsl-demo> is a small
+end-to-end example ("Morning Coffee") that consumes this library as a
+plain Go module.
+
+**Module path:** `git.teletype.hu/games/pncdsl`
+
+```go
+import "git.teletype.hu/games/pncdsl"
+```
 
 ---
 
@@ -81,8 +89,9 @@ fluent chains, no scattered registries. The same mental model applies to
 items, scenes, characters, dialogues, scripts, assets, verbs, widgets and
 themes alike.
 
-A complete example game ("Morning Coffee") lives in `domain/` and is
-described in [`DEMO.md`](DEMO.md).
+A complete example game ("Morning Coffee") lives in the separate
+[`pncdsl-demo`](ssh://git@git.teletype.hu:2222/games/pncdsl-demo) repo
+and consumes this library as a regular Go module.
 
 ---
 
@@ -91,18 +100,21 @@ described in [`DEMO.md`](DEMO.md).
 **Prerequisites.** Go 1.24+ (for generic type aliases) and a working OpenGL
 context. Ebitengine handles windowing and the render loop.
 
-**Run the bundled demo:**
+**Use the library in your own project:**
 
 ```bash
-git clone <repo>
-cd pncdsl
-go run .
+go mod init my-game
+go get git.teletype.hu/games/pncdsl
 ```
 
-A window opens at 1280×800 (the library uses a 320×200 internal resolution
-and Ebitengine scales it 4×). No asset files are required — placeholders
-are generated for anything missing under `assets/`. Press **F1** at any
-time to toggle the hotspot debug overlay.
+If the private host can't be reached over HTTPS, point Go at the SSH
+endpoint:
+
+```bash
+git config --global \
+    url."ssh://git@git.teletype.hu:2222/".insteadOf "https://git.teletype.hu/"
+export GOPRIVATE=git.teletype.hu/*
+```
 
 **Minimum game:**
 
@@ -111,7 +123,7 @@ package main
 
 import (
     "log"
-    "pncdsl/pncdsl"
+    "git.teletype.hu/games/pncdsl"
 )
 
 func main() {
@@ -1519,10 +1531,13 @@ should crash loudly in development.
 ## 20. Testing
 
 ```bash
-go test ./...
+go build ./...
 ```
 
-`domain/build_test.go` is the canonical headless smoke test:
+The library is single-package and has no in-tree unit tests at this
+milestone — the manager + action primitives are intentionally small
+enough that the `pncdsl-demo` repo's `build_test.go` (a headless
+`Build() + Validate()` smoke test) covers the integration surface:
 
 ```go
 func TestBuildValidates(t *testing.T) {
@@ -1530,16 +1545,14 @@ func TestBuildValidates(t *testing.T) {
     if err := g.Validate(); err != nil {
         t.Fatalf("validate: %v", err)
     }
-    // ... assert specific managers contain expected entries ...
 }
 ```
 
-It calls `Build()` (which registers every entity) and `Validate()` (which
-cross-checks every name reference). No Ebiten window is opened — perfect
-for CI.
+Drop a similar test into any project that consumes the library — it
+opens no window and finishes in milliseconds, so it's a cheap CI gate.
 
-Library-internal unit tests are not shipped yet; the manager + action
-primitives are intentionally small enough to verify through smoke runs
+Library-internal unit tests are not shipped yet; the building blocks are
+small enough to verify through smoke runs
 of the demo for the time being.
 
 ### 20.1 Useful runtime debug switches
@@ -1553,87 +1566,88 @@ pncdsl.DebugLog = true                 // logf output to stderr (script queue, a
 
 ## 21. Project layout
 
+All library source files live at the repo root; no nested package
+directory. The naming convention is `theme.identifier.go` — `ls core.*`
+or `ls ui.*` instantly groups related sources.
+
 ```
-pncdsl/
-├── main.go                        # entry point: pncdsl.Run(domain.Build())
-├── pncdsl/                        # the library — theme-prefixed file names
-│   ├── core.doc.go                # package docs
-│   ├── core.manager.go            # Manager[T Named], Named, TypeLabel
-│   ├── core.game.go               # Game aggregate, runtime state, helpers
-│   ├── core.engine.go             # ebiten.Game adapter (Update/Draw/Layout)
-│   ├── core.dsl.go                # Run()
-│   ├── core.errors.go             # sentinel errors
-│   │
-│   ├── util.geometry.go           # Point, Rectangle, Polygon, Shape
-│   ├── util.timer.go              # Timer helper
-│   ├── util.log.go                # DebugLog + logf
-│   │
-│   ├── asset.def.go               # Asset, AssetKind
-│   ├── asset.manager.go           # AssetManager alias + lazy loader
-│   ├── asset.audio.go             # AudioPlayer (stub)
-│   ├── asset.text.go              # drawText / wrapText helpers
-│   │
-│   ├── scene.def.go               # Scene, SceneActor
-│   ├── scene.manager.go           # SceneManager alias
-│   ├── scene.hotspot.go           # Hotspot, CursorKind
-│   ├── scene.trigger.go           # Trigger (stub)
-│   ├── scene.transition.go        # fade-to-black overlay (internal)
-│   ├── scene.camera.go            # Camera (stub identity transform)
-│   │
-│   ├── item.def.go                # Item
-│   ├── item.manager.go            # ItemManager alias
-│   ├── item.inventory.go          # Inventory
-│   │
-│   ├── actor.def.go               # Character
-│   ├── actor.manager.go           # CharacterManager alias
-│   ├── actor.animation.go         # AnimationClip (stub)
-│   │
-│   ├── dialog.def.go              # Dialogue, DialogueNode, DialogueChoice
-│   ├── dialog.manager.go          # DialogueManager alias
-│   │
-│   ├── action.def.go              # Action, Runner, Ctx, Status + every built-in action
-│   ├── action.condition.go        # Condition interface + combinators
-│   ├── action.script.go           # Script entity
-│   ├── action.manager.go          # ScriptManager alias
-│   │
-│   ├── state.def.go               # State (flags, vars, visited, talked)
-│   ├── state.save.go              # Save/Load (stub)
-│   │
-│   ├── input.def.go               # Input (consume-on-use)
-│   │
-│   ├── ui.widget.go               # Widget interface, UICtx, Size, Align
-│   ├── ui.manager.go              # UIManager alias + reversed/ordered iterators
-│   ├── ui.theme.go                # Theme + ThemeManager
-│   ├── ui.theme_presets.go        # 4 preset themes
-│   ├── ui.defaults.go             # RegisterDefaultUI/RadialVerbUI/RichUI
-│   ├── ui.verb.go                 # Verb + VerbManager
-│   ├── ui.verb_bar.go             # VerbBar widget
-│   ├── ui.verb_radial.go          # RadialVerbs widget
-│   ├── ui.inventory.go            # InventoryBar widget
-│   ├── ui.status.go               # StatusLine widget
-│   ├── ui.speech.go               # SpeechBubble widget
-│   ├── ui.dialog_box.go           # DialogBox widget
-│   ├── ui.end_card.go             # EndCard widget
-│   ├── ui.cursor.go               # Cursor widget
-│   ├── ui.hotspot_debug.go        # HotspotDebug widget
-│   ├── ui.panel.go                # Panel widget
-│   ├── ui.top_bar.go              # TopBar widget
-│   ├── ui.character_panel.go      # CharacterPanel widget + CharStat
-│   └── ui.chat_log.go             # ChatLog widget
+pncdsl/                            # module git.teletype.hu/games/pncdsl
+├── go.mod
+├── go.sum
 │
-├── domain/                        # the concrete game — see DEMO.md
-├── assets/                        # optional image / audio files
-├── PLAN.md                        # original design document
-├── UIPLAN.md                      # widget-system design
-├── DEMO.md                        # walkthrough of the bundled game
-├── GFX.md                         # asset prompts for image AIs
+├── core.doc.go                    # package docs
+├── core.manager.go                # Manager[T Named], Named, TypeLabel
+├── core.game.go                   # Game aggregate, runtime state, helpers
+├── core.engine.go                 # ebiten.Game adapter (Update/Draw/Layout)
+├── core.dsl.go                    # Run()
+├── core.errors.go                 # sentinel errors
+│
+├── util.geometry.go               # Point, Rectangle, Polygon, Shape
+├── util.timer.go                  # Timer helper
+├── util.log.go                    # DebugLog + logf
+│
+├── asset.def.go                   # Asset, AssetKind
+├── asset.manager.go               # AssetManager alias + lazy loader
+├── asset.audio.go                 # AudioPlayer (stub)
+├── asset.text.go                  # drawText / wrapText helpers
+│
+├── scene.def.go                   # Scene, SceneActor
+├── scene.manager.go               # SceneManager alias
+├── scene.hotspot.go               # Hotspot, CursorKind
+├── scene.trigger.go               # Trigger (stub)
+├── scene.transition.go            # fade-to-black overlay (internal)
+├── scene.camera.go                # Camera (stub identity transform)
+│
+├── item.def.go                    # Item
+├── item.manager.go                # ItemManager alias
+├── item.inventory.go              # Inventory
+│
+├── actor.def.go                   # Character
+├── actor.manager.go               # CharacterManager alias
+├── actor.animation.go             # AnimationClip (stub)
+│
+├── dialog.def.go                  # Dialogue, DialogueNode, DialogueChoice
+├── dialog.manager.go              # DialogueManager alias
+│
+├── action.def.go                  # Action, Runner, Ctx, Status + every built-in action
+├── action.condition.go            # Condition interface + combinators
+├── action.script.go               # Script entity
+├── action.manager.go              # ScriptManager alias
+│
+├── state.def.go                   # State (flags, vars, visited, talked)
+├── state.save.go                  # Save/Load (stub)
+│
+├── input.def.go                   # Input (consume-on-use)
+│
+├── ui.widget.go                   # Widget interface, UICtx, Size, Align
+├── ui.manager.go                  # UIManager alias + reversed/ordered iterators
+├── ui.theme.go                    # Theme + ThemeManager
+├── ui.theme_presets.go            # 4 preset themes
+├── ui.defaults.go                 # RegisterDefaultUI/RadialVerbUI/RichUI
+├── ui.verb.go                     # Verb + VerbManager
+├── ui.verb_bar.go                 # VerbBar widget
+├── ui.verb_radial.go              # RadialVerbs widget
+├── ui.inventory.go                # InventoryBar widget
+├── ui.status.go                   # StatusLine widget
+├── ui.speech.go                   # SpeechBubble widget
+├── ui.dialog_box.go               # DialogBox widget
+├── ui.end_card.go                 # EndCard widget
+├── ui.cursor.go                   # Cursor widget
+├── ui.hotspot_debug.go            # HotspotDebug widget
+├── ui.panel.go                    # Panel widget
+├── ui.top_bar.go                  # TopBar widget
+├── ui.character_panel.go          # CharacterPanel widget + CharStat
+├── ui.chat_log.go                 # ChatLog widget
+│
+├── UIPLAN.md                      # widget-system design rationale
 ├── LICENSE.md                     # MIT
 └── README.md                      # this file
 ```
 
-Files under `domain/` follow `theme.identifier.go` (e.g.
-`scene.kitchen.go`, `item.key.go`) — `ls domain/scene.*` instantly lists
-every location.
+The companion demo project (`pncdsl-demo`) lives in its own repo at
+<ssh://git@git.teletype.hu:2222/games/pncdsl-demo>. It consumes this
+package via `require git.teletype.hu/games/pncdsl …` in its `go.mod` —
+no in-tree coupling.
 
 ---
 
