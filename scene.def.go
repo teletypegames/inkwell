@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 type Scene struct {
 	Name       string

@@ -1,3 +1,3 @@
-package pncdsl
+package inkwell
 
 type CharacterManager = Manager[Character]

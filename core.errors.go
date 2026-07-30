@@ -1,17 +1,17 @@
-package pncdsl
+package inkwell
 
 import "errors"
 
 var (
-	ErrUnknownAsset         = errors.New("pncdsl: unknown asset")
-	ErrUnknownScene         = errors.New("pncdsl: unknown scene")
-	ErrUnknownItem          = errors.New("pncdsl: unknown item")
-	ErrUnknownCharacter     = errors.New("pncdsl: unknown character")
-	ErrUnknownDialogue      = errors.New("pncdsl: unknown dialogue")
-	ErrUnknownDialogueNode  = errors.New("pncdsl: unknown dialogue node")
-	ErrUnknownScript        = errors.New("pncdsl: unknown script")
-	ErrUnknownVerb          = errors.New("pncdsl: unknown verb")
-	ErrDuplicateName        = errors.New("pncdsl: duplicate name")
-	ErrNoStartScene         = errors.New("pncdsl: StartAt not set or unknown scene")
-	ErrSceneMissingBackground = errors.New("pncdsl: scene has no background")
+	ErrUnknownAsset         = errors.New("inkwell: unknown asset")
+	ErrUnknownScene         = errors.New("inkwell: unknown scene")
+	ErrUnknownItem          = errors.New("inkwell: unknown item")
+	ErrUnknownCharacter     = errors.New("inkwell: unknown character")
+	ErrUnknownDialogue      = errors.New("inkwell: unknown dialogue")
+	ErrUnknownDialogueNode  = errors.New("inkwell: unknown dialogue node")
+	ErrUnknownScript        = errors.New("inkwell: unknown script")
+	ErrUnknownVerb          = errors.New("inkwell: unknown verb")
+	ErrDuplicateName        = errors.New("inkwell: duplicate name")
+	ErrNoStartScene         = errors.New("inkwell: StartAt not set or unknown scene")
+	ErrSceneMissingBackground = errors.New("inkwell: scene has no background")
 )

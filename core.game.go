@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 import (
 	"fmt"
@@ -268,7 +268,7 @@ func (g *Game) Validate() error {
 		}
 	}
 	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
-		return fmt.Errorf("pncdsl: no active theme (got %q)", g.activeTheme)
+		return fmt.Errorf("inkwell: no active theme (got %q)", g.activeTheme)
 	}
 	return nil
 }

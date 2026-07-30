@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 type Script struct {
 	Name    string

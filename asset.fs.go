@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 import (
 	"io/fs"
@@ -14,7 +14,7 @@ import (
 //	//go:embed assets
 //	var assetsFS embed.FS
 //
-//	func init() { pncdsl.AssetFS = assetsFS }
+//	func init() { inkwell.AssetFS = assetsFS }
 //
 // Asset.Path values are used as-is, so they must be slash-separated
 // and relative (e.g. "assets/bg/bedroom.png") — the same form that

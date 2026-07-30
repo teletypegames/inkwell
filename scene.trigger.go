@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // Trigger fires Do when its When condition first becomes true after the
 // trigger arms (on scene enter). Rising-edge semantics: the Do action is

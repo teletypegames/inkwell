@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // Verb is a registered "action word" (Look, Use, Talk, Take, …). The
 // VerbBar / RadialVerbs widgets read the VerbManager to know which verbs

@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // UIManager registers Widget instances. Same shape as every other manager.
 type UIManager = Manager[Widget]

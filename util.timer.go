@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // Timer accumulates seconds. Tick advances it; Reset zeroes it.
 type Timer struct {

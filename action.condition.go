@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 type Condition interface {
 	Eval(ctx *Ctx) bool

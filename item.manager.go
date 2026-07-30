@@ -1,3 +1,3 @@
-package pncdsl
+package inkwell
 
 type ItemManager = Manager[Item]

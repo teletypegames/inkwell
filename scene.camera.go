@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // Camera is a stub identity transform — no scrolling in this milestone.
 type Camera struct {

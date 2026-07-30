@@ -1,4 +1,4 @@
-# pncdsl — reference manual
+# inkwell — reference manual
 
 A point-and-click adventure game framework for Go, built on top of
 [Ebitengine](https://ebitengine.org/). Games are composed by registering
@@ -7,15 +7,15 @@ single `*Game` root. The library handles input, rendering, dialog trees,
 cutscenes, HUD, themes and lazy asset loading; the domain only declares
 content.
 
-This document is the full library reference. The companion `pncdsl-demo`
-repo at <ssh://git@git.teletypegames.org:2222/games/pncdsl-demo> is a small
+This document is the full library reference. The companion `inkwell-demo`
+repo at <ssh://git@git.teletypegames.org:2222/games/inkwell-demo> is a small
 end-to-end example ("Morning Coffee") that consumes this library as a
 plain Go module.
 
-**Module path:** `git.teletypegames.org/games/pncdsl`
+**Module path:** `git.teletypegames.org/games/inkwell`
 
 ```go
-import "git.teletypegames.org/games/pncdsl"
+import "git.teletypegames.org/games/inkwell"
 ```
 
 ---
@@ -69,7 +69,7 @@ import "git.teletypegames.org/games/pncdsl"
 
 ## 1. Introduction
 
-`pncdsl` is **not** a generic engine — it is a thin Go-level DSL layer on
+`inkwell` is **not** a generic engine — it is a thin Go-level DSL layer on
 top of Ebitengine that implements the fixed skeleton of the point-and-click
 adventure genre as it existed in the LucasArts SCUMM era (Maniac Mansion,
 Monkey Island, Day of the Tentacle):
@@ -90,7 +90,7 @@ items, scenes, characters, dialogues, scripts, assets, verbs, widgets and
 themes alike.
 
 A complete example game ("Morning Coffee") lives in the separate
-[`pncdsl-demo`](ssh://git@git.teletypegames.org:2222/games/pncdsl-demo) repo
+[`inkwell-demo`](ssh://git@git.teletypegames.org:2222/games/inkwell-demo) repo
 and consumes this library as a regular Go module.
 
 ---
@@ -104,7 +104,7 @@ context. Ebitengine handles windowing and the render loop.
 
 ```bash
 go mod init my-game
-go get git.teletypegames.org/games/pncdsl
+go get git.teletypegames.org/games/inkwell
 ```
 
 If the private host can't be reached over HTTPS, point Go at the SSH
@@ -123,31 +123,31 @@ package main
 
 import (
     "log"
-    "git.teletypegames.org/games/pncdsl"
+    "git.teletypegames.org/games/inkwell"
 )
 
 func main() {
-    g := pncdsl.NewGame("Sample", 320, 200)
+    g := inkwell.NewGame("Sample", 320, 200)
 
-    g.AssetManager.Register(pncdsl.Asset{
-        Name: "bg/room", Path: "assets/bg/room.png", Kind: pncdsl.AssetImage,
+    g.AssetManager.Register(inkwell.Asset{
+        Name: "bg/room", Path: "assets/bg/room.png", Kind: inkwell.AssetImage,
     })
-    g.CharacterManager.Register(pncdsl.Character{Name: "player", W: 28, H: 62})
-    g.SceneManager.Register(pncdsl.Scene{
+    g.CharacterManager.Register(inkwell.Character{Name: "player", W: 28, H: 62})
+    g.SceneManager.Register(inkwell.Scene{
         Name:       "room",
         Background: "bg/room",
-        Actors:     []pncdsl.SceneActor{{CharacterName: "player", At: pncdsl.Point{X: 160, Y: 140}}},
-        Hotspots: []pncdsl.Hotspot{{
+        Actors:     []inkwell.SceneActor{{CharacterName: "player", At: inkwell.Point{X: 160, Y: 140}}},
+        Hotspots: []inkwell.Hotspot{{
             Name:   "door",
-            Area:   pncdsl.Rect(260, 50, 40, 90),
+            Area:   inkwell.Rect(260, 50, 40, 90),
             Label:  "door",
-            OnLook: pncdsl.Say("player", "A wooden door."),
+            OnLook: inkwell.Say("player", "A wooden door."),
         }},
     })
 
     g.StartAt("room")
-    pncdsl.RegisterDefaultUI(g) // optional; auto-called by Run if no widgets registered
-    if err := pncdsl.Run(g); err != nil {
+    inkwell.RegisterDefaultUI(g) // optional; auto-called by Run if no widgets registered
+    if err := inkwell.Run(g); err != nil {
         log.Fatal(err)
     }
 }
@@ -160,7 +160,7 @@ func main() {
 Every name-addressable entity goes through one shared generic type:
 
 ```go
-// pncdsl/core.manager.go
+// inkwell/core.manager.go
 
 type Named interface {
     GetName() string
@@ -220,7 +220,7 @@ shadowed entities at runtime.
 ## 4. The Game aggregate
 
 ```go
-// pncdsl/core.game.go
+// inkwell/core.game.go
 
 type Game struct {
     Title         string
@@ -268,7 +268,7 @@ explicitly, or let `Run` install the default set if `UIManager` is empty.
 func (g *Game) StartAt(name string) *Game     // entry scene
 func (g *Game) OnStart(a Action) *Game        // action run after the scene's OnEnter
 func (g *Game) Validate() error               // cross-check name references
-func (g *Game) Run() error                    // same as pncdsl.Run(g)
+func (g *Game) Run() error                    // same as inkwell.Run(g)
 ```
 
 `StartAt` and `OnStart` return `*Game` so they chain at the end of `Build`.
@@ -350,7 +350,7 @@ library can swap to `text/v2` later without changing call sites.
 ## 5. Geometry primitives
 
 ```go
-// pncdsl/util.geometry.go
+// inkwell/util.geometry.go
 
 type Point struct{ X, Y float64 }
 
@@ -388,7 +388,7 @@ each frame.
 ### 6.1 Asset
 
 ```go
-// pncdsl/asset.def.go
+// inkwell/asset.def.go
 
 type AssetKind int
 const (
@@ -410,17 +410,17 @@ deterministic colored placeholder so the game runs without any art —
 useful for prototyping or CI.
 
 ```go
-g.AssetManager.Register(pncdsl.Asset{
+g.AssetManager.Register(inkwell.Asset{
     Name: "bg/kitchen",
     Path: "assets/bg/kitchen.png",
-    Kind: pncdsl.AssetImage,
+    Kind: inkwell.AssetImage,
 })
 ```
 
 ### 6.2 Scene
 
 ```go
-// pncdsl/scene.def.go
+// inkwell/scene.def.go
 
 type Scene struct {
     Name       string
@@ -458,7 +458,7 @@ engine samples each trigger once per idle frame; see [§6.4](#64-trigger).
 ### 6.3 Hotspot
 
 ```go
-// pncdsl/scene.hotspot.go
+// inkwell/scene.hotspot.go
 
 type Hotspot struct {
     Name   string
@@ -500,7 +500,7 @@ for custom verbs.
 ### 6.4 Trigger
 
 ```go
-// pncdsl/scene.trigger.go
+// inkwell/scene.trigger.go
 
 type Trigger struct {
     Name string
@@ -525,7 +525,7 @@ re-entry.
 ### 6.5 Item
 
 ```go
-// pncdsl/item.def.go
+// inkwell/item.def.go
 
 type Item struct {
     Name        string
@@ -548,7 +548,7 @@ hotspot with an item selected resolves the action via, in order:
 ### 6.6 Inventory
 
 ```go
-// pncdsl/item.inventory.go
+// inkwell/item.inventory.go
 
 type Inventory struct{ /* unexported */ }
 
@@ -567,7 +567,7 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 ### 6.7 Character
 
 ```go
-// pncdsl/actor.def.go
+// inkwell/actor.def.go
 
 type Character struct {
     Name        string
@@ -608,7 +608,7 @@ computed by [walkbox routing](#62-scene).
 ### 6.8 Dialogue
 
 ```go
-// pncdsl/dialog.def.go
+// inkwell/dialog.def.go
 
 type Dialogue struct {
     Name  string
@@ -650,7 +650,7 @@ The dialog flow:
 ### 6.9 Script
 
 ```go
-// pncdsl/action.script.go
+// inkwell/action.script.go
 
 type Script struct {
     Name    string
@@ -665,7 +665,7 @@ Fire one with `RunScript("name")`.
 ### 6.10 Verb
 
 ```go
-// pncdsl/ui.verb.go
+// inkwell/ui.verb.go
 
 type Verb struct {
     Name    string                      // canonical id, e.g. "look"
@@ -678,9 +678,9 @@ type Verb struct {
 `take`). Add your own:
 
 ```go
-g.VerbManager.Register(pncdsl.Verb{
+g.VerbManager.Register(inkwell.Verb{
     Name: "push", Label: "Lökd",
-    Default: pncdsl.Say("player", "Nem mozdul."),
+    Default: inkwell.Say("player", "Nem mozdul."),
 })
 ```
 
@@ -694,7 +694,7 @@ frame, so adding a verb at runtime is enough to make it appear.
 ### 7.1 Action and Runner
 
 ```go
-// pncdsl/action.def.go
+// inkwell/action.def.go
 
 type Action interface {
     Start() Runner
@@ -794,10 +794,10 @@ func (r *fadeRunner) Tick(ctx *Ctx) Status {
 For one-shot mutations, `Custom` is shorter:
 
 ```go
-bumpScore := pncdsl.Custom(func(ctx *pncdsl.Ctx) pncdsl.Status {
+bumpScore := inkwell.Custom(func(ctx *inkwell.Ctx) inkwell.Status {
     cur := ctx.Game.State.Var("score").(int)
     ctx.Game.State.SetVar("score", cur+10)
-    return pncdsl.StatusDone
+    return inkwell.StatusDone
 })
 ```
 
@@ -806,7 +806,7 @@ bumpScore := pncdsl.Custom(func(ctx *pncdsl.Ctx) pncdsl.Status {
 ## 8. Conditions
 
 ```go
-// pncdsl/action.condition.go
+// inkwell/action.condition.go
 
 type Condition interface {
     Eval(ctx *Ctx) bool
@@ -832,7 +832,7 @@ Conditions are stateless — they are evaluated lazily, including inside
 ## 9. World state
 
 ```go
-// pncdsl/state.def.go
+// inkwell/state.def.go
 
 type State struct{ /* unexported */ }
 
@@ -872,7 +872,7 @@ hotbars — without touching the library.
 ### 10.1 Widget interface
 
 ```go
-// pncdsl/ui.widget.go
+// inkwell/ui.widget.go
 
 type Widget interface {
     Named
@@ -922,7 +922,7 @@ that frame.
 
 ### 10.3 Built-in widgets
 
-Each widget lives in its own `pncdsl/ui.<name>.go` file. Fields with a
+Each widget lives in its own `inkwell/ui.<name>.go` file. Fields with a
 zero value fall back to a sensible default.
 
 #### `Panel` (`ui.panel.go`)
@@ -1184,7 +1184,7 @@ zones for the radial menu.
 ### 10.5 Registration helpers
 
 ```go
-// pncdsl/ui.defaults.go
+// inkwell/ui.defaults.go
 
 func RegisterDefaultUI(g *Game)                              // SCUMM-style verb bar + inventory
 func RegisterRadialVerbUI(g *Game)                            // verb-coin (right-click) + wider inventory
@@ -1205,18 +1205,18 @@ Ebitengine primitives, and you're done.
 ```go
 type Minimap struct {
     Name   string
-    Bounds pncdsl.Rectangle
+    Bounds inkwell.Rectangle
 }
 
 func (m *Minimap) GetName() string                                { return m.Name }
-func (m *Minimap) Tick(ctx *pncdsl.UICtx)                         {}
-func (m *Minimap) Draw(dst *ebiten.Image, ctx *pncdsl.UICtx) {
+func (m *Minimap) Tick(ctx *inkwell.UICtx)                         {}
+func (m *Minimap) Draw(dst *ebiten.Image, ctx *inkwell.UICtx) {
     // ... render scene thumbnail, mark NPCs, etc.
 }
 
 g.UIManager.Register(&Minimap{
     Name:   "minimap",
-    Bounds: pncdsl.Rect(220, 4, 96, 56),
+    Bounds: inkwell.Rect(220, 4, 96, 56),
 })
 ```
 
@@ -1225,7 +1225,7 @@ g.UIManager.Register(&Minimap{
 ## 11. Themes
 
 ```go
-// pncdsl/ui.theme.go
+// inkwell/ui.theme.go
 
 type Theme struct {
     Name string
@@ -1296,7 +1296,7 @@ type Theme struct {
 Register your own:
 
 ```go
-g.ThemeManager.Register(pncdsl.Theme{
+g.ThemeManager.Register(inkwell.Theme{
     Name:      "midnight-noir",
     PanelBG:   color.RGBA{6, 6, 12, 255},
     StatusText: color.White,
@@ -1344,7 +1344,7 @@ same registry but are not loaded by the library at this milestone.
 ## 13. Audio
 
 ```go
-// pncdsl/asset.audio.go
+// inkwell/asset.audio.go
 
 type AudioPlayer struct{ /* unexported */ }
 
@@ -1381,7 +1381,7 @@ methods, so a domain authored against the original stub still works.
 ## 14. Input
 
 ```go
-// pncdsl/input.def.go
+// inkwell/input.def.go
 
 type Input struct{ /* unexported */ }
 
@@ -1406,7 +1406,7 @@ directly.
 ## 15. The game loop
 
 ```go
-// pncdsl/core.dsl.go
+// inkwell/core.dsl.go
 
 func Run(g *Game) error                          // toplevel — same as g.Run()
 ```
@@ -1493,7 +1493,7 @@ the whole-sprite / placeholder draw when no clip applies.
 ## 16. Scene transitions
 
 ```go
-// pncdsl/scene.transition.go (unexported)
+// inkwell/scene.transition.go (unexported)
 
 type transition struct{ /* unexported */ }
 ```
@@ -1541,7 +1541,7 @@ eagerly at `Register` time via panic.
 ## 18. Save and load
 
 ```go
-// pncdsl/state.save.go
+// inkwell/state.save.go
 
 func (g *Game) Save(slot int) error
 func (g *Game) Load(slot int) error
@@ -1585,20 +1585,20 @@ future version returns an error rather than silently truncating fields.
 ## 19. Errors
 
 ```go
-// pncdsl/core.errors.go
+// inkwell/core.errors.go
 
 var (
-    ErrUnknownAsset           = errors.New("pncdsl: unknown asset")
-    ErrUnknownScene           = errors.New("pncdsl: unknown scene")
-    ErrUnknownItem            = errors.New("pncdsl: unknown item")
-    ErrUnknownCharacter       = errors.New("pncdsl: unknown character")
-    ErrUnknownDialogue        = errors.New("pncdsl: unknown dialogue")
-    ErrUnknownDialogueNode    = errors.New("pncdsl: unknown dialogue node")
-    ErrUnknownScript          = errors.New("pncdsl: unknown script")
-    ErrUnknownVerb            = errors.New("pncdsl: unknown verb")
-    ErrDuplicateName          = errors.New("pncdsl: duplicate name")
-    ErrNoStartScene           = errors.New("pncdsl: StartAt not set or unknown scene")
-    ErrSceneMissingBackground = errors.New("pncdsl: scene has no background")
+    ErrUnknownAsset           = errors.New("inkwell: unknown asset")
+    ErrUnknownScene           = errors.New("inkwell: unknown scene")
+    ErrUnknownItem            = errors.New("inkwell: unknown item")
+    ErrUnknownCharacter       = errors.New("inkwell: unknown character")
+    ErrUnknownDialogue        = errors.New("inkwell: unknown dialogue")
+    ErrUnknownDialogueNode    = errors.New("inkwell: unknown dialogue node")
+    ErrUnknownScript          = errors.New("inkwell: unknown script")
+    ErrUnknownVerb            = errors.New("inkwell: unknown verb")
+    ErrDuplicateName          = errors.New("inkwell: duplicate name")
+    ErrNoStartScene           = errors.New("inkwell: StartAt not set or unknown scene")
+    ErrSceneMissingBackground = errors.New("inkwell: scene has no background")
 )
 ```
 
@@ -1617,7 +1617,7 @@ go build ./...
 
 The library is single-package and has no in-tree unit tests at this
 milestone — the manager + action primitives are intentionally small
-enough that the `pncdsl-demo` repo's `build_test.go` (a headless
+enough that the `inkwell-demo` repo's `build_test.go` (a headless
 `Build() + Validate()` smoke test) covers the integration surface:
 
 ```go
@@ -1639,8 +1639,8 @@ of the demo for the time being.
 ### 20.1 Useful runtime debug switches
 
 ```go
-pncdsl.DebugLog = true                 // logf output to stderr (script queue, audio, scene change)
-&pncdsl.HotspotDebug{Enabled: true}    // start with the F1 overlay on
+inkwell.DebugLog = true                 // logf output to stderr (script queue, audio, scene change)
+&inkwell.HotspotDebug{Enabled: true}    // start with the F1 overlay on
 ```
 
 ---
@@ -1652,7 +1652,7 @@ directory. The naming convention is `theme.identifier.go` — `ls core.*`
 or `ls ui.*` instantly groups related sources.
 
 ```
-pncdsl/                            # module git.teletypegames.org/games/pncdsl
+inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── go.mod
 ├── go.sum
 │
@@ -1725,9 +1725,9 @@ pncdsl/                            # module git.teletypegames.org/games/pncdsl
 └── README.md                      # this file
 ```
 
-The companion demo project (`pncdsl-demo`) lives in its own repo at
-<ssh://git@git.teletypegames.org:2222/games/pncdsl-demo>. It consumes this
-package via `require git.teletypegames.org/games/pncdsl …` in its `go.mod` —
+The companion demo project (`inkwell-demo`) lives in its own repo at
+<ssh://git@git.teletypegames.org:2222/games/inkwell-demo>. It consumes this
+package via `require git.teletypegames.org/games/inkwell …` in its `go.mod` —
 no in-tree coupling.
 
 ---

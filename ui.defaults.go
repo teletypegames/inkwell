@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // RegisterDefaultUI installs the SCUMM-style HUD widgets into g.UIManager
 // in the conventional Z-order (HotspotDebug at the back, Cursor on top).

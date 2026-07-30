@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 // Status is the outcome of one tick of a Runner.
 type Status int

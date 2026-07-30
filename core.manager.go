@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 import "sort"
 
@@ -24,10 +24,10 @@ func NewManager[T Named]() *Manager[T] {
 func (m *Manager[T]) Register(v T) {
 	name := v.GetName()
 	if name == "" {
-		panic("pncdsl: Register: empty Name on " + typeName(v))
+		panic("inkwell: Register: empty Name on " + typeName(v))
 	}
 	if _, dup := m.items[name]; dup {
-		panic("pncdsl: Register: duplicate " + typeName(v) + " name: " + name)
+		panic("inkwell: Register: duplicate " + typeName(v) + " name: " + name)
 	}
 	m.items[name] = v
 	m.order = append(m.order, name)
@@ -41,7 +41,7 @@ func (m *Manager[T]) Get(name string) (T, bool) {
 func (m *Manager[T]) MustGet(name string) T {
 	v, ok := m.items[name]
 	if !ok {
-		panic("pncdsl: MustGet: unknown name: " + name)
+		panic("inkwell: MustGet: unknown name: " + name)
 	}
 	return v
 }

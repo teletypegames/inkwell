@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"

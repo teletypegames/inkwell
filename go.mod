@@ -1,4 +1,4 @@
-module git.teletypegames.org/games/pncdsl
+module git.teletypegames.org/games/inkwell
 
 go 1.26.3
 

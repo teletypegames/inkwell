@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 type CursorKind int
 

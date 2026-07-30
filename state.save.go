@@ -1,4 +1,4 @@
-package pncdsl
+package inkwell
 
 import (
 	"encoding/json"
@@ -61,15 +61,15 @@ func (g *Game) slotPath(slot int) string {
 // dropped — saves capture state at idle/ready boundaries.
 func (g *Game) Save(slot int) error {
 	if err := os.MkdirAll(g.saveDir(), 0o755); err != nil {
-		return fmt.Errorf("pncdsl: save mkdir: %w", err)
+		return fmt.Errorf("inkwell: save mkdir: %w", err)
 	}
 	sf := g.buildSave()
 	data, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
-		return fmt.Errorf("pncdsl: save marshal: %w", err)
+		return fmt.Errorf("inkwell: save marshal: %w", err)
 	}
 	if err := os.WriteFile(g.slotPath(slot), data, 0o644); err != nil {
-		return fmt.Errorf("pncdsl: save write: %w", err)
+		return fmt.Errorf("inkwell: save write: %w", err)
 	}
 	return nil
 }
@@ -81,14 +81,14 @@ func (g *Game) Save(slot int) error {
 func (g *Game) Load(slot int) error {
 	data, err := os.ReadFile(g.slotPath(slot))
 	if err != nil {
-		return fmt.Errorf("pncdsl: load read: %w", err)
+		return fmt.Errorf("inkwell: load read: %w", err)
 	}
 	var sf saveFile
 	if err := json.Unmarshal(data, &sf); err != nil {
-		return fmt.Errorf("pncdsl: load unmarshal: %w", err)
+		return fmt.Errorf("inkwell: load unmarshal: %w", err)
 	}
 	if sf.Version > saveVersion {
-		return fmt.Errorf("pncdsl: save version %d unsupported (max %d)", sf.Version, saveVersion)
+		return fmt.Errorf("inkwell: save version %d unsupported (max %d)", sf.Version, saveVersion)
 	}
 	return g.applySave(&sf)
 }
@@ -129,7 +129,7 @@ func (g *Game) applySave(sf *saveFile) error {
 		return fmt.Errorf("%w: %q (in save)", ErrUnknownScene, sf.CurrentScene)
 	}
 	if sf.ActiveTheme != "" && !g.ThemeManager.Has(sf.ActiveTheme) {
-		return fmt.Errorf("pncdsl: unknown theme %q in save", sf.ActiveTheme)
+		return fmt.Errorf("inkwell: unknown theme %q in save", sf.ActiveTheme)
 	}
 
 	g.scriptRunner = nil
