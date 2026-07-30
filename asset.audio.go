@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -174,7 +173,7 @@ type audioStream interface {
 }
 
 func decodeAudioStream(path string, sampleRate int) (audioStream, int64, error) {
-	f, err := os.Open(path)
+	f, err := openAsset(path)
 	if err != nil {
 		return nil, 0, err
 	}

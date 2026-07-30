@@ -6,7 +6,6 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -57,7 +56,7 @@ func (la *loadedAssets) isPlaceholder(name string) bool {
 }
 
 func loadImageFile(path string) *ebiten.Image {
-	f, err := os.Open(path)
+	f, err := openAsset(path)
 	if err != nil {
 		return nil
 	}
