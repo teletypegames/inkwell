@@ -1,4 +1,4 @@
-module git.teletypegames.org/games/inkwell
+module git.teletypegames.org/engines/inkwell
 
 go 1.26.3
 
