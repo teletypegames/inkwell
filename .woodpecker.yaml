@@ -1,0 +1,12 @@
+# A könyvtárnak nincs teszt-suite-ja, ezért a regressziót a fordítás és a
+# `go vet` fogja meg. Az ebitengine builder image kell hozzá: az Ebitengine
+# Linuxon cgo-t használ, tehát a fordításhoz X11/GL/ALSA fejlécek kellenek.
+steps:
+  - name: test
+    image: git.teletypegames.org/build/ebitengine-builder:latest
+    commands:
+      - go version
+      - echo "==> go build"
+      - go build ./...
+      - echo "==> go vet"
+      - go vet ./...
