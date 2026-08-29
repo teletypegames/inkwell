@@ -24,6 +24,17 @@ type Game struct {
 	UIManager        *UIManager
 	ThemeManager     *ThemeManager
 
+	// SceneRect is the part of the window the picture occupies. Zero means
+	// the whole window. A game with a HUD along the foot sets it, so that
+	// generated exit strips (see scene.exit.go) land inside the painting.
+	SceneRect Rectangle
+
+	// ExitLook and ExitTake supply the default look and take responses for
+	// every hotspot generated from Scene.Exits. Nil means no response.
+	// An Exit can override either one.
+	ExitLook func(Exit) Action
+	ExitTake func(Exit) Action
+
 	State     *State
 	Inventory *Inventory
 	Audio     *AudioPlayer
@@ -35,21 +46,23 @@ type Game struct {
 	activeTheme string
 
 	// runtime
-	loaded       *loadedAssets
-	currentScene string
-	chars        map[string]*runtimeChar
-	scriptRunner Runner
-	scriptCtx    *Ctx
-	transition   *transition
-	selectedVerb string
+	loaded        *loadedAssets
+	currentScene  string
+	previousScene string
+	exitHotspots  map[string][]Hotspot
+	chars         map[string]*runtimeChar
+	scriptRunner  Runner
+	scriptCtx     *Ctx
+	transition    *transition
+	selectedVerb  string
 
 	// UI runtime state (read by widgets, written by actions / engine)
-	hoverLabel string
-	flash      string
-	flashTimer float64
-	endCard    string
-	speech     speechState
-	dialog     *runtimeDialog
+	hoverLabel   string
+	flash        string
+	flashTimer   float64
+	endCard      string
+	speech       speechState
+	dialog       *runtimeDialog
 	activeDialog string
 
 	// in-game message log for ChatLog widgets; ring buffer behavior.
@@ -76,7 +89,7 @@ const (
 
 // LogMessage is a single line in the chat-log buffer.
 type LogMessage struct {
-	Speaker string  // empty for actions / system
+	Speaker string // empty for actions / system
 	Text    string
 	Kind    LogKind
 }
@@ -135,16 +148,55 @@ func NewGame(title string, w, h int) *Game {
 }
 
 func (g *Game) StartAt(name string) *Game { g.startID = name; return g }
-func (g *Game) OnStart(a Action) *Game    { g.onStart = a; return g }
+
+// CurrentScene is the scene the player is in, empty before the first one is
+// entered. PreviousScene is the one before it, which is where Back() leads.
+func (g *Game) CurrentScene() string  { return g.currentScene }
+func (g *Game) PreviousScene() string { return g.previousScene }
+
+// SceneArea is SceneRect, or the whole window when it was never set.
+func (g *Game) SceneArea() Rectangle {
+	if g.SceneRect.W > 0 && g.SceneRect.H > 0 {
+		return g.SceneRect
+	}
+	return Rect(0, 0, float64(g.Width), float64(g.Height))
+}
+
+// SceneHotspots is everything clickable in a scene: its own hotspots first,
+// then one per Exit. Authored hotspots come first because the engine takes the
+// first area that contains the click, so a painted thing beats the edge strip
+// an exit sits on wherever the two overlap.
+//
+// The expansion is cached, so the pointers HotspotAt hands out stay valid.
+func (g *Game) SceneHotspots(name string) []Hotspot {
+	if hs, ok := g.exitHotspots[name]; ok {
+		return hs
+	}
+	s, ok := g.SceneManager.Get(name)
+	if !ok {
+		return nil
+	}
+	hs := make([]Hotspot, 0, len(s.Hotspots)+len(s.Exits))
+	hs = append(hs, s.Hotspots...)
+	for _, e := range s.Exits {
+		hs = append(hs, e.hotspot(g))
+	}
+	if g.exitHotspots == nil {
+		g.exitHotspots = make(map[string][]Hotspot)
+	}
+	g.exitHotspots[name] = hs
+	return hs
+}
+func (g *Game) OnStart(a Action) *Game { g.onStart = a; return g }
 
 // ----- theme + UI conveniences ------------------------------------------
 
-func (g *Game) Theme() Theme            { return g.ThemeManager.MustGet(g.activeTheme) }
-func (g *Game) UseTheme(name string)    { g.activeTheme = name }
-func (g *Game) SelectedVerb() string    { return g.selectedVerb }
+func (g *Game) Theme() Theme             { return g.ThemeManager.MustGet(g.activeTheme) }
+func (g *Game) UseTheme(name string)     { g.activeTheme = name }
+func (g *Game) SelectedVerb() string     { return g.selectedVerb }
 func (g *Game) SetSelectedVerb(s string) { g.selectedVerb = s }
-func (g *Game) HoverLabel() string      { return g.hoverLabel }
-func (g *Game) SetHoverLabel(s string)  { g.hoverLabel = s }
+func (g *Game) HoverLabel() string       { return g.hoverLabel }
+func (g *Game) SetHoverLabel(s string)   { g.hoverLabel = s }
 
 // SetSpeech / ClearSpeech are called by the Say action; widgets render
 // whatever the current state says.
@@ -194,9 +246,9 @@ func (g *Game) HotspotAt(p Point) *Hotspot {
 	if g.currentScene == "" {
 		return nil
 	}
-	s := g.SceneManager.MustGet(g.currentScene)
-	for i := range s.Hotspots {
-		h := &s.Hotspots[i]
+	hs := g.SceneHotspots(g.currentScene)
+	for i := range hs {
+		h := &hs[i]
 		if h.Area != nil && h.Area.Contains(p) {
 			return h
 		}
@@ -266,6 +318,11 @@ func (g *Game) Validate() error {
 				return fmt.Errorf("%w: scene %q actor %q", ErrUnknownCharacter, name, a.CharacterName)
 			}
 		}
+		for _, e := range s.Exits {
+			if e.To != "" && !g.SceneManager.Has(e.To) {
+				return fmt.Errorf("%w: scene %q exit to %q", ErrUnknownScene, name, e.To)
+			}
+		}
 	}
 	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
 		return fmt.Errorf("inkwell: no active theme (got %q)", g.activeTheme)
@@ -309,6 +366,9 @@ func (g *Game) changeScene(name string) {
 	}
 	prev := g.currentScene
 	g.transition.start(func() {
+		if prev != "" && prev != name {
+			g.previousScene = prev
+		}
 		if prev != "" {
 			old := g.SceneManager.MustGet(prev)
 			if old.OnLeave != nil {

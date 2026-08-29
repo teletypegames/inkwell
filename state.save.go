@@ -15,14 +15,15 @@ const saveVersion = 1
 // runtime mutable state lands here — managers, themes and assets are
 // reconstructed by the domain's Build() on every launch.
 type saveFile struct {
-	Version      int                  `json:"version"`
-	Title        string               `json:"title"`
-	CurrentScene string               `json:"current_scene"`
-	SelectedVerb string               `json:"selected_verb"`
-	ActiveTheme  string               `json:"active_theme"`
-	Characters   map[string]savedChar `json:"characters"`
-	Inventory    savedInventory       `json:"inventory"`
-	State        savedState           `json:"state"`
+	Version       int                  `json:"version"`
+	Title         string               `json:"title"`
+	CurrentScene  string               `json:"current_scene"`
+	PreviousScene string               `json:"previous_scene"`
+	SelectedVerb  string               `json:"selected_verb"`
+	ActiveTheme   string               `json:"active_theme"`
+	Characters    map[string]savedChar `json:"characters"`
+	Inventory     savedInventory       `json:"inventory"`
+	State         savedState           `json:"state"`
 }
 
 type savedChar struct {
@@ -95,12 +96,13 @@ func (g *Game) Load(slot int) error {
 
 func (g *Game) buildSave() saveFile {
 	sf := saveFile{
-		Version:      saveVersion,
-		Title:        g.Title,
-		CurrentScene: g.currentScene,
-		SelectedVerb: g.selectedVerb,
-		ActiveTheme:  g.activeTheme,
-		Characters:   make(map[string]savedChar, len(g.chars)),
+		Version:       saveVersion,
+		Title:         g.Title,
+		CurrentScene:  g.currentScene,
+		PreviousScene: g.previousScene,
+		SelectedVerb:  g.selectedVerb,
+		ActiveTheme:   g.activeTheme,
+		Characters:    make(map[string]savedChar, len(g.chars)),
 		Inventory: savedInventory{
 			Items:    g.Inventory.Items(),
 			Selected: g.Inventory.Selected(),
@@ -142,6 +144,7 @@ func (g *Game) applySave(sf *saveFile) error {
 	g.flashTimer = 0
 
 	g.currentScene = sf.CurrentScene
+	g.previousScene = sf.PreviousScene
 	if sf.SelectedVerb != "" {
 		g.selectedVerb = sf.SelectedVerb
 	}

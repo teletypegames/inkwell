@@ -30,14 +30,15 @@ import "git.teletypegames.org/games/inkwell"
 6. [Entity reference](#6-entity-reference)
    - 6.1 [Asset](#61-asset)
    - 6.2 [Scene](#62-scene)
-   - 6.3 [Hotspot](#63-hotspot)
-   - 6.4 [Trigger](#64-trigger)
-   - 6.5 [Item](#65-item)
-   - 6.6 [Inventory](#66-inventory)
-   - 6.7 [Character](#67-character)
-   - 6.8 [Dialogue](#68-dialogue)
-   - 6.9 [Script](#69-script)
-   - 6.10 [Verb](#610-verb)
+   - 6.3 [Exit](#63-exit)
+   - 6.4 [Hotspot](#64-hotspot)
+   - 6.5 [Trigger](#65-trigger)
+   - 6.6 [Item](#66-item)
+   - 6.7 [Inventory](#67-inventory)
+   - 6.8 [Character](#68-character)
+   - 6.9 [Dialogue](#69-dialogue)
+   - 6.10 [Script](#610-script)
+   - 6.11 [Verb](#611-verb)
 7. [The action system](#7-the-action-system)
    - 7.1 [Action and Runner](#71-action-and-runner)
    - 7.2 [Status and Ctx](#72-status-and-ctx)
@@ -237,6 +238,11 @@ type Game struct {
     UIManager        *UIManager
     ThemeManager     *ThemeManager
 
+    // exits
+    SceneRect Rectangle          // the part of the window the picture occupies
+    ExitLook  func(Exit) Action  // default look response for generated exits
+    ExitTake  func(Exit) Action  // default take response for generated exits
+
     // runtime services
     State     *State
     Inventory *Inventory
@@ -330,11 +336,28 @@ func (g *Game) Messages() []LogMessage
 ### 4.6 Scene helpers
 
 ```go
+func (g *Game) CurrentScene() string
+func (g *Game) PreviousScene() string
+func (g *Game) SceneArea() Rectangle
+func (g *Game) SceneHotspots(name string) []Hotspot
+func (g *Game) HotspotAt(p Point) *Hotspot
 func (g *Game) CharacterInScene(name string) bool
 ```
 
-Used by `CharacterPanel` to auto-hide when its character isn't an actor in
-the current scene.
+`CurrentScene` is where the player is, empty before the first scene is
+entered; `PreviousScene` is the one before it, which is where
+[`Back()`](#73-built-in-actions) leads. Both survive a save.
+
+`SceneArea` is `SceneRect`, or the whole window when it was never set. It is
+what [exit strips](#63-exit) are measured against.
+
+`SceneHotspots` is everything clickable in a scene: its own `Hotspots` first,
+then one per `Exit`. Authored hotspots come first because the engine takes the
+first area that contains the click, so a painted thing beats the edge strip an
+exit sits on wherever the two overlap. The expansion is cached per scene.
+
+`CharacterInScene` is used by `CharacterPanel` to auto-hide when its character
+isn't an actor in the current scene.
 
 ### 4.7 Text drawing hook
 
@@ -428,6 +451,7 @@ type Scene struct {
     Background string         // Asset.Name
     Music      string         // Asset.Name (optional)
     Hotspots   []Hotspot
+    Exits      []Exit         // connections to other scenes
     Walkboxes  []Polygon
     Triggers   []Trigger
     Actors     []SceneActor
@@ -450,12 +474,84 @@ routes through a BFS over the polygon adjacency graph (polygons that
 share an edge are neighbours), with the midpoint of each shared edge
 used as a waypoint. Destinations outside every walkbox are clipped to
 the nearest boundary. With no walkboxes the character walks in a
-straight line — see [§6.7](#67-character) and [§15.4](#154-character-movement).
+straight line — see [§6.8](#68-character) and [§15.4](#154-character-movement).
 
 `Triggers` fire on the rising edge of their `When` condition. The
-engine samples each trigger once per idle frame; see [§6.4](#64-trigger).
+engine samples each trigger once per idle frame; see [§6.5](#65-trigger).
 
-### 6.3 Hotspot
+`Exits` are the scene's connections to other scenes, declared as data. The
+engine turns each one into a hotspot — see [§6.3](#63-exit).
+
+### 6.3 Exit
+
+```go
+// inkwell/scene.exit.go
+
+type Exit struct {
+    To      string      // target scene; empty means "back the way you came"
+    Label   string      // what the status line calls it
+    Side    ExitSide    // where it sits when Area is nil
+    Area    Shape       // overrides the edge strip Side would give it
+    Needs   string      // flag that has to be set before it opens
+    Blocked Action      // what happens while it is not
+    OnLook  Action      // overrides Game.ExitLook for this exit
+    OnTake  Action      // overrides Game.ExitTake for this exit
+}
+
+type ExitSide int
+const (
+    ExitLeft  ExitSide = iota // off the left edge
+    ExitRight                 // off the right edge
+    ExitBack                  // into the depth of the picture
+    ExitNear                  // out towards the camera
+)
+
+func ExitName(to string) string
+```
+
+A connection belongs to the scene it leads out of, so it is written in that
+scene's own literal rather than in a map kept somewhere else:
+
+```go
+Scene{
+    Name: "alley",
+    Exits: []Exit{
+        {To: "noodle_house", Label: "back out to the street", Side: ExitLeft},
+        {To: "", Label: "the fire escape", Side: ExitBack,
+         Needs: "has_ladder", Blocked: Say("paul", "Can't reach it.")},
+    },
+}
+```
+
+The engine expands each exit into a `Hotspot` with `Cursor: CursorExit`, the
+exit's `Label`, `OnUse` bound to `GoTo(To)` — or [`Back()`](#73-built-in-actions)
+when `To` is empty — and, when `Needs` is set, the whole travel wrapped in
+`If(Flag(Needs), travel, Blocked)`. The exit is visible either way: a locked
+door still says it is a door.
+
+`OnLook` and `OnTake` are usually not written per exit. `Game.ExitLook` and
+`Game.ExitTake` supply them for every exit in the game, so the phrasing lives
+in one place:
+
+```go
+g.ExitLook = func(e Exit) Action { return Say("paul", "That way: "+e.Label+".") }
+g.ExitTake = func(e Exit) Action { return Say("paul", "It's a way out, not a thing.") }
+```
+
+**Placement.** With no `Area`, an exit is a strip along one edge of the
+picture, sized as a fraction of [`Game.SceneArea()`](#46-scene-helpers) — the
+convention every 1990s point & click used, and one field to re-aim at a real
+door once the artwork is measured. A game whose HUD covers the foot of the
+window sets `Game.SceneRect`, so the strips land inside the painting instead of
+under the HUD.
+
+**The graph stays readable.** The generated hotspot is named
+`ExitName(To)` — `"exit:noodle_house"`, or `"exit:back"` — so the location
+graph can be read straight back out of the registered scenes, and
+[`Validate`](#17-validation) rejects an exit that names a scene nobody
+registered.
+
+### 6.4 Hotspot
 
 ```go
 // inkwell/scene.hotspot.go
@@ -497,7 +593,7 @@ resolves a click via `hotspot.handler(verbName)` which maps the four
 built-in verbs to their `On*` fields and falls back to `OnVerb[verbName]`
 for custom verbs.
 
-### 6.4 Trigger
+### 6.5 Trigger
 
 ```go
 // inkwell/scene.trigger.go
@@ -522,7 +618,7 @@ frame — the edge is preserved across the busy window. Save/Load resets
 trigger state to "freshly armed", matching the behaviour of scene
 re-entry.
 
-### 6.5 Item
+### 6.6 Item
 
 ```go
 // inkwell/item.def.go
@@ -545,7 +641,7 @@ hotspot with an item selected resolves the action via, in order:
 2. `item.OnUseWith[hotspot.Name]`
 3. Otherwise the engine flashes "Nem ehhez." and deselects.
 
-### 6.6 Inventory
+### 6.7 Inventory
 
 ```go
 // inkwell/item.inventory.go
@@ -564,7 +660,7 @@ func (i *Inventory) Items() []string           // copy
 Not a manager — pure runtime state owned by `Game`. Mutated by actions
 (`Give`, `TakeAway`) and by the `InventoryBar` widget on click.
 
-### 6.7 Character
+### 6.8 Character
 
 ```go
 // inkwell/actor.def.go
@@ -605,7 +701,7 @@ Movement is driven by the `Walk` action and `Game.tickCharacters` —
 stepping at `Speed` pixels/sec (default 60) along the waypoint list
 computed by [walkbox routing](#62-scene).
 
-### 6.8 Dialogue
+### 6.9 Dialogue
 
 ```go
 // inkwell/dialog.def.go
@@ -647,7 +743,7 @@ The dialog flow:
 5. `EndDialogue()` closes the conversation; `GotoNode("other")` jumps to
    another node in the same dialogue.
 
-### 6.9 Script
+### 6.10 Script
 
 ```go
 // inkwell/action.script.go
@@ -662,7 +758,7 @@ A `Script` is just a named composite action — useful when you want to
 reuse a cutscene (intro, victory, transition) from multiple call sites.
 Fire one with `RunScript("name")`.
 
-### 6.10 Verb
+### 6.11 Verb
 
 ```go
 // inkwell/ui.verb.go
@@ -749,6 +845,7 @@ type Ctx struct {
 | `Wait(seconds float64) Action`           | Block the runner for `seconds`.                                            |
 | `Say(speaker, text string) Action`       | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with text length, 1.2s floor. |
 | `GoTo(scene string) Action`              | Switch the current scene via a fade transition.                            |
+| `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character string, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
 | `Give(item string) Action`               | Add `item` to inventory.                                                   |
 | `TakeAway(item string) Action`           | Remove `item` from inventory.                                              |
@@ -1530,6 +1627,8 @@ It cross-checks:
   `Asset`.
 - Optional `Scene.Music` (if non-empty) references a registered `Asset`.
 - Every `SceneActor.CharacterName` is a registered character.
+- Every `Scene.Exit.To` names a registered scene (empty is allowed — it
+  means "back the way you came").
 - An active theme is selected and registered.
 
 Returns the first error wrapping one of the `Err...` sentinels (so callers
@@ -1551,7 +1650,7 @@ Slots are written as JSON files under `g.SaveDir` (default `saves/`,
 relative to the working directory), one file per slot named
 `slot<N>.json`. The save captures the **mutable runtime state**:
 
-- `currentScene`, the active verb, and the active theme.
+- `currentScene` and `previousScene`, the active verb, and the active theme.
 - Every character's position, target, and moving flag.
 - The full `State`: flags, vars, visited and talked counters.
 - The inventory item list plus the currently selected slot.
@@ -1675,6 +1774,7 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── scene.def.go                   # Scene, SceneActor
 ├── scene.manager.go               # SceneManager alias
 ├── scene.hotspot.go               # Hotspot, CursorKind
+├── scene.exit.go                  # Exit, ExitSide + edge-strip geometry
 ├── scene.trigger.go               # Trigger + rising-edge engine sweep
 ├── scene.path.go                  # walkbox routing (BFS over polygon adjacency)
 ├── scene.transition.go            # fade-to-black overlay (internal)

@@ -6,6 +6,7 @@ type Scene struct {
 	Background string // Asset.Name
 	Music      string // Asset.Name (optional)
 	Hotspots   []Hotspot
+	Exits      []Exit // connections to other scenes; see scene.exit.go
 	Walkboxes  []Polygon
 	Triggers   []Trigger
 	Actors     []SceneActor
