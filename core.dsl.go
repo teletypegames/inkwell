@@ -7,6 +7,10 @@ import (
 // Run validates the game, then enters the ebiten main loop. The window is
 // sized to 4× the internal resolution.
 func Run(g *Game) error {
+	// The domain may have swapped a manager in since NewGame, so the parts
+	// that hold a registry directly are wired here, not at construction.
+	g.Audio.attach(g.AssetManager)
+
 	if err := g.Validate(); err != nil {
 		return err
 	}

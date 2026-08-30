@@ -114,6 +114,10 @@ type runtimeDialog struct {
 // NewGame initializes a game with empty entity managers, the SCUMM-style
 // verb set, all preset themes, and "classic-scumm" selected. Widgets are
 // NOT auto-registered — call RegisterDefaultUI(g) explicitly.
+//
+// A domain is free to replace any of the entity managers with one of its
+// own before Run — the registries are ordinary *Manager values, and Run
+// wires the engine to whichever ones the Game holds by then.
 func NewGame(title string, w, h int) *Game {
 	g := &Game{
 		Title:            title,
@@ -138,7 +142,6 @@ func NewGame(title string, w, h int) *Game {
 		transition:       &transition{},
 		selectedVerb:     "look",
 	}
-	g.Audio.attach(g.AssetManager)
 	for _, v := range defaultVerbs() {
 		g.VerbManager.Register(v)
 	}

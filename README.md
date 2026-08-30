@@ -275,6 +275,23 @@ selects `classic-scumm` as the active theme. Widgets are **not**
 auto-registered — call `RegisterDefaultUI(g)` (or one of its siblings)
 explicitly, or let `Run` install the default set if `UIManager` is empty.
 
+The manager fields are ordinary `*Manager` values, so a domain that keeps its
+own registries can **assign them onto the Game** instead of copying every entry
+across:
+
+```go
+g := inkwell.NewGame("Real World", 640, 380)
+g.SceneManager = mySceneManager
+g.AssetManager = myAssetManager
+```
+
+Do it before `Run` — that is where the engine wires up the parts that hold a
+registry directly, so whichever managers the `*Game` carries by then are the
+ones that get used. Two of them are worth a second thought before replacing:
+`ThemeManager` arrives holding the four presets and `classic-scumm` selected,
+and `VerbManager` the four SCUMM verbs. Replacing either throws that away —
+register into them instead unless that is what you want.
+
 ### 4.2 Lifecycle hooks
 
 ```go
@@ -1517,13 +1534,15 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
 
 `Run` does, in order:
 
-1. `g.Validate()` — cross-check name references between managers.
-2. If `UIManager` is empty, call `RegisterDefaultUI(g)`.
-3. Place the start scene directly (no transition), bump
+1. `g.Audio.attach(g.AssetManager)` — wire the audio player to whichever
+   asset registry the game is carrying by now.
+2. `g.Validate()` — cross-check name references between managers.
+3. If `UIManager` is empty, call `RegisterDefaultUI(g)`.
+4. Place the start scene directly (no transition), bump
    `State.NoteVisit`, position registered actors, kick off music.
-4. Compose `Seq(scene.OnEnter, game.OnStart)` and queue it as the initial
+5. Compose `Seq(scene.OnEnter, game.OnStart)` and queue it as the initial
    action — the first script tick runs both in order.
-5. `ebiten.SetWindowSize(Width*4, Height*4)`,
+6. `ebiten.SetWindowSize(Width*4, Height*4)`,
    `ebiten.SetWindowTitle(g.Title)`, then `ebiten.RunGame(&engine{g})`.
 
 ### 15.1 `engine.Update`
