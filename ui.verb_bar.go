@@ -9,6 +9,7 @@ import (
 // VerbManager every frame so newly-registered verbs show up automatically.
 type VerbBar struct {
 	Name   string
+	When   Condition
 	Origin Point
 	Cols   int
 	Button Size
@@ -18,8 +19,9 @@ type VerbBar struct {
 	PanelBG bool
 }
 
-func (v *VerbBar) GetName() string { return v.Name }
-func (v *VerbBar) Layer() Layer    { return LayerHUD }
+func (v *VerbBar) GetName() string        { return v.Name }
+func (v *VerbBar) VisibleWhen() Condition { return v.When }
+func (v *VerbBar) Layer() Layer           { return LayerHUD }
 
 func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 	cols := v.Cols

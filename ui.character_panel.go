@@ -21,15 +21,17 @@ type CharStat struct {
 // works across scenes.
 type CharacterPanel struct {
 	Name      string
+	When      Condition
 	Bounds    Rectangle
 	Character string // Character.Name to display
 	Title     string // "PLAYER", "NPC", role badge
 	Stats     []CharStat
 }
 
-func (c *CharacterPanel) GetName() string { return c.Name }
-func (c *CharacterPanel) Layer() Layer    { return LayerHUD }
-func (c *CharacterPanel) Tick(ctx *UICtx) {}
+func (c *CharacterPanel) GetName() string        { return c.Name }
+func (c *CharacterPanel) VisibleWhen() Condition { return c.When }
+func (c *CharacterPanel) Layer() Layer           { return LayerHUD }
+func (c *CharacterPanel) Tick(ctx *UICtx)        {}
 
 func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game

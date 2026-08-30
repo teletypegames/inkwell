@@ -213,6 +213,7 @@ type sayRunner struct {
 	elapsed  float64
 	duration float64
 	started  bool
+	bubble   bool
 }
 
 func Say(speaker, text string) Action { return &sayAction{speaker: speaker, text: text} }
@@ -223,8 +224,11 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 	if !r.started {
 		r.started = true
 		// duration scales with text length, with a 1.2s floor
-		r.duration = 1.2 + float64(len(r.spec.text))*0.05
-		ctx.Game.SetSpeech(r.spec.speaker, r.spec.text)
+		r.duration = 1.2 + float64(len([]rune(r.spec.text)))*0.05
+		r.bubble = ctx.Game.VoiceOf(r.spec.speaker) == VoiceBubble
+		if r.bubble {
+			ctx.Game.SetSpeech(r.spec.speaker, r.spec.text)
+		}
 		ctx.Game.LogResponse(r.spec.speaker, r.spec.text)
 	}
 	r.elapsed += ctx.DT
@@ -233,7 +237,9 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 		r.elapsed = r.duration
 	}
 	if r.elapsed >= r.duration {
-		ctx.Game.ClearSpeech()
+		if r.bubble {
+			ctx.Game.ClearSpeech()
+		}
 		return StatusDone
 	}
 	return StatusRunning

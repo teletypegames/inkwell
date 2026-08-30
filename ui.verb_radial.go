@@ -16,6 +16,7 @@ import (
 // Both can coexist if you really want.
 type RadialVerbs struct {
 	Name    string
+	When    Condition
 	Trigger MouseButton
 	Radius  float64
 
@@ -42,8 +43,9 @@ type RadialVerbs struct {
 	pendingHotspot *Hotspot // remembered hotspot when HotspotOnly opens the coin
 }
 
-func (r *RadialVerbs) GetName() string { return r.Name }
-func (r *RadialVerbs) Layer() Layer    { return LayerMenu }
+func (r *RadialVerbs) GetName() string        { return r.Name }
+func (r *RadialVerbs) VisibleWhen() Condition { return r.When }
+func (r *RadialVerbs) Layer() Layer           { return LayerMenu }
 
 func (r *RadialVerbs) Tick(ctx *UICtx) {
 	g := ctx.Game
@@ -146,6 +148,9 @@ func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
 			continue
 		}
 		w := ctx.Game.WidgetManager.MustGet(name)
+		if !WidgetVisible(ctx.Game.makeCtx(), w) {
+			continue
+		}
 		// DialogBox advertises its bounds via clickBlocker even when no
 		// dialog is open, so the verb-coin would refuse to pop up over
 		// scenery that happens to sit under the dialog rect. Skip the
@@ -248,7 +253,7 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 		ly := r.center.Y + math.Sin(a)*labelDist
 
 		label := r.labelFor(g, name)
-		tw := textWidth(label)
+		tw := TextWidth(label)
 		col := th.VerbButtonText
 		isSelected := name == selected
 		isHover := i == hover

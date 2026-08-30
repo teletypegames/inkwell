@@ -35,6 +35,23 @@ type Game struct {
 	ExitLook func(Exit) Action
 	ExitTake func(Exit) Action
 
+	// UseWithFail supplies the response when the player uses an item on a
+	// hotspot nobody paired it with. Nil falls back to a flash line.
+	UseWithFail func(item string, h *Hotspot) Action
+
+	// Player names the character a scene gets when it lists no actors of
+	// its own, placed at that character's Start. Empty leaves such a
+	// scene unpeopled.
+	Player string
+
+	// Walkboxes is the floor a scene walks on when it declares none of
+	// its own. Nil means no routing in those scenes.
+	Walkboxes []Polygon
+
+	// WindowScale multiplies the internal resolution when Run sizes the
+	// window. 0 means 4.
+	WindowScale int
+
 	State     *State
 	Inventory *Inventory
 	Audio     *AudioPlayer
@@ -47,6 +64,7 @@ type Game struct {
 	activeTheme string
 
 	// runtime
+	queue         []Action
 	loaded        *loadedAssets
 	currentScene  string
 	previousScene string
@@ -275,13 +293,30 @@ func (g *Game) CharacterInScene(name string) bool {
 	if g.currentScene == "" {
 		return false
 	}
-	s := g.SceneManager.MustGet(g.currentScene)
-	for _, a := range s.Actors {
+	for _, a := range g.sceneActors(g.SceneManager.MustGet(g.currentScene)) {
 		if a.CharacterName == name {
 			return true
 		}
 	}
 	return false
+}
+
+// VoiceOf reports how a character reaches the player. An unregistered
+// name speaks in a bubble, which is what a bare Say always did.
+func (g *Game) VoiceOf(name string) Voice {
+	if c, ok := g.CharacterManager.Get(name); ok {
+		return c.Voice
+	}
+	return VoiceBubble
+}
+
+// CharacterLabel is what the UI should print for a character: the Label
+// if the entity carries one, the name otherwise.
+func (g *Game) CharacterLabel(name string) string {
+	if c, ok := g.CharacterManager.Get(name); ok {
+		return c.DisplayName()
+	}
+	return name
 }
 
 // DrawText is a thin wrapper that lets widgets accept a Theme-supplied color
@@ -325,7 +360,7 @@ func (g *Game) Validate() error {
 		if s.Music != "" && !g.AssetManager.Has(s.Music) {
 			return fmt.Errorf("%w: scene %q music %q", ErrUnknownAsset, name, s.Music)
 		}
-		for _, a := range s.Actors {
+		for _, a := range g.sceneActors(s) {
 			if !g.CharacterManager.Has(a.CharacterName) {
 				return fmt.Errorf("%w: scene %q actor %q", ErrUnknownCharacter, name, a.CharacterName)
 			}
@@ -340,6 +375,9 @@ func (g *Game) Validate() error {
 		if name != "" && !g.ScriptManager.Has(name) {
 			return fmt.Errorf("%w: %q", ErrUnknownScript, name)
 		}
+	}
+	if g.Player != "" && !g.CharacterManager.Has(g.Player) {
+		return fmt.Errorf("%w: player %q", ErrUnknownCharacter, g.Player)
 	}
 	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
 		return fmt.Errorf("inkwell: no active theme (got %q)", g.activeTheme)
@@ -406,9 +444,25 @@ func (g *Game) changeScene(name string) {
 	})
 }
 
+// sceneActors is the cast a scene actually shows: its own list, or the
+// player alone when the scene names nobody.
+func (g *Game) sceneActors(s Scene) []SceneActor {
+	if s.Actors != nil || g.Player == "" {
+		return s.Actors
+	}
+	def, ok := g.CharacterManager.Get(g.Player)
+	if !ok {
+		return nil
+	}
+	return []SceneActor{{
+		CharacterName: def.Name,
+		At:            def.Start,
+	}}
+}
+
 func (g *Game) placeActors(sceneName string) {
 	s := g.SceneManager.MustGet(sceneName)
-	for _, a := range s.Actors {
+	for _, a := range g.sceneActors(s) {
 		def := g.CharacterManager.MustGet(a.CharacterName)
 		rc, ok := g.chars[def.Name]
 		if !ok {
@@ -436,6 +490,9 @@ func (g *Game) walkCharacter(name string, to Point) {
 	if g.currentScene != "" {
 		s := g.SceneManager.MustGet(g.currentScene)
 		boxes = s.Walkboxes
+		if boxes == nil {
+			boxes = g.Walkboxes
+		}
 	}
 	path := pathfind(c.pos, to, boxes)
 	if len(path) == 0 {
@@ -492,17 +549,33 @@ func (g *Game) tickCharacters(dt float64) {
 
 // ----- script & dialog plumbing -----------------------------------------
 
+// Do queues an action. Queued actions run one at a time and in order —
+// the engine starts the next one on the first frame the previous one is
+// done, so a widget or a domain pump can hand work in at any moment.
+func (g *Game) Do(a Action) {
+	if a == nil {
+		return
+	}
+	g.queue = append(g.queue, a)
+}
+
 func (g *Game) queueAction(a Action, label string) {
 	if a == nil {
 		return
 	}
-	if g.scriptRunner != nil {
-		logf("queueAction: %s ignored, runner busy", label)
+	logf("queueAction %s", label)
+	g.Do(a)
+}
+
+// pumpQueue starts the next queued action when nothing else is running.
+func (g *Game) pumpQueue() {
+	if g.scriptRunner != nil || len(g.queue) == 0 {
 		return
 	}
+	a := g.queue[0]
+	g.queue = g.queue[1:]
 	g.scriptRunner = a.Start()
 	g.scriptCtx = g.makeCtx()
-	logf("queueAction %s", label)
 }
 
 func (g *Game) startDialogue(name string) {

@@ -11,13 +11,15 @@ import (
 // so nothing underneath reacts.
 type DialogBox struct {
 	Name       string
+	When       Condition
 	Bounds     Rectangle
 	LineHeight int
 	Padding    int
 }
 
-func (d *DialogBox) GetName() string { return d.Name }
-func (d *DialogBox) Layer() Layer    { return LayerDialog }
+func (d *DialogBox) GetName() string        { return d.Name }
+func (d *DialogBox) VisibleWhen() Condition { return d.When }
+func (d *DialogBox) Layer() Layer           { return LayerDialog }
 
 func (d *DialogBox) Tick(ctx *UICtx) {
 	g := ctx.Game
@@ -112,7 +114,7 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if dlg.LineIdx >= 0 && dlg.LineIdx < len(dlg.Node.Lines) {
 		ln := dlg.Node.Lines[dlg.LineIdx]
 		g.DrawText(dst, ln.Speaker+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
-		lines := wrapText(ln.Text, int(b.W)-pad*2)
+		lines := WrapText(ln.Text, int(b.W)-pad*2)
 		for i, l := range lines {
 			g.DrawText(dst, l, int(b.X)+pad, int(b.Y)+18+i*lh, th.DialogText)
 		}

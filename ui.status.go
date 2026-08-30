@@ -6,14 +6,16 @@ import "github.com/hajimehoshi/ebiten/v2"
 // by FlashLine) or the hover-hint (verb + target under the cursor).
 type StatusLine struct {
 	Name  string
+	When  Condition
 	Y     int
 	Align Align
 	// ScreenWidth, if 0, uses Game.Width.
 	ScreenWidth int
 }
 
-func (s *StatusLine) GetName() string { return s.Name }
-func (s *StatusLine) Layer() Layer    { return LayerHUD }
+func (s *StatusLine) GetName() string        { return s.Name }
+func (s *StatusLine) VisibleWhen() Condition { return s.When }
+func (s *StatusLine) Layer() Layer           { return LayerHUD }
 
 func (s *StatusLine) Tick(ctx *UICtx) {
 	g := ctx.Game
@@ -41,7 +43,7 @@ func (s *StatusLine) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if text == "" {
 		return
 	}
-	tw := textWidth(text)
+	tw := TextWidth(text)
 	var x int
 	switch s.Align {
 	case AlignLeft:

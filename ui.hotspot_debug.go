@@ -10,13 +10,15 @@ import (
 // scene. F1 toggles it at runtime; the default is off.
 type HotspotDebug struct {
 	Name    string
+	When    Condition
 	Enabled bool
 	// ToggleKey, if non-zero, overrides the default F1 toggle.
 	ToggleKey ebiten.Key
 }
 
-func (h *HotspotDebug) GetName() string { return h.Name }
-func (h *HotspotDebug) Layer() Layer    { return LayerScene }
+func (h *HotspotDebug) GetName() string        { return h.Name }
+func (h *HotspotDebug) VisibleWhen() Condition { return h.When }
+func (h *HotspotDebug) Layer() Layer           { return LayerScene }
 
 func (h *HotspotDebug) Tick(ctx *UICtx) {
 	key := h.ToggleKey

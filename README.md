@@ -250,6 +250,12 @@ type Game struct {
     ExitLook  func(Exit) Action  // default look response for generated exits
     ExitTake  func(Exit) Action  // default take response for generated exits
 
+    // domain defaults
+    UseWithFail func(item string, h *Hotspot) Action  // unauthored use-with pair
+    Player      string                                // actor a scene with none gets
+    Walkboxes   []Polygon                             // floor a scene with none walks
+    WindowScale int                                   // window = resolution × this (0 = 4)
+
     // runtime services
     State     *State
     Inventory *Inventory
@@ -400,14 +406,38 @@ exit sits on wherever the two overlap. The expansion is cached per scene.
 `CharacterInScene` is used by `CharacterPanel` to auto-hide when its character
 isn't an actor in the current scene.
 
-### 4.7 Text drawing hook
+### 4.7 Text drawing and measuring
 
 ```go
 func (g *Game) DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
+
+const GlyphW, GlyphH = 6, 16              // the built-in font's cell
+
+func TextWidth(s string) int               // pixel width, rune-counted
+func WrapText(s string, maxPx int) []string // word wrap; \n breaks where it stands
+func ClipText(s string, maxPx int) string   // cut to width, ellipsis when cut
 ```
 
-Single indirection so widgets can hand a `color.Color` today and the
-library can swap to `text/v2` later without changing call sites.
+`DrawText` renders in the colour it is given: `ebitenutil.DebugPrintAt`
+only paints white, so the glyphs go onto a reused offscreen and are
+blitted back tinted with a `ColorScale`. Every `Theme` text colour is
+therefore live, in the built-in widgets and in a domain's own.
+
+The three measuring helpers are what the built-in widgets lay out with,
+and every vertical measurement in a HUD should derive from `GlyphH`
+rather than a number that happens to look right.
+
+### 4.8 The action queue
+
+```go
+func (g *Game) Do(a Action)
+```
+
+Queues an action. Queued actions run **one at a time and in order** — the
+engine starts the next one on the first frame the previous is done, so a
+widget, a trigger and a hotspot click can all hand work in without any of
+them being dropped or racing the others. The engine's own hotspot and
+`OnEnter` actions go through the same queue.
 
 ---
 
@@ -508,9 +538,14 @@ type SceneActor struct {
 
 `OnEnter` is queued the moment the scene becomes current (after a fade-in);
 `OnLeave` runs on the transition out. `Actors` lists which registered
-characters are placed in the scene and where their feet start.
+characters are placed in the scene and where their feet start. A `nil`
+`Actors` means "the usual cast": `Game.Player` is placed at that
+character's `Start`. An empty non-nil slice means an empty scene, which is
+how a map or a menu scene opts out.
 
-`Walkboxes` constrain character movement. When non-empty, `Walk(...)`
+`Walkboxes` are the same bargain: `nil` falls back to `Game.Walkboxes`, an
+empty non-nil slice turns routing off for this scene. They constrain
+character movement. When non-empty, `Walk(...)`
 routes through a BFS over the polygon adjacency graph (polygons that
 share an edge are neighbours), with the midpoint of each shared edge
 used as a waypoint. Destinations outside every walkbox are clipped to
@@ -680,7 +715,12 @@ Items live in the `ItemManager`. When the player picks one up
 hotspot with an item selected resolves the action via, in order:
 1. `hotspot.OnUseWith[item.Name]`
 2. `item.OnUseWith[hotspot.Name]`
-3. Otherwise the engine flashes "Nem ehhez." and deselects.
+3. Otherwise `Game.UseWithFail(item, hotspot)` is asked for a response and
+   the item is deselected; with no hook set the engine flashes "Nem ehhez."
+
+`UseWithFail` is the same shape as `ExitLook` and `ExitTake`: the pair the
+author never wrote is still content, and the domain is the only one that
+knows what its characters say about it.
 
 ### 6.7 Inventory
 
@@ -708,13 +748,25 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 
 type Character struct {
     Name        string
+    Label       string                       // what the UI shows; empty = Name
     Sprite      string                       // Asset.Name (placeholder if missing)
     Animations  map[string]AnimationClip
     Speed       float64
     SpeechColor color.Color
-    Start       Point
+    Voice       Voice                        // VoiceBubble (default) or VoiceLog
+    Start       Point                        // where Game.Player stands by default
     W, H        float64                      // size hint for placeholder
 }
+
+type Voice int
+const (
+    VoiceBubble Voice = iota  // speech bubble over the scene, plus the log
+    VoiceLog                  // the log alone
+)
+
+func (c Character) DisplayName() string  // Label, or Name
+func (g *Game) CharacterLabel(name string) string
+func (g *Game) VoiceOf(name string) Voice
 
 type AnimationClip struct {
     Frames    []Rectangle
@@ -722,6 +774,14 @@ type AnimationClip struct {
     Loop      bool
 }
 ```
+
+`Voice` is where a character reaches the player, and `Say` obeys it: a
+`VoiceLog` character — a radio, a tape, a narrator with no body to speak
+from — gets the log line without the bubble. A domain never needs a
+second spelling of `Say` for that.
+
+`Label` is what a HUD prints: a code name, a title, a shout. `Start` is
+where `Game.Player` is placed in a scene that lists no actors of its own.
 
 When no real sprite is on disk, `drawCharacter` falls back to a stylised
 placeholder: humanoid if `W < H`, quadruped otherwise. `SpeechColor` (if
@@ -1036,6 +1096,12 @@ type Layered interface {
 
 func LayerOf(w Widget) Layer  // Layered, else LayerHUD
 
+type Gated interface {
+    VisibleWhen() Condition
+}
+
+func WidgetVisible(ctx *Ctx, w Widget) bool  // Gated with a false condition = off
+
 type UICtx struct {
     Game *Game
     DT   float64
@@ -1077,9 +1143,25 @@ their own `Bounds` (or compute them dynamically, like `RadialVerbs`).
 - Layers are what let a domain register its widgets **one file at a time** —
   an `init()` per widget, in whatever order the file names happen to fall —
   without the HUD coming out shuffled.
-- A wrapper widget that forwards to an inner one — a visibility gate, say —
-  should return `LayerOf(inner)` from its own `Layer`, so that wrapping does
-  not move the widget.
+- A wrapper widget that forwards to an inner one should return
+  `LayerOf(inner)` from its own `Layer`, so that wrapping does not move the
+  widget.
+
+Every built-in widget also carries a `When Condition`. A widget whose
+condition evaluates false neither ticks nor draws nor blocks a click, so a
+HUD is hidden for a cutscene by saying so on the widgets rather than by
+unregistering them or wrapping each one:
+
+```go
+g.WidgetManager.Register(&inkwell.InventoryBar{
+    Name: "inventory",
+    When: inkwell.VarEq("mode", "play"),
+})
+```
+
+A domain widget joins in by implementing `VisibleWhen() Condition`; one
+that does not implement it is always live, which is what a bare widget
+always did.
 
 After all widgets ticked, the engine offers the (possibly consumed) click
 to `handleSceneInput`, which is where hotspot interactions live. If a
@@ -1266,7 +1348,9 @@ type HotspotDebug struct {
 
 A horizontal strip across the top with three sections:
 
-- **Left:** `LeftText` override or `Scene.Title` (falling back to `Name`).
+- **Left:** `LeftText` override or `Scene.Title` (falling back to `Name`),
+  plus `State.Var(NoteVar)` after an em dash when that var holds anything —
+  `"ALLEY — paused"`.
 - **Center:** score string built from `State.Var(ScoreVar)`. With
   `ScoreMax > 0`, formatted as `"Score: X/MAX"`, else `"Score: X"`.
 - **Right:** time string from `State.Var(TimeVar)`.
@@ -1274,16 +1358,36 @@ A horizontal strip across the top with three sections:
 ```go
 type TopBar struct {
     Name     string
+    When     Condition
     Height   int                  // default 12
     LeftText string                // overrides scene title
     ScoreVar string                // State.Var key; "" = no score
     ScoreMax int
     TimeVar  string                // State.Var key; "" = no time
+    NoteVar  string                // State.Var key; appended to the left text
 }
 ```
 
+The title needs no wiring: a domain that wants "the current scene, and
+whatever the game is doing to it" sets `NoteVar` and writes that var.
+
 Empty fields are skipped, so the widget gracefully degrades to two- or
 one-section layouts.
+
+#### `SceneNav` (`ui.scene_nav.go`)
+
+A development aid: left and right arrow keys step through the registered
+scenes in registration order, wrapping at both ends. Draws nothing.
+
+```go
+type SceneNav struct {
+    Name string
+    When Condition
+}
+```
+
+Gate it with `When` — or leave it unregistered — when a build should not
+let the player walk the catalogue.
 
 #### `CharacterPanel` (`ui.character_panel.go`)
 
@@ -1587,14 +1691,16 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
    `State.NoteVisit`, position registered actors, kick off music.
 5. Compose `Seq(scene.OnEnter, OnStart script, OnFinale script)` and queue
    it as the initial action — the first script tick runs them in order.
-6. `ebiten.SetWindowSize(Width*4, Height*4)`,
-   `ebiten.SetWindowTitle(g.Title)`, then `ebiten.RunGame(&engine{g})`.
+6. `ebiten.SetWindowSize(Width*WindowScale, Height*WindowScale)` (4 when
+   unset), `ebiten.SetWindowTitle(g.Title)`, then
+   `ebiten.RunGame(&engine{g})`.
 
 ### 15.1 `engine.Update`
 
 ```
 poll input
 update transition
+pump the action queue      // start the next Do() when nothing is running
 if transition fading out → return
 
 if scriptRunner != nil:
@@ -1604,6 +1710,7 @@ if scriptRunner != nil:
 
 clear hoverLabel
 for w in WidgetManager, top layer down:
+    if not WidgetVisible(w): continue
     w.Tick(uictx)        // widgets consume input top-down
 
 handleSceneInput()       // hotspot resolution + right-click reset
@@ -1618,6 +1725,7 @@ draw scene background image
 for c in characters sorted by Y:
     drawCharacter(c)
 for w in WidgetManager (by layer, then registration order):
+    if not WidgetVisible(w): continue
     w.Draw(screen, uictx)
 draw transition overlay
 ```
@@ -1631,7 +1739,8 @@ Runs only after every widget had a chance. The flow:
    `selectedVerb` to `"look"`.
 3. On left-click:
    - If an item is selected, try `hotspot.OnUseWith[item]`, then
-     `item.OnUseWith[hotspot]`. Fail with a "Nem ehhez." flash.
+     `item.OnUseWith[hotspot]`, then `Game.UseWithFail`, and only then a
+     "Nem ehhez." flash.
    - Otherwise look up `hotspot.handler(selectedVerb)`. Fall back to the
      verb's `Default` action. Fail with "Semmi említésre méltó."
 4. On every successful click, push a `LogAction` line so the `ChatLog`
@@ -1872,7 +1981,8 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 │
 ├── input.def.go                   # Input (consume-on-use)
 │
-├── ui.widget.go                   # Widget interface, Layer, UICtx, Size, Align
+├── ui.scene_nav.go                # SceneNav widget (dev)
+├── ui.widget.go                   # Widget interface, Layer, Gated, UICtx, Size, Align
 ├── ui.manager.go                  # WidgetManager alias + layer-ordered iterators
 ├── ui.theme.go                    # Theme + ThemeManager
 ├── ui.theme_presets.go            # 4 preset themes

@@ -5,7 +5,7 @@ import (
 )
 
 // Run validates the game, then enters the ebiten main loop. The window is
-// sized to 4× the internal resolution.
+// sized to Game.WindowScale times the internal resolution, 4× by default.
 func Run(g *Game) error {
 	// The domain may have swapped a manager in since NewGame, so the parts
 	// that hold a registry directly are wired here, not at construction.
@@ -44,7 +44,11 @@ func Run(g *Game) error {
 		g.queueAction(Seq(seq...), "init")
 	}
 
-	ebiten.SetWindowSize(g.Width*4, g.Height*4)
+	scale := g.WindowScale
+	if scale <= 0 {
+		scale = 4
+	}
+	ebiten.SetWindowSize(g.Width*scale, g.Height*scale)
 	ebiten.SetWindowTitle(g.Title)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	return ebiten.RunGame(&engine{g: g})

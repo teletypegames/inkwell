@@ -12,6 +12,7 @@ import (
 // string on the right. Empty fields are skipped.
 type TopBar struct {
 	Name   string
+	When   Condition
 	Height int
 
 	// LeftText overrides the auto-discovered scene Title/Name.
@@ -24,11 +25,17 @@ type TopBar struct {
 	// TimeVar is a State Var key whose value is printed at the right
 	// edge (e.g. "Day 2 - 14:32"); empty = nothing on the right.
 	TimeVar string
+
+	// NoteVar is a State Var key whose value is appended to the left
+	// text after an em dash — "ALLEY — paused". Empty or unset = no
+	// note, and the title stands alone.
+	NoteVar string
 }
 
-func (t *TopBar) GetName() string { return t.Name }
-func (t *TopBar) Layer() Layer    { return LayerHUD }
-func (t *TopBar) Tick(ctx *UICtx) {}
+func (t *TopBar) GetName() string        { return t.Name }
+func (t *TopBar) VisibleWhen() Condition { return t.When }
+func (t *TopBar) Layer() Layer           { return LayerHUD }
+func (t *TopBar) Tick(ctx *UICtx)        {}
 
 func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game
@@ -48,6 +55,11 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 			left = s.Name
 		}
 	}
+	if t.NoteVar != "" {
+		if note := fmt.Sprint(g.State.Var(t.NoteVar)); note != "" && note != "<nil>" {
+			left += " — " + note
+		}
+	}
 	if left != "" {
 		g.DrawText(dst, left, 4, -1, th.TopBarText)
 	}
@@ -60,13 +72,13 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 		} else {
 			sc = fmt.Sprintf("Score: %v", v)
 		}
-		x := (g.Width - textWidth(sc)) / 2
+		x := (g.Width - TextWidth(sc)) / 2
 		g.DrawText(dst, sc, x, -1, th.TopBarAccent)
 	}
 
 	if t.TimeVar != "" {
 		tm := fmt.Sprint(g.State.Var(t.TimeVar))
-		x := g.Width - textWidth(tm) - 4
+		x := g.Width - TextWidth(tm) - 4
 		g.DrawText(dst, tm, x, -1, th.TopBarText)
 	}
 }

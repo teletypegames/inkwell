@@ -10,11 +10,13 @@ import (
 // default crosshair. Registered last so it draws on top.
 type Cursor struct {
 	Name string
+	When Condition
 }
 
-func (c *Cursor) GetName() string { return c.Name }
-func (c *Cursor) Layer() Layer    { return LayerCursor }
-func (c *Cursor) Tick(ctx *UICtx) {}
+func (c *Cursor) GetName() string        { return c.Name }
+func (c *Cursor) VisibleWhen() Condition { return c.When }
+func (c *Cursor) Layer() Layer           { return LayerCursor }
+func (c *Cursor) Tick(ctx *UICtx)        {}
 
 func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game

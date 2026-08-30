@@ -54,6 +54,25 @@ type Layered interface {
 	Layer() Layer
 }
 
+// Gated is implemented by a widget that can be switched off by game
+// state — every built-in is, through its When field. A widget that does
+// not implement it, or whose condition is nil, is always live.
+type Gated interface {
+	VisibleWhen() Condition
+}
+
+// WidgetVisible reports whether a widget takes part in this frame at all.
+// A widget switched off neither ticks nor draws, and does not block a
+// click, so a HUD can be hidden for a cutscene without unregistering it.
+func WidgetVisible(ctx *Ctx, w Widget) bool {
+	g, ok := w.(Gated)
+	if !ok {
+		return true
+	}
+	c := g.VisibleWhen()
+	return c == nil || c.Eval(ctx)
+}
+
 // LayerOf reports the layer a widget paints on. A wrapper widget that
 // forwards to an inner one — a visibility gate, say — should return
 // LayerOf(inner) so that wrapping does not move the widget.

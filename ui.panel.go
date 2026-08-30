@@ -11,6 +11,7 @@ import (
 // backdrop for grouping other widgets or as a chat/notebook frame.
 type Panel struct {
 	Name   string
+	When   Condition
 	Bounds Rectangle
 	// BG, if nil, falls back to the active Theme.PanelBG.
 	BG color.Color
@@ -20,9 +21,10 @@ type Panel struct {
 	BorderColor color.Color
 }
 
-func (p *Panel) GetName() string { return p.Name }
-func (p *Panel) Layer() Layer    { return LayerPanel }
-func (p *Panel) Tick(ctx *UICtx) {}
+func (p *Panel) GetName() string        { return p.Name }
+func (p *Panel) VisibleWhen() Condition { return p.When }
+func (p *Panel) Layer() Layer           { return LayerPanel }
+func (p *Panel) Tick(ctx *UICtx)        {}
 
 func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	bg := p.BG

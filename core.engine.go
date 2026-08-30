@@ -25,6 +25,7 @@ func (e *engine) Update() error {
 
 	g.Input.poll()
 	g.transition.update(dt)
+	g.pumpQueue()
 
 	if g.transition.active && g.transition.out {
 		return nil
@@ -58,10 +59,14 @@ func (e *engine) Update() error {
 	// race a cutscene that's about to start.
 	g.tickTriggers()
 
-	// Top-down input: the widget drawn last (= registered last) gets the
-	// click first, then the next-to-last, etc. A widget signals "I took it"
+	// Top-down input: the widget on the highest layer gets the click
+	// first, then the one below it, etc. A widget signals "I took it"
 	// via g.Input.ConsumeLeft / ConsumeRight.
+	cctx := g.makeCtx()
 	for _, w := range reversedWidgets(g.WidgetManager) {
+		if !WidgetVisible(cctx, w) {
+			continue
+		}
 		w.Tick(uictx)
 	}
 
@@ -135,7 +140,12 @@ func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
 				return
 			}
 		}
-		g.FlashLine("Nem ehhez.")
+		if g.UseWithFail != nil {
+			g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
+			g.queueAction(g.UseWithFail(sel, h), "useWith fail")
+		} else {
+			g.FlashLine("Nem ehhez.")
+		}
 		g.Inventory.Select("")
 		return
 	}
@@ -190,9 +200,13 @@ func (e *engine) Draw(screen *ebiten.Image) {
 		drawCharacter(screen, g, c)
 	}
 
-	// widgets in registration order
+	// widgets from the bottom layer up
 	uictx := &UICtx{Game: g, DT: 1.0 / 60.0}
+	cctx := g.makeCtx()
 	for _, w := range orderedWidgets(g.WidgetManager) {
+		if !WidgetVisible(cctx, w) {
+			continue
+		}
 		w.Draw(screen, uictx)
 	}
 

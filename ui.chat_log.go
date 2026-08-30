@@ -12,6 +12,7 @@ import (
 // messages scroll up out of view as the buffer fills.
 type ChatLog struct {
 	Name       string
+	When       Condition
 	Bounds     Rectangle
 	LineHeight int
 	Padding    int
@@ -19,9 +20,10 @@ type ChatLog struct {
 	ShowBorder bool
 }
 
-func (c *ChatLog) GetName() string { return c.Name }
-func (c *ChatLog) Layer() Layer    { return LayerHUD }
-func (c *ChatLog) Tick(ctx *UICtx) {}
+func (c *ChatLog) GetName() string        { return c.Name }
+func (c *ChatLog) VisibleWhen() Condition { return c.When }
+func (c *ChatLog) Layer() Layer           { return LayerHUD }
+func (c *ChatLog) Tick(ctx *UICtx)        {}
 
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game
@@ -71,7 +73,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 		if m.Kind == LogResponse && m.Speaker != "" {
 			txt = m.Speaker + ": " + m.Text
 		}
-		for _, w := range wrapText(txt, wrapW) {
+		for _, w := range WrapText(txt, wrapW) {
 			rendered = append(rendered, line{text: w, col: col})
 		}
 	}

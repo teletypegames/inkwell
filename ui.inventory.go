@@ -10,6 +10,7 @@ import (
 // other verb, it toggles selection (the cursor "picks up" the item).
 type InventoryBar struct {
 	Name     string
+	When     Condition
 	Origin   Point
 	Slots    int
 	Cols     int
@@ -19,8 +20,9 @@ type InventoryBar struct {
 	PanelBG bool
 }
 
-func (b *InventoryBar) GetName() string { return b.Name }
-func (b *InventoryBar) Layer() Layer    { return LayerHUD }
+func (b *InventoryBar) GetName() string        { return b.Name }
+func (b *InventoryBar) VisibleWhen() Condition { return b.When }
+func (b *InventoryBar) Layer() Layer           { return LayerHUD }
 
 func (b *InventoryBar) slotRect(idx int) Rectangle {
 	cols := b.Cols

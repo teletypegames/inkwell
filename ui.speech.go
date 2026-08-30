@@ -11,15 +11,17 @@ import (
 // character (or at FallbackY if the speaker has no on-screen position).
 type SpeechBubble struct {
 	Name      string
+	When      Condition
 	MaxWidth  int
 	Padding   int
 	OffsetY   int
 	FallbackY int
 }
 
-func (s *SpeechBubble) GetName() string { return s.Name }
-func (s *SpeechBubble) Layer() Layer    { return LayerSpeech }
-func (s *SpeechBubble) Tick(ctx *UICtx) {}
+func (s *SpeechBubble) GetName() string        { return s.Name }
+func (s *SpeechBubble) VisibleWhen() Condition { return s.When }
+func (s *SpeechBubble) Layer() Layer           { return LayerSpeech }
+func (s *SpeechBubble) Tick(ctx *UICtx)        {}
 
 func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game
@@ -35,10 +37,10 @@ func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if pad <= 0 {
 		pad = 3
 	}
-	lines := wrapText(sp.Text, maxW)
+	lines := WrapText(sp.Text, maxW)
 	w := 0
 	for _, ln := range lines {
-		if t := textWidth(ln); t > w {
+		if t := TextWidth(ln); t > w {
 			w = t
 		}
 	}

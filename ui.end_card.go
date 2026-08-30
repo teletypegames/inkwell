@@ -9,10 +9,12 @@ import (
 // While active it consumes every input so nothing underneath reacts.
 type EndCard struct {
 	Name string
+	When Condition
 }
 
-func (e *EndCard) GetName() string { return e.Name }
-func (e *EndCard) Layer() Layer    { return LayerCurtain }
+func (e *EndCard) GetName() string        { return e.Name }
+func (e *EndCard) VisibleWhen() Condition { return e.When }
+func (e *EndCard) Layer() Layer           { return LayerCurtain }
 
 func (e *EndCard) Tick(ctx *UICtx) {
 	if ctx.Game.endCard == "" {
@@ -34,6 +36,6 @@ func (e *EndCard) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 	th := g.Theme()
 	vector.DrawFilledRect(dst, 0, 0, float32(g.Width), float32(g.Height), th.EndCardBG, false)
-	w := textWidth(g.endCard)
+	w := TextWidth(g.endCard)
 	g.DrawText(dst, g.endCard, (g.Width-w)/2, g.Height/2-8, th.EndCardText)
 }
