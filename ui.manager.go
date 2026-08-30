@@ -7,20 +7,13 @@ type UIManager = Manager[Widget]
 // order — used by the engine for top-down input dispatch (the widget
 // drawn on top gets the click first).
 func reversedWidgets(m *UIManager) []Widget {
-	names := m.Names()
-	out := make([]Widget, len(names))
-	for i, n := range names {
-		out[len(names)-1-i] = m.MustGet(n)
+	all := m.All()
+	out := make([]Widget, len(all))
+	for i, w := range all {
+		out[len(all)-1-i] = w
 	}
 	return out
 }
 
 // orderedWidgets iterates in registration order — bottom-up draw.
-func orderedWidgets(m *UIManager) []Widget {
-	names := m.Names()
-	out := make([]Widget, len(names))
-	for i, n := range names {
-		out[i] = m.MustGet(n)
-	}
-	return out
-}
+func orderedWidgets(m *UIManager) []Widget { return m.All() }

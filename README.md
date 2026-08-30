@@ -189,11 +189,13 @@ type ThemeManager      = Manager[Theme]
 | Method                 | Behaviour                                                  |
 |------------------------|------------------------------------------------------------|
 | `Register(v T)`        | Adds `v` to the registry. Panics on empty or duplicate `Name`. |
+| `Set(v T)`             | Replaces an entry in place, keeping its position; registers it when the name is new. |
 | `Get(name) (T, bool)`  | Looks up by name. The boolean is `false` if absent.        |
 | `MustGet(name) T`      | Same as `Get`, but panics on missing names.                |
 | `Has(name) bool`       | True if the name is registered.                            |
 | `Len() int`            | Number of registered entries.                              |
 | `Names() []string`     | Returns names in **insertion order** (used for widget Z-order). |
+| `All() []T`            | Returns every entry in **insertion order**.                |
 | `SortedNames() []string` | Returns names alphabetically.                            |
 | `Each(fn func(T))`     | Iterates in insertion order.                               |
 | `Remove(name string)`  | Drops a registration; silent no-op if unknown.             |
@@ -215,6 +217,11 @@ A duplicate registration is a construction-time bug — code that ran once
 on startup. Crashing loudly during `Build()` surfaces the problem in
 development; quietly accepting the second registration would silently mask
 shadowed entities at runtime.
+
+When a registration genuinely has to be rewritten — a derived field filled in
+after the fact, a hot-reloaded entity — `Set` is the deliberate overwrite. It
+keeps the entry's place in the insertion order, so widget Z-order and any other
+order-sensitive iteration survive the rewrite.
 
 ---
 

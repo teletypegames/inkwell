@@ -33,6 +33,18 @@ func (m *Manager[T]) Register(v T) {
 	m.order = append(m.order, name)
 }
 
+// Set replaces a registered entry in place, keeping its position in the
+// registration order, and registers the entry when the name is new. Register
+// panics on a duplicate; Set is the deliberate overwrite.
+func (m *Manager[T]) Set(v T) {
+	name := v.GetName()
+	if _, ok := m.items[name]; !ok {
+		m.Register(v)
+		return
+	}
+	m.items[name] = v
+}
+
 func (m *Manager[T]) Get(name string) (T, bool) {
 	v, ok := m.items[name]
 	return v, ok
@@ -57,6 +69,15 @@ func (m *Manager[T]) Len() int { return len(m.items) }
 // when iteration order needs to be stable across runs.
 func (m *Manager[T]) Names() []string {
 	return append([]string(nil), m.order...)
+}
+
+// All returns every registered entry in insertion order.
+func (m *Manager[T]) All() []T {
+	out := make([]T, len(m.order))
+	for i, n := range m.order {
+		out[i] = m.items[n]
+	}
+	return out
 }
 
 func (m *Manager[T]) SortedNames() []string {
