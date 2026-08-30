@@ -21,7 +21,7 @@ type Game struct {
 	ScriptManager    *ScriptManager
 	AssetManager     *AssetManager
 	VerbManager      *VerbManager
-	UIManager        *UIManager
+	WidgetManager    *WidgetManager
 	ThemeManager     *ThemeManager
 
 	// SceneRect is the part of the window the picture occupies. Zero means
@@ -131,7 +131,7 @@ func NewGame(title string, w, h int) *Game {
 		ScriptManager:    NewManager[Script](),
 		AssetManager:     NewManager[Asset](),
 		VerbManager:      NewManager[Verb](),
-		UIManager:        NewManager[Widget](),
+		WidgetManager:    NewManager[Widget](),
 		ThemeManager:     NewManager[Theme](),
 		State:            NewState(),
 		Inventory:        NewInventory(),

@@ -1,20 +1,20 @@
 package inkwell
 
-// RegisterDefaultUI installs the SCUMM-style HUD widgets into g.UIManager
+// RegisterDefaultUI installs the SCUMM-style HUD widgets into g.WidgetManager
 // in the conventional Z-order (HotspotDebug at the back, Cursor on top).
 // Domains that want a different layout call this and then either tweak
 // the registered widgets in place or replace them entirely.
 //
 // Layout assumes the default 320×200 internal resolution.
 func RegisterDefaultUI(g *Game) {
-	g.UIManager.Register(&HotspotDebug{Name: "hotspot_debug"})
-	g.UIManager.Register(&VerbBar{
+	g.WidgetManager.Register(&HotspotDebug{Name: "hotspot_debug"})
+	g.WidgetManager.Register(&VerbBar{
 		Name:   "verbs",
 		Origin: Point{X: 4, Y: 152},
 		Cols:   2,
 		Button: Size{W: 60, H: 14},
 	})
-	g.UIManager.Register(&InventoryBar{
+	g.WidgetManager.Register(&InventoryBar{
 		Name:     "inventory",
 		Origin:   Point{X: 132, Y: 152},
 		Slots:    8,
@@ -22,11 +22,11 @@ func RegisterDefaultUI(g *Game) {
 		SlotSize: 22,
 		Gap:      2,
 	})
-	g.UIManager.Register(&StatusLine{Name: "status", Y: 142, Align: AlignCenter})
-	g.UIManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 14})
-	g.UIManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
-	g.UIManager.Register(&EndCard{Name: "endcard"})
-	g.UIManager.Register(&Cursor{Name: "cursor"})
+	g.WidgetManager.Register(&StatusLine{Name: "status", Y: 142, Align: AlignCenter})
+	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 14})
+	g.WidgetManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
+	g.WidgetManager.Register(&EndCard{Name: "endcard"})
+	g.WidgetManager.Register(&Cursor{Name: "cursor"})
 }
 
 // RegisterRichUI installs a "story-rich" HUD that matches the layout of
@@ -39,15 +39,15 @@ func RegisterDefaultUI(g *Game) {
 // PlayerName / NPCName correspond to registered characters. Pass "" for
 // NPCName to skip the NPC panel.
 func RegisterRichUI(g *Game, playerName, npcName string) {
-	g.UIManager.Register(&TopBar{
+	g.WidgetManager.Register(&TopBar{
 		Name:     "topbar",
 		Height:   12,
 		ScoreVar: "score", ScoreMax: 100,
 		TimeVar: "time",
 	})
-	g.UIManager.Register(&HotspotDebug{Name: "hotspot_debug"})
+	g.WidgetManager.Register(&HotspotDebug{Name: "hotspot_debug"})
 	if playerName != "" {
-		g.UIManager.Register(&CharacterPanel{
+		g.WidgetManager.Register(&CharacterPanel{
 			Name:      "panel_player",
 			Bounds:    Rect(2, 14, 92, 36),
 			Character: playerName,
@@ -59,7 +59,7 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 		})
 	}
 	if npcName != "" {
-		g.UIManager.Register(&CharacterPanel{
+		g.WidgetManager.Register(&CharacterPanel{
 			Name:      "panel_npc",
 			Bounds:    Rect(180, 14, 92, 36),
 			Character: npcName,
@@ -70,7 +70,7 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 			},
 		})
 	}
-	g.UIManager.Register(&InventoryBar{
+	g.WidgetManager.Register(&InventoryBar{
 		Name:     "inventory",
 		Origin:   Point{X: 4, Y: 188},
 		Slots:    8,
@@ -78,14 +78,14 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 		SlotSize: 10,
 		Gap:      1,
 	})
-	g.UIManager.Register(&ChatLog{
+	g.WidgetManager.Register(&ChatLog{
 		Name:       "chat",
 		Bounds:     Rect(2, 148, 280, 38),
 		LineHeight: 9,
 		Padding:    3,
 		ShowBorder: true,
 	})
-	g.UIManager.Register(&RadialVerbs{
+	g.WidgetManager.Register(&RadialVerbs{
 		Name:          "verbs",
 		AlwaysVisible: true,
 		Center:        Point{X: 282, Y: 90},
@@ -97,18 +97,18 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 			"take": "Vedd",
 		},
 	})
-	g.UIManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 18})
-	g.UIManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 90, float64(g.Width), 56), LineHeight: 12, Padding: 6})
-	g.UIManager.Register(&EndCard{Name: "endcard"})
-	g.UIManager.Register(&Cursor{Name: "cursor"})
+	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 18})
+	g.WidgetManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 90, float64(g.Width), 56), LineHeight: 12, Padding: 6})
+	g.WidgetManager.Register(&EndCard{Name: "endcard"})
+	g.WidgetManager.Register(&Cursor{Name: "cursor"})
 }
 
 // RegisterRadialVerbUI installs an alternative HUD that swaps the
 // permanent verb-bar for a verb-coin (right-click radial menu). Inventory,
 // dialog, speech and cursor stay the same.
 func RegisterRadialVerbUI(g *Game) {
-	g.UIManager.Register(&HotspotDebug{Name: "hotspot_debug"})
-	g.UIManager.Register(&InventoryBar{
+	g.WidgetManager.Register(&HotspotDebug{Name: "hotspot_debug"})
+	g.WidgetManager.Register(&InventoryBar{
 		Name:     "inventory",
 		Origin:   Point{X: 4, Y: 178},
 		Slots:    14,
@@ -116,10 +116,10 @@ func RegisterRadialVerbUI(g *Game) {
 		SlotSize: 22,
 		Gap:      0,
 	})
-	g.UIManager.Register(&StatusLine{Name: "status", Y: 168, Align: AlignCenter})
-	g.UIManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 14})
-	g.UIManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
-	g.UIManager.Register(&RadialVerbs{Name: "verbs", Trigger: MouseButtonRight, Radius: 40})
-	g.UIManager.Register(&EndCard{Name: "endcard"})
-	g.UIManager.Register(&Cursor{Name: "cursor"})
+	g.WidgetManager.Register(&StatusLine{Name: "status", Y: 168, Align: AlignCenter})
+	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 14})
+	g.WidgetManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
+	g.WidgetManager.Register(&RadialVerbs{Name: "verbs", Trigger: MouseButtonRight, Radius: 40})
+	g.WidgetManager.Register(&EndCard{Name: "endcard"})
+	g.WidgetManager.Register(&Cursor{Name: "cursor"})
 }

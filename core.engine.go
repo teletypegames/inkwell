@@ -61,7 +61,7 @@ func (e *engine) Update() error {
 	// Top-down input: the widget drawn last (= registered last) gets the
 	// click first, then the next-to-last, etc. A widget signals "I took it"
 	// via g.Input.ConsumeLeft / ConsumeRight.
-	for _, w := range reversedWidgets(g.UIManager) {
+	for _, w := range reversedWidgets(g.WidgetManager) {
 		w.Tick(uictx)
 	}
 
@@ -192,7 +192,7 @@ func (e *engine) Draw(screen *ebiten.Image) {
 
 	// widgets in registration order
 	uictx := &UICtx{Game: g, DT: 1.0 / 60.0}
-	for _, w := range orderedWidgets(g.UIManager) {
+	for _, w := range orderedWidgets(g.WidgetManager) {
 		w.Draw(screen, uictx)
 	}
 

@@ -16,7 +16,7 @@ func Run(g *Game) error {
 	}
 	// If the domain didn't register any widgets, fall back to the SCUMM
 	// preset so the game is still playable.
-	if g.UIManager.Len() == 0 {
+	if g.WidgetManager.Len() == 0 {
 		RegisterDefaultUI(g)
 	}
 

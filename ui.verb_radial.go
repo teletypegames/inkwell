@@ -140,11 +140,11 @@ func (r *RadialVerbs) consumeTrigger(g *Game) {
 // whether its area covers the cursor — so the radial menu doesn't open
 // over an InventoryBar that would also want this click.
 func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
-	for _, name := range ctx.Game.UIManager.Names() {
+	for _, name := range ctx.Game.WidgetManager.Names() {
 		if name == r.Name {
 			continue
 		}
-		w := ctx.Game.UIManager.MustGet(name)
+		w := ctx.Game.WidgetManager.MustGet(name)
 		// DialogBox advertises its bounds via clickBlocker even when no
 		// dialog is open, so the verb-coin would refuse to pop up over
 		// scenery that happens to sit under the dialog rect. Skip the

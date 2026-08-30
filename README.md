@@ -180,7 +180,7 @@ type DialogueManager   = Manager[Dialogue]
 type ScriptManager     = Manager[Script]
 type AssetManager      = Manager[Asset]
 type VerbManager       = Manager[Verb]
-type UIManager         = Manager[Widget]
+type WidgetManager     = Manager[Widget]
 type ThemeManager      = Manager[Theme]
 ```
 
@@ -242,7 +242,7 @@ type Game struct {
     ScriptManager    *ScriptManager
     AssetManager     *AssetManager
     VerbManager      *VerbManager
-    UIManager        *UIManager
+    WidgetManager    *WidgetManager
     ThemeManager     *ThemeManager
 
     // exits
@@ -273,7 +273,7 @@ Initialises every manager (empty), registers the default SCUMM verb set
 (`look`, `use`, `talk`, `take`), installs all four preset themes, and
 selects `classic-scumm` as the active theme. Widgets are **not**
 auto-registered — call `RegisterDefaultUI(g)` (or one of its siblings)
-explicitly, or let `Run` install the default set if `UIManager` is empty.
+explicitly, or let `Run` install the default set if `WidgetManager` is empty.
 
 The manager fields are ordinary `*Manager` values, so a domain that keeps its
 own registries can **assign them onto the Game** instead of copying every entry
@@ -1002,7 +1002,7 @@ could be used by triggers once those land.
 
 ## 10. The widget system
 
-The HUD is a tree of `Widget`s, each registered into `g.UIManager`. The
+The HUD is a tree of `Widget`s, each registered into `g.WidgetManager`. The
 library ships built-in widgets for every classic adventure UI piece;
 domain code can register arbitrary new ones — chat panels, minimaps,
 hotbars — without touching the library.
@@ -1352,7 +1352,7 @@ func (m *Minimap) Draw(dst *ebiten.Image, ctx *inkwell.UICtx) {
     // ... render scene thumbnail, mark NPCs, etc.
 }
 
-g.UIManager.Register(&Minimap{
+g.WidgetManager.Register(&Minimap{
     Name:   "minimap",
     Bounds: inkwell.Rect(220, 4, 96, 56),
 })
@@ -1554,7 +1554,7 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
 1. `g.Audio.attach(g.AssetManager)` — wire the audio player to whichever
    asset registry the game is carrying by now.
 2. `g.Validate()` — cross-check name references between managers.
-3. If `UIManager` is empty, call `RegisterDefaultUI(g)`.
+3. If `WidgetManager` is empty, call `RegisterDefaultUI(g)`.
 4. Place the start scene directly (no transition), bump
    `State.NoteVisit`, position registered actors, kick off music.
 5. Compose `Seq(scene.OnEnter, OnStart script, OnFinale script)` and queue
@@ -1575,7 +1575,7 @@ if scriptRunner != nil:
     return
 
 clear hoverLabel
-for w in reversed(UIManager):
+for w in reversed(WidgetManager):
     w.Tick(uictx)        // widgets consume input top-down
 
 handleSceneInput()       // hotspot resolution + right-click reset
@@ -1589,7 +1589,7 @@ fill Theme.SceneBackdrop (if any)
 draw scene background image
 for c in characters sorted by Y:
     drawCharacter(c)
-for w in UIManager (registration order):
+for w in WidgetManager (registration order):
     w.Draw(screen, uictx)
 draw transition overlay
 ```
@@ -1845,7 +1845,7 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── input.def.go                   # Input (consume-on-use)
 │
 ├── ui.widget.go                   # Widget interface, UICtx, Size, Align
-├── ui.manager.go                  # UIManager alias + reversed/ordered iterators
+├── ui.manager.go                  # WidgetManager alias + reversed/ordered iterators
 ├── ui.theme.go                    # Theme + ThemeManager
 ├── ui.theme_presets.go            # 4 preset themes
 ├── ui.defaults.go                 # RegisterDefaultUI/RadialVerbUI/RichUI
