@@ -42,7 +42,8 @@ type Game struct {
 	Input     *Input
 
 	startID     string
-	onStart     Action
+	onStart     string
+	onFinale    string
 	activeTheme string
 
 	// runtime
@@ -190,7 +191,15 @@ func (g *Game) SceneHotspots(name string) []Hotspot {
 	g.exitHotspots[name] = hs
 	return hs
 }
-func (g *Game) OnStart(a Action) *Game { g.onStart = a; return g }
+
+// OnStart names the script queued after the start scene's OnEnter, once,
+// when the game boots.
+func (g *Game) OnStart(script string) *Game { g.onStart = script; return g }
+
+// OnFinale names the game's closing script, queued directly after the start
+// script — which is what a "boot straight into the ending" debug flag wants.
+// Leave it unset for an ordinary run.
+func (g *Game) OnFinale(script string) *Game { g.onFinale = script; return g }
 
 // ----- theme + UI conveniences ------------------------------------------
 
@@ -325,6 +334,11 @@ func (g *Game) Validate() error {
 			if e.To != "" && !g.SceneManager.Has(e.To) {
 				return fmt.Errorf("%w: scene %q exit to %q", ErrUnknownScene, name, e.To)
 			}
+		}
+	}
+	for _, name := range []string{g.onStart, g.onFinale} {
+		if name != "" && !g.ScriptManager.Has(name) {
+			return fmt.Errorf("%w: %q", ErrUnknownScript, name)
 		}
 	}
 	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {

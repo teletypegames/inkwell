@@ -34,8 +34,11 @@ func Run(g *Game) error {
 	if s.OnEnter != nil {
 		seq = append(seq, s.OnEnter)
 	}
-	if g.onStart != nil {
-		seq = append(seq, g.onStart)
+	if g.onStart != "" {
+		seq = append(seq, RunScript(g.onStart))
+	}
+	if g.onFinale != "" {
+		seq = append(seq, RunScript(g.onFinale))
 	}
 	if len(seq) > 0 {
 		g.queueAction(Seq(seq...), "init")

@@ -296,12 +296,29 @@ register into them instead unless that is what you want.
 
 ```go
 func (g *Game) StartAt(name string) *Game     // entry scene
-func (g *Game) OnStart(a Action) *Game        // action run after the scene's OnEnter
+func (g *Game) OnStart(script string) *Game   // script run after the scene's OnEnter
+func (g *Game) OnFinale(script string) *Game  // closing script, queued after OnStart
 func (g *Game) Validate() error               // cross-check name references
 func (g *Game) Run() error                    // same as inkwell.Run(g)
 ```
 
-`StartAt` and `OnStart` return `*Game` so they chain at the end of `Build`.
+`OnStart` and `OnFinale` name registered scripts rather than taking an action,
+so the opening a game plays is content like any other — a `Script` in the
+`ScriptManager`, reachable by name and editable without touching the wiring.
+`Validate` rejects a name that is not registered.
+
+`OnFinale` is queued directly after the start script, which is what a "boot
+straight into the ending" debug flag wants:
+
+```go
+g.StartAt(start)
+g.OnStart(ScriptOpening)
+if finale {
+    g.OnFinale(ScriptFinale)
+}
+```
+
+All three return `*Game` so they chain at the end of `Build`.
 
 ### 4.3 Theme accessors
 
@@ -1540,8 +1557,8 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
 3. If `UIManager` is empty, call `RegisterDefaultUI(g)`.
 4. Place the start scene directly (no transition), bump
    `State.NoteVisit`, position registered actors, kick off music.
-5. Compose `Seq(scene.OnEnter, game.OnStart)` and queue it as the initial
-   action — the first script tick runs both in order.
+5. Compose `Seq(scene.OnEnter, OnStart script, OnFinale script)` and queue
+   it as the initial action — the first script tick runs them in order.
 6. `ebiten.SetWindowSize(Width*4, Height*4)`,
    `ebiten.SetWindowTitle(g.Title)`, then `ebiten.RunGame(&engine{g})`.
 
