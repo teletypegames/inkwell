@@ -16,6 +16,7 @@ type HotspotDebug struct {
 }
 
 func (h *HotspotDebug) GetName() string { return h.Name }
+func (h *HotspotDebug) Layer() Layer    { return LayerScene }
 
 func (h *HotspotDebug) Tick(ctx *UICtx) {
 	key := h.ToggleKey

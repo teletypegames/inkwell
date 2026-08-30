@@ -20,6 +20,7 @@ type ChatLog struct {
 }
 
 func (c *ChatLog) GetName() string { return c.Name }
+func (c *ChatLog) Layer() Layer    { return LayerHUD }
 func (c *ChatLog) Tick(ctx *UICtx) {}
 
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {

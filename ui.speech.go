@@ -18,6 +18,7 @@ type SpeechBubble struct {
 }
 
 func (s *SpeechBubble) GetName() string { return s.Name }
+func (s *SpeechBubble) Layer() Layer    { return LayerSpeech }
 func (s *SpeechBubble) Tick(ctx *UICtx) {}
 
 func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {

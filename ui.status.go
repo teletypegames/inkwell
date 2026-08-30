@@ -13,6 +13,7 @@ type StatusLine struct {
 }
 
 func (s *StatusLine) GetName() string { return s.Name }
+func (s *StatusLine) Layer() Layer    { return LayerHUD }
 
 func (s *StatusLine) Tick(ctx *UICtx) {
 	g := ctx.Game

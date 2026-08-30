@@ -27,6 +27,7 @@ type TopBar struct {
 }
 
 func (t *TopBar) GetName() string { return t.Name }
+func (t *TopBar) Layer() Layer    { return LayerHUD }
 func (t *TopBar) Tick(ctx *UICtx) {}
 
 func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {

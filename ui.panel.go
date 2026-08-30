@@ -21,6 +21,7 @@ type Panel struct {
 }
 
 func (p *Panel) GetName() string { return p.Name }
+func (p *Panel) Layer() Layer    { return LayerPanel }
 func (p *Panel) Tick(ctx *UICtx) {}
 
 func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {

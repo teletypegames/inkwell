@@ -17,6 +17,7 @@ type DialogBox struct {
 }
 
 func (d *DialogBox) GetName() string { return d.Name }
+func (d *DialogBox) Layer() Layer    { return LayerDialog }
 
 func (d *DialogBox) Tick(ctx *UICtx) {
 	g := ctx.Game

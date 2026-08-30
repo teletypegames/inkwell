@@ -13,6 +13,7 @@ type Cursor struct {
 }
 
 func (c *Cursor) GetName() string { return c.Name }
+func (c *Cursor) Layer() Layer    { return LayerCursor }
 func (c *Cursor) Tick(ctx *UICtx) {}
 
 func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {

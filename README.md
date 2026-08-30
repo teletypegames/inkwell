@@ -1018,6 +1018,24 @@ type Widget interface {
     Draw(dst *ebiten.Image, ctx *UICtx)
 }
 
+type Layer int
+const (
+    LayerScene   Layer = 0    // over the picture, under the HUD
+    LayerPanel   Layer = 100  // the plate the HUD sits on
+    LayerHUD     Layer = 200  // verbs, inventory, status line, top bar
+    LayerSpeech  Layer = 300  // speech bubbles
+    LayerDialog  Layer = 400  // the dialogue box
+    LayerMenu    Layer = 500  // radial verbs, menus
+    LayerCurtain Layer = 600  // end cards, fades
+    LayerCursor  Layer = 700  // the pointer
+)
+
+type Layered interface {
+    Layer() Layer
+}
+
+func LayerOf(w Widget) Layer  // Layered, else LayerHUD
+
 type UICtx struct {
     Game *Game
     DT   float64
@@ -1045,13 +1063,23 @@ their own `Bounds` (or compute them dynamically, like `RadialVerbs`).
 
 ### 10.2 Z-order and input consumption
 
-- **`Tick` runs in reverse registration order.** Widgets registered later
-  (drawn on top) get the click first. Each widget calls
-  `ctx.Game.Input.ConsumeLeft()` / `ConsumeRight()` to claim the event;
-  later widgets see `LeftClicked() == false`.
-- **`Draw` runs in registration order** — registered last → painted on top.
-- The `Cursor` widget is registered last by convention so it always wins
-  on visual layer (and effectively never claims clicks).
+- **`Draw` runs from the bottom layer up** — a widget on a higher layer is
+  painted on top. Inside one layer, registration order decides.
+- **`Tick` runs from the top layer down.** The widget drawn on top gets the
+  click first. Each widget calls `ctx.Game.Input.ConsumeLeft()` /
+  `ConsumeRight()` to claim the event; widgets below see
+  `LeftClicked() == false`.
+- **A widget declares its layer**, it does not inherit one from the order it
+  was registered in. Every built-in implements `Layered`; a widget that does
+  not sits on `LayerHUD`. `Cursor` is on `LayerCursor`, so it always wins on
+  visual layer (and effectively never claims clicks) no matter when it was
+  registered.
+- Layers are what let a domain register its widgets **one file at a time** —
+  an `init()` per widget, in whatever order the file names happen to fall —
+  without the HUD coming out shuffled.
+- A wrapper widget that forwards to an inner one — a visibility gate, say —
+  should return `LayerOf(inner)` from its own `Layer`, so that wrapping does
+  not move the widget.
 
 After all widgets ticked, the engine offers the (possibly consumed) click
 to `handleSceneInput`, which is where hotspot interactions live. If a
@@ -1575,7 +1603,7 @@ if scriptRunner != nil:
     return
 
 clear hoverLabel
-for w in reversed(WidgetManager):
+for w in WidgetManager, top layer down:
     w.Tick(uictx)        // widgets consume input top-down
 
 handleSceneInput()       // hotspot resolution + right-click reset
@@ -1589,7 +1617,7 @@ fill Theme.SceneBackdrop (if any)
 draw scene background image
 for c in characters sorted by Y:
     drawCharacter(c)
-for w in WidgetManager (registration order):
+for w in WidgetManager (by layer, then registration order):
     w.Draw(screen, uictx)
 draw transition overlay
 ```
@@ -1844,8 +1872,8 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 │
 ├── input.def.go                   # Input (consume-on-use)
 │
-├── ui.widget.go                   # Widget interface, UICtx, Size, Align
-├── ui.manager.go                  # WidgetManager alias + reversed/ordered iterators
+├── ui.widget.go                   # Widget interface, Layer, UICtx, Size, Align
+├── ui.manager.go                  # WidgetManager alias + layer-ordered iterators
 ├── ui.theme.go                    # Theme + ThemeManager
 ├── ui.theme_presets.go            # 4 preset themes
 ├── ui.defaults.go                 # RegisterDefaultUI/RadialVerbUI/RichUI

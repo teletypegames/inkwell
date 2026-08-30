@@ -19,6 +19,7 @@ type VerbBar struct {
 }
 
 func (v *VerbBar) GetName() string { return v.Name }
+func (v *VerbBar) Layer() Layer    { return LayerHUD }
 
 func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 	cols := v.Cols

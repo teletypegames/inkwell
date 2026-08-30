@@ -20,6 +20,7 @@ type InventoryBar struct {
 }
 
 func (b *InventoryBar) GetName() string { return b.Name }
+func (b *InventoryBar) Layer() Layer    { return LayerHUD }
 
 func (b *InventoryBar) slotRect(idx int) Rectangle {
 	cols := b.Cols

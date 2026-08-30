@@ -12,6 +12,7 @@ type EndCard struct {
 }
 
 func (e *EndCard) GetName() string { return e.Name }
+func (e *EndCard) Layer() Layer    { return LayerCurtain }
 
 func (e *EndCard) Tick(ctx *UICtx) {
 	if ctx.Game.endCard == "" {

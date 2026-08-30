@@ -43,6 +43,7 @@ type RadialVerbs struct {
 }
 
 func (r *RadialVerbs) GetName() string { return r.Name }
+func (r *RadialVerbs) Layer() Layer    { return LayerMenu }
 
 func (r *RadialVerbs) Tick(ctx *UICtx) {
 	g := ctx.Game
