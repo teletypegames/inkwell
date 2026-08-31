@@ -60,6 +60,8 @@ import "git.teletypegames.org/games/inkwell"
     - 10.4 [The clickBlocker contract](#114-the-clickblocker-contract)
     - 11.5 [Registration helpers](#115-registration-helpers)
     - 11.6 [Custom widgets](#116-custom-widgets)
+    - 11.7 [The menu system](#117-the-menu-system)
+    - 11.8 [The debug menu](#118-the-debug-menu)
 12. [Themes](#12-themes)
 13. [Asset pipeline](#13-asset-pipeline)
 14. [Audio](#14-audio)
@@ -1353,6 +1355,12 @@ type Gated interface {
 
 func WidgetVisible(ctx *Ctx, w Widget) bool  // Gated with a false condition = off
 
+type Awake interface {
+    TicksDuringScript() bool
+}
+
+func WidgetAwake(w Widget) bool  // ticks on the frames a script holds
+
 type UICtx struct {
     Game *Game
     DT   float64
@@ -1413,6 +1421,19 @@ g.WidgetManager.Register(&inkwell.InventoryBar{
 A domain widget joins in by implementing `VisibleWhen() Condition`; one
 that does not implement it is always live, which is what a bare widget
 always did.
+
+A running script normally has the frame to itself: no widget ticks until
+it is done, which is what keeps a click from racing a cutscene that is
+already under way. A widget that implements `Awake` opts out of that —
+it ticks on those frames too, **before** the script's runner, so a click
+or a key it consumes is not also read as "skip this line".
+
+Two built-ins say yes, and for the same reason. `Menu`, because a menu that
+cannot answer a key press while a cutscene plays cannot be closed once one
+starts. And `DialogBox`, because a conversation **is** the running script:
+`RunDialogue` holds the frame for as long as the dialogue is up, so the box
+has to tick inside it or its lines never advance and no choice is ever
+clicked. Nothing else should need it.
 
 After all widgets ticked, the engine offers the (possibly consumed) click
 to `handleSceneInput`, which is where hotspot interactions live. If a
@@ -1549,6 +1570,9 @@ click** — the rest of the HUD and the scene are inert. The widget renders
 either the current line of `runtimeDialog.Node.Lines` (click → next line)
 or the visible `Choices` once the lines are exhausted.
 
+It ticks inside the script that is running it — see `Awake` in
+[11.2](#112-z-order-and-input-consumption).
+
 ```go
 type DialogBox struct {
     Name       string
@@ -1627,20 +1651,22 @@ whatever the game is doing to it" sets `NoteVar` and writes that var.
 Empty fields are skipped, so the widget gracefully degrades to two- or
 one-section layouts.
 
-#### `SceneNav` (`ui.scene_nav.go`)
+#### `Menu` (`ui.menu.go`)
 
-A development aid: left and right arrow keys step through the registered
-scenes in registration order, wrapping at both ends. Draws nothing.
+A nested list in a window — see [11.7](#117-the-menu-system) for the tree
+model and the keys.
 
 ```go
-type SceneNav struct {
-    Name string
-    When Condition
+type Menu struct {
+    Name       string
+    When       Condition
+    Root       MenuItem            // first page; its Label titles the window
+    Bounds     Rectangle           // zero = the right half of the screen
+    ToggleKey  ebiten.Key          // zero = no key, Toggle() only
+    LineHeight int                 // default GlyphH + 2
+    Padding    int                 // default 6
 }
 ```
-
-Gate it with `When` — or leave it unregistered — when a build should not
-let the player walk the catalogue.
 
 #### `CharacterPanel` (`ui.character_panel.go`)
 
@@ -1701,7 +1727,7 @@ type clickBlocker interface {
 
 Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogBox`,
 `TopBar`, `CharacterPanel`, `ChatLog`, `RadialVerbs` (itself, when
-visible). Implement it on your own widgets to mark them as solid input
+visible), `Menu` (its window, while it is open). Implement it on your own widgets to mark them as solid input
 zones for the radial menu.
 
 ### 11.5 Registration helpers
@@ -1741,6 +1767,134 @@ g.WidgetManager.Register(&Minimap{
     Name:   "minimap",
     Bounds: inkwell.Rect(220, 4, 96, 56),
 })
+```
+
+### 11.7 The menu system
+
+`Menu` is a nested list in a window: a page of rows, any of which can open
+a page of its own, as deep as the tree goes. It is a widget like any other
+— on `LayerMenu`, gated by `When`, registered from its own file — and it is
+the whole of the menu system. A debug menu, a pause menu and an in-fiction
+device screen are this one widget with a different `Root`.
+
+A row and a page are **the same type**. `MenuItem.Label` names the row on
+its parent's page and titles the page it opens, which is what makes the
+breadcrumb in the title bar fall out for free:
+
+```go
+// inkwell/ui.menu.go
+
+type MenuItem struct {
+    Label    Text
+    Value    func(*Ctx) Text        // right-hand column: a count, a target, "held"
+    Items    []MenuItem             // the page this row opens, as authored
+    Expand   func(*Ctx) []MenuItem  // the page this row opens, read out of the game
+    Do       Action                 // what Enter queues on a leaf
+    Enabled  Condition              // false dims the row and refuses Enter
+    KeepOpen bool                   // leave the menu up after Do
+}
+
+func FixedValue(t Text) func(*Ctx) Text   // a Value that does not depend on the game
+```
+
+A row with neither `Items` nor `Expand` is a leaf, and Enter hands its `Do`
+to `Game.Do`. The two page fields are one decision: **`Items` is what an
+author typed, `Expand` is what the game knows.** An `Expand` page is rebuilt
+while it is open, so a list of what is clickable in the current scene
+rewrites itself when the player leaves the scene; an `Items` page costs
+nothing per frame.
+
+`Value`, `Expand` and `Enabled` all take the same `*Ctx` an action or a
+condition takes, so `ctx.Scene` is there without being asked for.
+
+The menu answers what a list has always answered to, and **claims every key
+it uses** (see [15](#15-input)) so nothing underneath sees it:
+
+| | |
+|---|---|
+| up / down, wheel | walk the rows, wrapping |
+| PageUp / PageDown / Home / End | jump |
+| Enter, right | open the row, or run it |
+| Backspace, left, right mouse button | back a level; at the root, close |
+| Escape, the `×` in the title bar | close |
+| hover | move the cursor — only when the pointer itself moved, so it does not fight the keys |
+| left mouse button | open the row under the pointer |
+| `←` in the title bar | back a level |
+
+Only clicks inside the window are consumed, so a menu down one side of the
+screen leaves the other side playable. `ToggleKey` opens and closes it;
+zero binds no key at all and leaves that to `Open`, `Close` and `Toggle`,
+which is how a HUD button would drive one.
+
+`Menu` implements `Awake` ([11.2](#112-z-order-and-input-consumption)): it
+ticks while a script holds the frame, because a menu that goes deaf when a
+cutscene starts is a menu that cannot be closed.
+
+Colours come from the dialogue tokens of the active `Theme` — `DialogBG`,
+`DialogBorder`, `DialogSpeaker` for the title bar, `DialogChoiceBG` behind
+the cursor, `DialogChoiceHover` for the row it is on, `TopBarAccent` for
+the value column — so a menu needs no theme work to look like the rest of
+the game. A disabled row is drawn darkened rather than in a colour of its
+own, which needs no token and works in every theme.
+
+Two engine strings sit under the menu: `MenuEmpty`, what a page with no
+rows says, and `MenuKeys`, the legend along the foot of the window. Both
+are in `i18n.strings.go` with the rest of the engine's voice
+([5.4](#54-what-the-engine-says-itself)).
+
+### 11.8 The debug menu
+
+`DebugMenuRoot` is the one use of the menu system the library ships: what
+the game is made of, and what is clickable in the scene the player is
+standing in. It is **data, not a widget** — the menu is the widget:
+
+```go
+g.WidgetManager.Register(&inkwell.Menu{
+    Name:      "debug_menu",
+    Root:      inkwell.DebugMenuRoot,
+    When:      whenDebug,
+    ToggleKey: ebiten.KeyD,
+})
+```
+
+```
+DEBUG
+├── Scenes         every registered scene, in registration order
+│   └── <scene>            value: "here", or ×N visits · Enter teleports
+├── Items          every registered item
+│   └── <item>             value: "held" / "in hand"
+│       ├── give · take away · select
+│       ├── use on self    only when the item has an OnUseSelf
+│       └── use with → <target>   the item's own OnUseWith pairs
+├── Action points  the current scene's hotspots, exits included, in hit-test order
+│   └── <hotspot>          value: its CursorKind
+│       ├── <verb>         only the verbs the hotspot answers
+│       └── use with → <item>   the hotspot's OnUseWith pairs
+└── Exits          the current scene's exits, as the graph sees them
+    └── exit:<to>          value: which edge it sits on
+        ├── go
+        └── needs <flag>   value: on / off
+            └── set · clear
+```
+
+The rows name **registry keys**, not the prose a player reads: a debug menu
+is read by whoever writes the content, and `noodle_house` says more there
+than `"NOODLE'S HOUSE — KITCHEN"` does, in any language.
+
+Every verb goes through `invokeHotspotVerb`, the same path a click takes,
+so the chat log and the status line read as if the player had done it. A
+`use with` row hands the item over first — the point is to watch the
+pairing run, not to be reminded that the player never picked the thing up.
+
+Nothing registers it, `RegisterDefaultUI` included: a debug menu is
+something a game asks for, and gates on whatever its debug builds set. A
+game that wants sections of its own builds a root around it:
+
+```go
+Root: inkwell.MenuItem{
+    Label: inkwell.DebugMenuRoot.Label,
+    Items: append(inkwell.DebugMenuRoot.Items, mySection),
+},
 ```
 
 ---
@@ -1914,12 +2068,25 @@ func (i *Input) LeftClicked() bool       // just-pressed AND not consumed
 func (i *Input) RightClicked() bool
 func (i *Input) ConsumeLeft()
 func (i *Input) ConsumeRight()
+
+func (i *Input) Wheel() (float64, float64)         // this frame's travel; nothing consumes it
+
+func (i *Input) KeyPressed(key ebiten.Key) bool    // just-pressed AND not consumed
+func (i *Input) ConsumeKey(key ebiten.Key)
+func (i *Input) ClaimKey(key ebiten.Key) bool      // KeyPressed + ConsumeKey
 ```
 
-The engine `poll`s once per frame, snapshotting cursor position and the
-just-pressed state for both buttons. Widgets and the engine use the
-**consume-on-use** pattern: one click is authoritative — whoever consumes
-first wins, later checks see `LeftClicked() == false`.
+The engine `poll`s once per frame, snapshotting cursor position, the
+just-pressed state for both buttons, the wheel's travel and every key that
+went down. Widgets and the engine use the **consume-on-use** pattern: one
+click is authoritative — whoever consumes first wins, later checks see
+`LeftClicked() == false`.
+
+Keys work the same way, and `ClaimKey` is the shape a widget that binds
+half a dozen of them wants: a menu walking a list with the arrow keys
+claims them, so nothing else reads them on that frame. `KeyPressed` is
+edge-triggered like `LeftClicked` — holding a key answers true once — and
+a widget that wants a key held down reads `ebiten.IsKeyPressed` itself.
 
 `Game.Input` is exposed so widgets and custom actions can read it
 directly.
@@ -1957,6 +2124,7 @@ pump the action queue      // start the next Do() when nothing is running
 if transition fading out → return
 
 if scriptRunner != nil:
+    tick the Awake widgets, top layer down   // a menu, so it stays closable
     tick the runner
     tick characters
     return
@@ -2173,6 +2341,7 @@ of the demo for the time being.
 ```go
 inkwell.DebugLog = true                 // logf output to stderr (script queue, audio, scene change)
 &inkwell.HotspotDebug{Enabled: true}    // start with the F1 overlay on
+&inkwell.Menu{Root: inkwell.DebugMenuRoot, ToggleKey: ebiten.KeyD}  // see 11.8
 ```
 
 ---
@@ -2241,8 +2410,7 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 │
 ├── input.def.go                   # Input (consume-on-use)
 │
-├── ui.scene_nav.go                # SceneNav widget (dev)
-├── ui.widget.go                   # Widget interface, Layer, Gated, UICtx, Size, Align
+├── ui.widget.go                   # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
 ├── ui.manager.go                  # WidgetManager alias + layer-ordered iterators
 ├── ui.theme.go                    # Theme + ThemeManager
 ├── ui.theme_presets.go            # 4 preset themes
@@ -2257,6 +2425,8 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── ui.end_card.go                 # EndCard widget
 ├── ui.cursor.go                   # Cursor widget
 ├── ui.hotspot_debug.go            # HotspotDebug widget
+├── ui.menu.go                     # Menu + MenuItem: the menu system
+├── ui.debug_menu.go               # DebugMenuRoot: the menu system's one built-in use
 ├── ui.panel.go                    # Panel widget
 ├── ui.top_bar.go                  # TopBar widget
 ├── ui.character_panel.go          # CharacterPanel widget + CharStat

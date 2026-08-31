@@ -23,6 +23,12 @@ func (d *DialogBox) GetName() string        { return d.Name }
 func (d *DialogBox) VisibleWhen() Condition { return d.When }
 func (d *DialogBox) Layer() Layer           { return LayerDialog }
 
+// TicksDuringScript: the conversation *is* the running script. RunDialogue
+// holds the frame for as long as the dialogue is up, so the box has to tick
+// inside it — otherwise its lines never advance, no choice is ever clicked,
+// and the dialogue can never reach the EndDialogue that would let go.
+func (d *DialogBox) TicksDuringScript() bool { return true }
+
 func (d *DialogBox) Tick(ctx *UICtx) {
 	g := ctx.Game
 	if !g.dialogueActive() {

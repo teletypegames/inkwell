@@ -52,4 +52,16 @@ var (
 		{Lang: "en", Text: "Score"},
 		{Lang: "hu", Text: "Pont"},
 	}
+
+	// MenuEmpty is what a Menu page with no rows says.
+	MenuEmpty = Text{
+		{Lang: "en", Text: "(nothing here)"},
+		{Lang: "hu", Text: "(nincs itt semmi)"},
+	}
+
+	// MenuKeys is the key legend along the foot of a Menu window.
+	MenuKeys = Text{
+		{Lang: "en", Text: "↑↓ move  ENTER open  BACKSPACE back  ESC close"},
+		{Lang: "hu", Text: "↑↓ mozgás  ENTER nyit  BACKSPACE vissza  ESC zár"},
+	}
 )

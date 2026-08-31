@@ -61,6 +61,18 @@ type Gated interface {
 	VisibleWhen() Condition
 }
 
+// Awake is implemented by a widget that ticks even on the frames a running
+// script holds — a debug menu or a pause menu, which has to answer a key
+// press while a cutscene is playing, and has to be closable once it is
+// open. Every other widget stands still until the script is done, which is
+// what keeps a click from racing a cutscene that is already under way.
+//
+// An awake widget ticks BEFORE the script's runner does, so a click it
+// consumes is not also read as "skip this line".
+type Awake interface {
+	TicksDuringScript() bool
+}
+
 // WidgetVisible reports whether a widget takes part in this frame at all.
 // A widget switched off neither ticks nor draws, and does not block a
 // click, so a HUD can be hidden for a cutscene without unregistering it.
@@ -71,6 +83,13 @@ func WidgetVisible(ctx *Ctx, w Widget) bool {
 	}
 	c := g.VisibleWhen()
 	return c == nil || c.Eval(ctx)
+}
+
+// WidgetAwake reports whether a widget takes part in the frames a script
+// holds. Nothing but a menu should say yes.
+func WidgetAwake(w Widget) bool {
+	a, ok := w.(Awake)
+	return ok && a.TicksDuringScript()
 }
 
 // LayerOf reports the layer a widget paints on. A wrapper widget that

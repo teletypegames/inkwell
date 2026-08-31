@@ -31,8 +31,11 @@ func (e *engine) Update() error {
 		return nil
 	}
 
-	// Active script consumes the frame.
+	// Active script consumes the frame — every widget but the awake ones,
+	// which tick first so that a click or a key of theirs is not also read
+	// as "skip this line".
 	if g.scriptRunner != nil {
+		g.tickAwakeWidgets(dt)
 		ctx := g.scriptCtx
 		ctx.DT = dt
 		if g.currentScene != "" {
@@ -74,6 +77,18 @@ func (e *engine) Update() error {
 	e.handleSceneInput()
 	g.tickCharacters(dt)
 	return nil
+}
+
+// tickAwakeWidgets ticks the widgets that declared themselves awake, top
+// layer down, on a frame a script would otherwise have to itself.
+func (g *Game) tickAwakeWidgets(dt float64) {
+	uictx := &UICtx{Game: g, DT: dt}
+	cctx := g.makeCtx()
+	for _, w := range reversedWidgets(g.WidgetManager) {
+		if WidgetAwake(w) && WidgetVisible(cctx, w) {
+			w.Tick(uictx)
+		}
+	}
 }
 
 // handleSceneInput is the legacy "click on hotspot with active verb" flow,

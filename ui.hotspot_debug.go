@@ -2,7 +2,6 @@ package inkwell
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -25,7 +24,7 @@ func (h *HotspotDebug) Tick(ctx *UICtx) {
 	if key == 0 {
 		key = ebiten.KeyF1
 	}
-	if inpututil.IsKeyJustPressed(key) {
+	if ctx.Game.Input.ClaimKey(key) {
 		h.Enabled = !h.Enabled
 	}
 }
