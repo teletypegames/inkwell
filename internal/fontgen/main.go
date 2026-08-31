@@ -1,0 +1,190 @@
+// Command fontgen bakes inkwell's glyph atlas.
+//
+// The engine used to draw through ebitenutil.DebugPrintAt, whose atlas is
+// 256 cells wide — U+0000 to U+00FF, Latin-1 and no further. That is enough
+// for English and stops one character short of Hungarian: ő and ű live in
+// Latin Extended-A, and so does most of what Polish, Czech, Croatian and
+// Turkish need. A game that speaks more than one language needs a font that
+// can draw them.
+//
+// The output is deliberately small. bitmapfont's own face is ~2.5 MB of
+// embedded CJK; what comes out of here is the Latin part of it — a few
+// hundred glyphs, a few kilobytes — which is the whole of what a European
+// point & click ever puts on screen.
+//
+// It writes two files into the parent package:
+//
+//	font.png      the atlas
+//	i18n.glyphs.go  the ranges it covers, in atlas order
+//
+// Run it from this directory:
+//
+//	go run .
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
+
+	"github.com/hajimehoshi/bitmapfont/v4"
+	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
+)
+
+// The cell is one glyph wide plus the column its drop shadow falls into.
+// Blits overlap by that column and composite, so a shadow lands under the
+// next glyph exactly as it would if the whole string were drawn in one go.
+const (
+	glyphW = 6
+	glyphH = 16
+	cellW  = glyphW + 1
+	cols   = 32
+)
+
+// ranges is the coverage, in atlas order. Keep it contiguous and sorted —
+// the runtime finds a glyph by counting the ranges before it.
+var ranges = [][2]rune{
+	{0x0020, 0x007e}, // ASCII, printable
+	{0x00a0, 0x00ff}, // Latin-1 supplement: á é í ó ö ú ü and the rest
+	{0x0100, 0x017f}, // Latin Extended-A: ő ű, and Polish/Czech/Croatian/Turkish
+	{0x2010, 0x2027}, // dashes, curly quotes, dagger, bullet, ellipsis
+	{0x20ac, 0x20ac}, // €
+	{0x2190, 0x2193}, // ← ↑ → ↓
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	var runes []rune
+	for _, r := range ranges {
+		for c := r[0]; c <= r[1]; c++ {
+			runes = append(runes, c)
+		}
+	}
+	if err := checkWidths(runes); err != nil {
+		return err
+	}
+
+	// One cell past the coverage is the notdef box, which is what an
+	// uncovered rune draws. A missing glyph should be visible, not silent.
+	cells := len(runes) + 1
+	rows := (cells + cols - 1) / cols
+
+	dst := image.NewRGBA(image.Rect(0, 0, cols*cellW, rows*glyphH))
+	drawGlyphs(dst, runes)
+	drawNotdef(dst, len(runes))
+
+	dir := filepath.Join("..", "..")
+	if err := writePNG(filepath.Join(dir, "font.png"), dst); err != nil {
+		return err
+	}
+	if err := writeTable(filepath.Join(dir, "i18n.glyphs.go"), len(runes)); err != nil {
+		return err
+	}
+	fmt.Printf("font.png: %d glyphs, %d×%d cells, %d×%d px\n",
+		len(runes), cols, rows, dst.Bounds().Dx(), dst.Bounds().Dy())
+	return nil
+}
+
+// checkWidths refuses a rune the fixed 6-pixel cell cannot hold. Every
+// measurement in the engine derives from that width, so a full-width glyph
+// slipping into the coverage would silently overlap its neighbour.
+func checkWidths(runes []rune) error {
+	for _, r := range runes {
+		a, ok := bitmapfont.Face.GlyphAdvance(r)
+		if !ok {
+			return fmt.Errorf("bitmapfont has no glyph for U+%04X", r)
+		}
+		if a != fixed.I(glyphW) {
+			return fmt.Errorf("U+%04X advances %v, not %d — drop it from ranges",
+				r, a, glyphW)
+		}
+	}
+	return nil
+}
+
+// drawGlyphs lays the coverage out cell by cell: a half-transparent black
+// copy one pixel down and right, then the white glyph over it. The engine
+// tints the cell by the theme colour, and because the shadow is black its
+// RGB survives the tint while the glyph takes the colour — which is how
+// text stays readable over a painted background.
+func drawGlyphs(dst *image.RGBA, runes []rune) {
+	for _, pass := range []struct {
+		col    color.Color
+		dx, dy int
+	}{
+		{color.RGBA{0, 0, 0, 0x80}, 1, 1},
+		{color.White, 0, 0},
+	} {
+		d := font.Drawer{
+			Dst:  dst,
+			Src:  image.NewUniform(pass.col),
+			Face: bitmapfont.Face,
+		}
+		for i := range runes {
+			x, y := cellOrigin(i)
+			d.Dot = fixed.Point26_6{
+				X: fixed.I(x + pass.dx),
+				Y: fixed.I(y+pass.dy) + bitmapfont.Face.Metrics().Ascent,
+			}
+			d.DrawString(string(runes[i]))
+		}
+	}
+}
+
+// drawNotdef puts a hollow box in the last cell.
+func drawNotdef(dst *image.RGBA, index int) {
+	x, y := cellOrigin(index)
+	c := color.RGBA{0xff, 0xff, 0xff, 0xff}
+	for px := x + 1; px < x+glyphW-1; px++ {
+		dst.Set(px, y+3, c)
+		dst.Set(px, y+glyphH-4, c)
+	}
+	for py := y + 3; py <= y+glyphH-4; py++ {
+		dst.Set(x+1, py, c)
+		dst.Set(x+glyphW-2, py, c)
+	}
+}
+
+func cellOrigin(i int) (int, int) {
+	return (i % cols) * cellW, (i / cols) * glyphH
+}
+
+func writePNG(path string, img image.Image) error {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return err
+	}
+	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func writeTable(path string, covered int) error {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "// Code generated by internal/fontgen. DO NOT EDIT.\n\n")
+	fmt.Fprintf(&buf, "package inkwell\n\n")
+	fmt.Fprintf(&buf, "// glyphRanges is the atlas coverage, in atlas order: a rune's cell is\n")
+	fmt.Fprintf(&buf, "// its offset into the range that holds it, plus every range before.\n")
+	fmt.Fprintf(&buf, "var glyphRanges = [][2]rune{\n")
+	for _, r := range ranges {
+		fmt.Fprintf(&buf, "\t{0x%04x, 0x%04x},\n", r[0], r[1])
+	}
+	fmt.Fprintf(&buf, "}\n\n")
+	fmt.Fprintf(&buf, "// glyphNotdef is the cell an uncovered rune draws: a hollow box.\n")
+	fmt.Fprintf(&buf, "const glyphNotdef = %d\n", covered)
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, src, 0o644)
+}

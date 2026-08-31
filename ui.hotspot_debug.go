@@ -42,8 +42,8 @@ func (h *HotspotDebug) Draw(dst *ebiten.Image, ctx *UICtx) {
 	for _, hs := range g.SceneHotspots(g.currentScene) {
 		b := hs.Area.Bounds()
 		vector.StrokeRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), 1, col, false)
-		if hs.Label != "" {
-			g.DrawText(dst, hs.Label, int(b.X)+1, int(b.Y)+1, col)
+		if label := hs.Label.String(); label != "" {
+			g.DrawText(dst, label, int(b.X)+1, int(b.Y)+1, col)
 		}
 	}
 }

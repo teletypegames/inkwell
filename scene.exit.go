@@ -29,7 +29,7 @@ type Exit struct {
 	To string
 
 	// Label is what the status line calls it.
-	Label string
+	Label Text
 
 	// Side places the exit when Area is nil.
 	Side ExitSide

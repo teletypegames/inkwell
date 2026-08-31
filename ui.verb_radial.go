@@ -35,7 +35,7 @@ type RadialVerbs struct {
 	// Labels overrides the rendered verb label per verb Name. Useful when
 	// the regular Verb.Label is too long to fit inside the wheel — e.g.
 	// {"use": "Tedd", "take": "Vedd"}. Falls back to Verb.Label.
-	Labels map[string]string
+	Labels map[string]Text
 
 	// runtime
 	visible        bool
@@ -279,11 +279,11 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 func (r *RadialVerbs) labelFor(g *Game, verbName string) string {
 	if r.Labels != nil {
 		if alt, ok := r.Labels[verbName]; ok {
-			return alt
+			return alt.String()
 		}
 	}
 	if v, ok := g.VerbManager.Get(verbName); ok {
-		return v.Label
+		return v.Label.String()
 	}
 	return verbName
 }

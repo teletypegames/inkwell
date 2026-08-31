@@ -11,7 +11,7 @@ import (
 // CharStat is one (Label, VarKey) row rendered inside a CharacterPanel.
 // VarKey is read from g.State.Var; the value is fmt.Sprint'd verbatim.
 type CharStat struct {
-	Label  string
+	Label  Text
 	VarKey string
 }
 
@@ -24,7 +24,7 @@ type CharacterPanel struct {
 	When      Condition
 	Bounds    Rectangle
 	Character string // Character.Name to display
-	Title     string // "PLAYER", "NPC", role badge
+	Title     Text   // "PLAYER", "NPC", role badge
 	Stats     []CharStat
 }
 
@@ -54,19 +54,19 @@ func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	tx := int(b.X + portraitW + 6)
 	ty := int(b.Y) + 1
 
-	if c.Title != "" {
-		g.DrawText(dst, c.Title, tx, ty, th.CharacterPanelTitle)
+	if title := c.Title.String(); title != "" {
+		g.DrawText(dst, title, tx, ty, th.CharacterPanelTitle)
 		ty += 10
 	}
 
 	if ch, ok := g.CharacterManager.Get(c.Character); ok && ch.Name != "" {
-		g.DrawText(dst, ch.Name, tx, ty, th.StatusText)
+		g.DrawText(dst, ch.DisplayName().String(), tx, ty, th.StatusText)
 		ty += 10
 	}
 
 	for _, st := range c.Stats {
 		v := g.State.Var(st.VarKey)
-		line := fmt.Sprintf("%s: %v", st.Label, v)
+		line := fmt.Sprintf("%s: %v", st.Label.String(), v)
 		g.DrawText(dst, line, tx, ty, th.StatusText)
 		ty += 10
 	}

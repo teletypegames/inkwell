@@ -2,7 +2,7 @@ package inkwell
 
 type Scene struct {
 	Name       string
-	Title      string // optional human-readable title for the TopBar widget
+	Title      Text   // optional human-readable title for the TopBar widget
 	Background string // Asset.Name
 	Music      string // Asset.Name (optional)
 	Hotspots   []Hotspot

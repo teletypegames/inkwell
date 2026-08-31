@@ -236,8 +236,8 @@ func (g *Game) SetSpeech(speaker, text string) {
 func (g *Game) ClearSpeech() { g.speech = speechState{} }
 
 // FlashLine shows a status-line message for ~2 seconds.
-func (g *Game) FlashLine(text string) {
-	g.flash = text
+func (g *Game) FlashLine(text Text) {
+	g.flash = text.String()
 	g.flashTimer = 2.0
 }
 
@@ -312,11 +312,22 @@ func (g *Game) VoiceOf(name string) Voice {
 
 // CharacterLabel is what the UI should print for a character: the Label
 // if the entity carries one, the name otherwise.
-func (g *Game) CharacterLabel(name string) string {
+func (g *Game) CharacterLabel(name string) Text {
 	if c, ok := g.CharacterManager.Get(name); ok {
 		return c.DisplayName()
 	}
-	return name
+	return plain(name)
+}
+
+// ItemLabel is what the UI should print for an item: its Description if it
+// carries one, its name otherwise. The status line and the chat log both
+// name the item the player is holding, and a bare registry key is not a
+// thing anybody wrote — least of all in the player's language.
+func (g *Game) ItemLabel(name string) Text {
+	if it, ok := g.ItemManager.Get(name); ok && !it.Description.Empty() {
+		return it.Description
+	}
+	return plain(name)
 }
 
 // DrawText is a thin wrapper that lets widgets accept a Theme-supplied color
@@ -327,20 +338,21 @@ func (g *Game) DrawText(dst *ebiten.Image, s string, x, y int, c color.Color) {
 
 // HoverHint composes the "verb + target" string used by the StatusLine.
 func (g *Game) HoverHint() string {
-	verbLabel := ""
+	var verb Text
 	if v, ok := g.VerbManager.Get(g.selectedVerb); ok {
-		verbLabel = v.Label
+		verb = v.Label
 	}
 	if sel := g.Inventory.Selected(); sel != "" {
+		item := g.ItemLabel(sel)
 		if g.hoverLabel != "" {
-			return verbLabel + " " + sel + " ezen: " + g.hoverLabel
+			return Format(HintVerbOn, verb, item, g.hoverLabel).String()
 		}
-		return verbLabel + " " + sel
+		return Format(HintVerb, verb, item).String()
 	}
 	if g.hoverLabel == "" {
 		return ""
 	}
-	return verbLabel + " " + g.hoverLabel
+	return Format(HintVerb, verb, g.hoverLabel).String()
 }
 
 // ----- validation -------------------------------------------------------

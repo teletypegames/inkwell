@@ -3,7 +3,7 @@ package inkwell
 type Item struct {
 	Name        string
 	Sprite      string // Asset.Name
-	Description string
+	Description Text
 
 	OnUseSelf Action
 	// OnUseWith: targetName -> action. Target may be a hotspot Name or another item Name.

@@ -45,11 +45,7 @@ func (b *InventoryBar) Tick(ctx *UICtx) {
 	// hover label: when over a slot with an item, show its description
 	for i := 0; i < min(b.Slots, len(items)); i++ {
 		if b.slotRect(i).Contains(mp) {
-			if it, ok := g.ItemManager.Get(items[i]); ok && it.Description != "" {
-				g.SetHoverLabel(it.Description)
-			} else {
-				g.SetHoverLabel(items[i])
-			}
+			g.SetHoverLabel(g.ItemLabel(items[i]).String())
 			break
 		}
 	}
@@ -62,8 +58,8 @@ func (b *InventoryBar) Tick(ctx *UICtx) {
 			g.Input.ConsumeLeft()
 			name := items[i]
 			if g.SelectedVerb() == "look" {
-				if it, ok := g.ItemManager.Get(name); ok && it.Description != "" {
-					g.queueAction(Say("player", it.Description), "inv-look")
+				if it, ok := g.ItemManager.Get(name); ok && !it.Description.Empty() {
+					g.queueAction(Say(g.Player, it.Description), "inv-look")
 					return
 				}
 			}

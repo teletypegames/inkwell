@@ -51,10 +51,25 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 			Name:      "panel_player",
 			Bounds:    Rect(2, 14, 92, 36),
 			Character: playerName,
-			Title:     "PLAYER",
+			Title: Text{
+				{Lang: "en", Text: "PLAYER"},
+				{Lang: "hu", Text: "JÁTÉKOS"},
+			},
 			Stats: []CharStat{
-				{Label: "State", VarKey: playerName + ".state"},
-				{Label: "Mood", VarKey: playerName + ".mood"},
+				{
+					Label: Text{
+						{Lang: "en", Text: "State"},
+						{Lang: "hu", Text: "Állapot"},
+					},
+					VarKey: playerName + ".state",
+				},
+				{
+					Label: Text{
+						{Lang: "en", Text: "Mood"},
+						{Lang: "hu", Text: "Kedv"},
+					},
+					VarKey: playerName + ".mood",
+				},
 			},
 		})
 	}
@@ -63,10 +78,25 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 			Name:      "panel_npc",
 			Bounds:    Rect(180, 14, 92, 36),
 			Character: npcName,
-			Title:     "NPC",
+			Title: Text{
+				{Lang: "en", Text: "NPC"},
+				{Lang: "hu", Text: "NPC"},
+			},
 			Stats: []CharStat{
-				{Label: "State", VarKey: npcName + ".state"},
-				{Label: "Mood", VarKey: npcName + ".mood"},
+				{
+					Label: Text{
+						{Lang: "en", Text: "State"},
+						{Lang: "hu", Text: "Állapot"},
+					},
+					VarKey: npcName + ".state",
+				},
+				{
+					Label: Text{
+						{Lang: "en", Text: "Mood"},
+						{Lang: "hu", Text: "Kedv"},
+					},
+					VarKey: npcName + ".mood",
+				},
 			},
 		})
 	}
@@ -90,11 +120,23 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 		AlwaysVisible: true,
 		Center:        Point{X: 282, Y: 90},
 		Radius:        36,
-		Labels: map[string]string{
-			"look": "Néz",
-			"use":  "Tedd",
-			"talk": "Szól",
-			"take": "Vedd",
+		Labels: map[string]Text{
+			"look": {
+				{Lang: "en", Text: "Look"},
+				{Lang: "hu", Text: "Néz"},
+			},
+			"use": {
+				{Lang: "en", Text: "Use"},
+				{Lang: "hu", Text: "Tedd"},
+			},
+			"talk": {
+				{Lang: "en", Text: "Talk"},
+				{Lang: "hu", Text: "Szól"},
+			},
+			"take": {
+				{Lang: "en", Text: "Take"},
+				{Lang: "hu", Text: "Vedd"},
+			},
 		},
 	})
 	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 18})

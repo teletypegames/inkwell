@@ -1,6 +1,8 @@
 package inkwell
 
 import (
+	"strconv"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -48,9 +50,10 @@ func (d *DialogBox) Tick(ctx *UICtx) {
 	// pick the clicked choice
 	for i, r := range dlg.ChoiceHits {
 		if r.Contains(mp) {
-			choice := d.resolveChoices(ctx)[i]
+			idx := d.resolveChoices(ctx)[i]
+			choice := dlg.Node.Choices[idx]
 			if choice.Once {
-				g.State.NoteTalked(dlg.Node.Name + ":" + choice.Text)
+				g.State.NoteTalked(choiceKey(dlg.Node, idx))
 			}
 			if len(choice.Actions) > 0 {
 				g.queueAction(Seq(choice.Actions...), "choice")
@@ -60,21 +63,32 @@ func (d *DialogBox) Tick(ctx *UICtx) {
 	}
 }
 
-func (d *DialogBox) resolveChoices(ctx *UICtx) []DialogueChoice {
+// resolveChoices is the choices the player can see right now, as positions
+// in the node's own list.
+func (d *DialogBox) resolveChoices(ctx *UICtx) []int {
 	g := ctx.Game
 	dlg := g.dialog
-	out := make([]DialogueChoice, 0, len(dlg.Node.Choices))
-	for _, c := range dlg.Node.Choices {
+	out := make([]int, 0, len(dlg.Node.Choices))
+	for i, c := range dlg.Node.Choices {
 		gctx := g.makeCtx()
 		if c.Show != nil && !c.Show.Eval(gctx) {
 			continue
 		}
-		if c.Once && g.State.Talked(dlg.Node.Name+":"+c.Text) > 0 {
+		if c.Once && g.State.Talked(choiceKey(dlg.Node, i)) > 0 {
 			continue
 		}
-		out = append(out, c)
+		out = append(out, i)
 	}
 	return out
+}
+
+// choiceKey identifies a Once choice in saved state. It is the node plus the
+// choice's position in it, never its wording: a choice the player has used
+// up has to stay used up when the game is played in another language, and a
+// translator has to be free to reword a line without reopening somebody's
+// save.
+func choiceKey(n *DialogueNode, i int) string {
+	return n.Name + ":" + strconv.Itoa(i)
 }
 
 // BlocksClickAt — when a dialog is open, every click is ours.
@@ -113,8 +127,8 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	dlg := g.dialog
 	if dlg.LineIdx >= 0 && dlg.LineIdx < len(dlg.Node.Lines) {
 		ln := dlg.Node.Lines[dlg.LineIdx]
-		g.DrawText(dst, ln.Speaker+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
-		lines := WrapText(ln.Text, int(b.W)-pad*2)
+		g.DrawText(dst, g.CharacterLabel(ln.Speaker).String()+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
+		lines := WrapText(ln.Text.String(), int(b.W)-pad*2)
 		for i, l := range lines {
 			g.DrawText(dst, l, int(b.X)+pad, int(b.Y)+18+i*lh, th.DialogText)
 		}
@@ -124,7 +138,8 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	choices := d.resolveChoices(ctx)
 	dlg.ChoiceHits = dlg.ChoiceHits[:0]
 	mp := g.Input.Point()
-	for i, c := range choices {
+	for i, idx := range choices {
+		c := dlg.Node.Choices[idx]
 		r := Rect(b.X+float64(pad), b.Y+4+float64(i*lh), b.W-float64(pad)*2, float64(lh-1))
 		dlg.ChoiceHits = append(dlg.ChoiceHits, r)
 		bg := th.DialogChoiceBG
@@ -132,6 +147,6 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 			bg = th.DialogChoiceHover
 		}
 		vector.DrawFilledRect(dst, float32(r.X), float32(r.Y), float32(r.W), float32(r.H), bg, false)
-		g.DrawText(dst, c.Text, int(r.X)+2, int(r.Y)-1, th.DialogText)
+		g.DrawText(dst, c.Text.String(), int(r.X)+2, int(r.Y)-1, th.DialogText)
 	}
 }

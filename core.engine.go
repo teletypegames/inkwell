@@ -83,11 +83,7 @@ func (e *engine) handleSceneInput() {
 	mp := g.Input.Point()
 	// hover label resolution: pointer over a hotspot in the current scene
 	if h := e.hotspotAt(mp); h != nil {
-		if h.Label != "" {
-			g.SetHoverLabel(h.Label)
-		} else {
-			g.SetHoverLabel(h.Name)
-		}
+		g.SetHoverLabel(hotspotLabel(h).String())
 	}
 
 	if g.Input.RightClicked() {
@@ -119,14 +115,12 @@ func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
 		return
 	}
 	sel := g.Inventory.Selected()
-	targetLabel := h.Label
-	if targetLabel == "" {
-		targetLabel = h.Name
-	}
+	target := hotspotLabel(h)
 	if sel != "" {
+		logged := "> " + Format(HintVerbOn, verbLabel(g, "use"), g.ItemLabel(sel), target).String()
 		if h.OnUseWith != nil {
 			if a, ok := h.OnUseWith[sel]; ok && a != nil {
-				g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
+				g.LogAction(logged)
 				g.queueAction(a, "useWith hotspot")
 				g.Inventory.Select("")
 				return
@@ -134,17 +128,17 @@ func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
 		}
 		if it, ok := g.ItemManager.Get(sel); ok && it.OnUseWith != nil {
 			if a, ok := it.OnUseWith[h.Name]; ok && a != nil {
-				g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
+				g.LogAction(logged)
 				g.queueAction(a, "useWith item")
 				g.Inventory.Select("")
 				return
 			}
 		}
 		if g.UseWithFail != nil {
-			g.LogAction("> " + verbLabel(g, "use") + " " + sel + " ezen: " + targetLabel)
+			g.LogAction(logged)
 			g.queueAction(g.UseWithFail(sel, h), "useWith fail")
 		} else {
-			g.FlashLine("Nem ehhez.")
+			g.FlashLine(MsgNotThat)
 		}
 		g.Inventory.Select("")
 		return
@@ -156,18 +150,27 @@ func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
 		}
 	}
 	if a == nil {
-		g.FlashLine("Semmi említésre méltó.")
+		g.FlashLine(MsgNothing)
 		return
 	}
-	g.LogAction("> " + verbLabel(g, verb) + " " + targetLabel)
+	g.LogAction("> " + Format(HintVerb, verbLabel(g, verb), target).String())
 	g.queueAction(a, "hotspot "+verb+" "+h.Name)
 }
 
-func verbLabel(g *Game, name string) string {
+// hotspotLabel is what to call a hotspot on screen: its Label, or its Name
+// when nobody gave it one.
+func hotspotLabel(h *Hotspot) Text {
+	if h.Label.Empty() {
+		return plain(h.Name)
+	}
+	return h.Label
+}
+
+func verbLabel(g *Game, name string) Text {
 	if v, ok := g.VerbManager.Get(name); ok {
 		return v.Label
 	}
-	return name
+	return plain(name)
 }
 
 func (e *engine) hotspotAt(p Point) *Hotspot { return e.g.HotspotAt(p) }

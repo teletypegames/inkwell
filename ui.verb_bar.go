@@ -38,7 +38,7 @@ func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 		verb := ctx.Game.VerbManager.MustGet(n)
 		out = append(out, verbButton{
 			Name:   n,
-			Label:  verb.Label,
+			Label:  verb.Label.String(),
 			Bounds: Rect(float64(x), float64(y), float64(v.Button.W), float64(v.Button.H)),
 		})
 	}

@@ -16,11 +16,13 @@ type TopBar struct {
 	Height int
 
 	// LeftText overrides the auto-discovered scene Title/Name.
-	LeftText string
+	LeftText Text
 	// ScoreVar is a State Var key whose value is fmt-printed as the
 	// center score; empty = no score shown.
 	ScoreVar string
 	ScoreMax int // when >0, rendered as "Score: X/MAX"
+	// ScoreLabel overrides the engine's own word for it.
+	ScoreLabel Text
 
 	// TimeVar is a State Var key whose value is printed at the right
 	// edge (e.g. "Day 2 - 14:32"); empty = nothing on the right.
@@ -30,6 +32,12 @@ type TopBar struct {
 	// text after an em dash — "ALLEY — paused". Empty or unset = no
 	// note, and the title stands alone.
 	NoteVar string
+
+	// Notes is what to print for each value NoteVar takes. The value
+	// itself is game state a Condition compares against, so it has to
+	// stay the same in every language; what the player reads does not.
+	// A value with no entry prints as it stands.
+	Notes map[string]Text
 }
 
 func (t *TopBar) GetName() string        { return t.Name }
@@ -46,17 +54,18 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 	vector.DrawFilledRect(dst, 0, 0, float32(g.Width), float32(h), th.TopBarBG, false)
 
-	left := t.LeftText
+	left := t.LeftText.String()
 	if left == "" && g.currentScene != "" {
 		s := g.SceneManager.MustGet(g.currentScene)
-		if s.Title != "" {
-			left = s.Title
-		} else {
+		if left = s.Title.String(); left == "" {
 			left = s.Name
 		}
 	}
 	if t.NoteVar != "" {
 		if note := fmt.Sprint(g.State.Var(t.NoteVar)); note != "" && note != "<nil>" {
+			if txt, ok := t.Notes[note]; ok {
+				note = txt.String()
+			}
 			left += " — " + note
 		}
 	}
@@ -67,10 +76,14 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if t.ScoreVar != "" {
 		var sc string
 		v := g.State.Var(t.ScoreVar)
+		label := t.ScoreLabel
+		if label.Empty() {
+			label = ScoreLabel
+		}
 		if t.ScoreMax > 0 {
-			sc = fmt.Sprintf("Score: %v/%d", v, t.ScoreMax)
+			sc = fmt.Sprintf("%s: %v/%d", label, v, t.ScoreMax)
 		} else {
-			sc = fmt.Sprintf("Score: %v", v)
+			sc = fmt.Sprintf("%s: %v", label, v)
 		}
 		x := (g.Width - TextWidth(sc)) / 2
 		g.DrawText(dst, sc, x, -1, th.TopBarAccent)

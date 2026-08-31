@@ -1,12 +1,10 @@
 package inkwell
 
 import (
-	"image"
 	"image/color"
 	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // The built-in debug font is a fixed 6×16 cell. Every layout measurement
@@ -16,38 +14,35 @@ const (
 	GlyphH = 16
 )
 
-// textScratch is the offscreen the coloured draw goes through. It grows
-// to fit the widest line ever drawn and is reused after that.
-var textScratch *ebiten.Image
-
-// drawText renders s in colour c. ebitenutil.DebugPrintAt only draws
-// white, so the glyphs go onto an offscreen first and are blitted back
-// tinted with a ColorScale.
+// drawText renders s in colour c, glyph by glyph out of the atlas in
+// i18n.font.go. Every cell carries a black drop shadow under a white glyph,
+// so scaling the blit by c tints the glyph and leaves the shadow black.
 func drawText(dst *ebiten.Image, s string, x, y int, c color.Color) {
 	if s == "" {
 		return
 	}
-	w, h := TextWidth(s)+GlyphW, GlyphH
-	if textScratch == nil || textScratch.Bounds().Dx() < w || textScratch.Bounds().Dy() < h {
-		nw := w
-		if nw < 320 {
-			nw = 320
-		}
-		textScratch = ebiten.NewImage(nw, h)
-	}
-	textScratch.Clear()
-	ebitenutil.DebugPrintAt(textScratch, s, 0, 0)
-
 	if c == nil {
 		c = color.White
 	}
 	r, g, b, a := c.RGBA()
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(x), float64(y))
 	op.ColorScale.Scale(
 		float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff,
 	)
-	dst.DrawImage(textScratch.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image), op)
+	// The shadow pass is baked one pixel right, so the run starts one pixel
+	// right of x — which is where ebitenutil put it, and what every layout
+	// in the engine was measured against.
+	px, py := x+1, y
+	for _, ru := range s {
+		if ru == '\n' {
+			px, py = x+1, py+GlyphH
+			continue
+		}
+		op.GeoM.Reset()
+		op.GeoM.Translate(float64(px), float64(py))
+		dst.DrawImage(glyph(ru), op)
+		px += GlyphW
+	}
 }
 
 // TextWidth is the pixel width of s in the built-in font.

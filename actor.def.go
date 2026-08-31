@@ -6,7 +6,7 @@ type Character struct {
 	Name string
 	// Label is what the UI shows instead of Name — a code name, a title,
 	// a shout. Empty means the Name is presentable as it stands.
-	Label       string
+	Label       Text
 	Sprite      string // Asset.Name (placeholder if missing)
 	Animations  map[string]AnimationClip
 	Speed       float64
@@ -33,10 +33,10 @@ const (
 func (c Character) GetName() string { return c.Name }
 
 // DisplayName is the Label if there is one, the Name otherwise.
-func (c Character) DisplayName() string {
-	if c.Label != "" {
+func (c Character) DisplayName() Text {
+	if !c.Label.Empty() {
 		return c.Label
 	}
-	return c.Name
+	return plain(c.Name)
 }
 func (c Character) TypeLabel() string { return "character" }

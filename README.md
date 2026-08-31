@@ -26,45 +26,52 @@ import "git.teletypegames.org/games/inkwell"
 2. [Quick start](#2-quick-start)
 3. [The Manager pattern](#3-the-manager-pattern)
 4. [The Game aggregate](#4-the-game-aggregate)
-5. [Geometry primitives](#5-geometry-primitives)
-6. [Entity reference](#6-entity-reference)
-   - 6.1 [Asset](#61-asset)
-   - 6.2 [Scene](#62-scene)
-   - 6.3 [Exit](#63-exit)
-   - 6.4 [Hotspot](#64-hotspot)
-   - 6.5 [Trigger](#65-trigger)
-   - 6.6 [Item](#66-item)
-   - 6.7 [Inventory](#67-inventory)
-   - 6.8 [Character](#68-character)
-   - 6.9 [Dialogue](#69-dialogue)
-   - 6.10 [Script](#610-script)
-   - 6.11 [Verb](#611-verb)
-7. [The action system](#7-the-action-system)
-   - 7.1 [Action and Runner](#71-action-and-runner)
-   - 7.2 [Status and Ctx](#72-status-and-ctx)
-   - 7.3 [Built-in actions](#73-built-in-actions)
-   - 7.4 [Custom actions](#74-custom-actions)
-8. [Conditions](#8-conditions)
-9. [World state](#9-world-state)
-10. [The widget system](#10-the-widget-system)
-    - 10.1 [Widget interface](#101-widget-interface)
-    - 10.2 [Z-order and input consumption](#102-z-order-and-input-consumption)
-    - 10.3 [Built-in widgets](#103-built-in-widgets)
-    - 10.4 [The clickBlocker contract](#104-the-clickblocker-contract)
-    - 10.5 [Registration helpers](#105-registration-helpers)
-    - 10.6 [Custom widgets](#106-custom-widgets)
-11. [Themes](#11-themes)
-12. [Asset pipeline](#12-asset-pipeline)
-13. [Audio](#13-audio)
-14. [Input](#14-input)
-15. [The game loop](#15-the-game-loop)
-16. [Scene transitions](#16-scene-transitions)
-17. [Validation](#17-validation)
-18. [Save and load](#18-save-and-load)
-19. [Errors](#19-errors)
-20. [Testing](#20-testing)
-21. [Project layout](#21-project-layout)
-22. [License](#22-license)
+5. [Text and languages](#5-text-and-languages)
+   - 5.1 [Writing one](#51-writing-one)
+   - 5.2 [Resolving one](#52-resolving-one)
+   - 5.3 [Composing](#53-composing)
+   - 5.4 [What the engine says itself](#54-what-the-engine-says-itself)
+   - 5.5 [Language-stable state](#55-language-stable-state)
+   - 5.6 [The font](#56-the-font)
+6. [Geometry primitives](#6-geometry-primitives)
+7. [Entity reference](#7-entity-reference)
+   - 7.1 [Asset](#71-asset)
+   - 7.2 [Scene](#72-scene)
+   - 7.3 [Exit](#73-exit)
+   - 7.4 [Hotspot](#74-hotspot)
+   - 7.5 [Trigger](#75-trigger)
+   - 7.6 [Item](#76-item)
+   - 7.7 [Inventory](#77-inventory)
+   - 7.8 [Character](#78-character)
+   - 7.9 [Dialogue](#79-dialogue)
+   - 7.10 [Script](#710-script)
+   - 7.11 [Verb](#711-verb)
+8. [The action system](#8-the-action-system)
+   - 8.1 [Action and Runner](#81-action-and-runner)
+   - 8.2 [Status and Ctx](#82-status-and-ctx)
+   - 8.3 [Built-in actions](#83-built-in-actions)
+   - 8.4 [Custom actions](#84-custom-actions)
+9. [Conditions](#9-conditions)
+10. [World state](#10-world-state)
+11. [The widget system](#11-the-widget-system)
+    - 11.1 [Widget interface](#111-widget-interface)
+    - 11.2 [Z-order and input consumption](#112-z-order-and-input-consumption)
+    - 11.3 [Built-in widgets](#113-built-in-widgets)
+    - 10.4 [The clickBlocker contract](#114-the-clickblocker-contract)
+    - 11.5 [Registration helpers](#115-registration-helpers)
+    - 11.6 [Custom widgets](#116-custom-widgets)
+12. [Themes](#12-themes)
+13. [Asset pipeline](#13-asset-pipeline)
+14. [Audio](#14-audio)
+15. [Input](#15-input)
+16. [The game loop](#16-the-game-loop)
+17. [Scene transitions](#17-scene-transitions)
+18. [Validation](#18-validation)
+19. [Save and load](#19-save-and-load)
+20. [Errors](#20-errors)
+21. [Testing](#21-testing)
+22. [Project layout](#22-project-layout)
+23. [License](#23-license)
 
 ---
 
@@ -141,8 +148,10 @@ func main() {
         Hotspots: []inkwell.Hotspot{{
             Name:   "door",
             Area:   inkwell.Rect(260, 50, 40, 90),
-            Label:  "door",
-            OnLook: inkwell.Say("player", "A wooden door."),
+            Label:  inkwell.Text{{Lang: "en", Text: "door"}},
+            OnLook: inkwell.Say("player", inkwell.Text{
+                {Lang: "en", Text: "A wooden door."},
+            }),
         }},
     })
 
@@ -352,7 +361,7 @@ func (g *Game) HoverHint() string             // composed "verb + target"
 func (g *Game) SetSpeech(speaker, text string)
 func (g *Game) ClearSpeech()
 
-func (g *Game) FlashLine(text string)         // ~2s status banner
+func (g *Game) FlashLine(text Text)           // ~2s status banner
 ```
 
 ### 4.5 Chat-log API
@@ -393,10 +402,10 @@ func (g *Game) CharacterInScene(name string) bool
 
 `CurrentScene` is where the player is, empty before the first scene is
 entered; `PreviousScene` is the one before it, which is where
-[`Back()`](#73-built-in-actions) leads. Both survive a save.
+[`Back()`](#83-built-in-actions) leads. Both survive a save.
 
 `SceneArea` is `SceneRect`, or the whole window when it was never set. It is
-what [exit strips](#63-exit) are measured against.
+what [exit strips](#73-exit) are measured against.
 
 `SceneHotspots` is everything clickable in a scene: its own `Hotspots` first,
 then one per `Exit`. Authored hotspots come first because the engine takes the
@@ -418,10 +427,15 @@ func WrapText(s string, maxPx int) []string // word wrap; \n breaks where it sta
 func ClipText(s string, maxPx int) string   // cut to width, ellipsis when cut
 ```
 
-`DrawText` renders in the colour it is given: `ebitenutil.DebugPrintAt`
-only paints white, so the glyphs go onto a reused offscreen and are
-blitted back tinted with a `ColorScale`. Every `Theme` text colour is
-therefore live, in the built-in widgets and in a domain's own.
+`DrawText` renders in the colour it is given, glyph by glyph out of the
+engine's own atlas — each cell is a white glyph over a black drop
+shadow, so scaling the blit by the colour tints the glyph and leaves the
+shadow black. Every `Theme` text colour is therefore live, in the
+built-in widgets and in a domain's own. What the atlas covers, and how
+to widen it, is [§5.6](#56-the-font).
+
+These four take a resolved `string`, not a `Text` — they are the sink,
+and a `Text` reaches them through `String()`.
 
 The three measuring helpers are what the built-in widgets lay out with,
 and every vertical measurement in a HUD should derive from `GlyphH`
@@ -441,7 +455,226 @@ them being dropped or racing the others. The engine's own hotspot and
 
 ---
 
-## 5. Geometry primitives
+## 5. Text and languages
+
+Every string the player reads is a `Text` — the same string in as many
+languages as somebody has written it in.
+
+```go
+// inkwell/i18n.text.go
+
+type Translation struct {
+    Lang string
+    Text string
+}
+
+type Text []Translation
+
+var Lang     string        // the language the game speaks
+var Fallback string        // used when Lang has no translation
+
+func (t Text) String() string            // resolve against Lang
+func (t Text) In(lang string) string      // resolve against a named language
+func (t Text) Empty() bool
+func (t Text) Langs() []string
+func (t Text) Map(fn func(string) string) Text
+func Format(format Text, args ...any) Text
+```
+
+The wording stays where the thing it names is. A hotspot's label is in
+the hotspot; a line of dialogue is in the scene that speaks it. Nothing
+is lifted out into a catalogue keyed by identifier, because an
+identifier is one more name to invent and one more thing to keep in
+step — and because a translator reading a scene file can see what the
+line is answering.
+
+### 5.1 Writing one
+
+One translation per line, stacked, so the languages read as a table:
+
+```go
+Title: inkwell.Text{
+    {Lang: "en", Text: "ALLEY — BEHIND NOODLE'S HOUSE"},
+    {Lang: "hu", Text: "SIKÁTOR — NOODLE HÁZA MÖGÖTT"},
+},
+```
+
+```go
+inkwell.Say(paul, inkwell.Text{
+    {Lang: "en", Text: "Locked. And I'm not guessing four digits."},
+    {Lang: "hu", Text: "Zárva. És nem fogok négy számjegyet találgatni."},
+})
+```
+
+Adding a language is adding a line, and it touches nothing around it.
+The zero value says nothing in any language, so a field nobody has
+translated behaves exactly like the `""` it used to be, and a `Text`
+with one language behaves like a plain string.
+
+Inside a `[]Text` or a `map[string]Text` the element type is implied,
+which is what `gofmt -s` leaves behind:
+
+```go
+Labels: map[string]inkwell.Text{
+    "look": {
+        {Lang: "en", Text: "Look"},
+        {Lang: "hu", Text: "Néz"},
+    },
+},
+```
+
+### 5.2 Resolving one
+
+`String()` reads the package-level `Lang`, falls back to `Fallback`, and
+falls back again to whichever translation was written first — so a line
+nobody has translated yet still reaches the player rather than
+vanishing. Set both once, before `Run`:
+
+```go
+inkwell.Fallback = "en"
+inkwell.Lang = *langFlag
+```
+
+They are package variables rather than fields on `Game` because a `Text`
+resolves itself wherever it is read: inside a widget's `Draw`, inside
+the `Say` runner, inside a hover label, inside the hotspot an `Exit`
+generates. Threading a `*Game` through all of those would put a
+parameter on every one of them for a value there is only ever one of.
+`AssetFS` is a package variable for the same reason.
+
+Resolution happens at the moment of display, never at construction, so
+content built in an `init()` is unaffected by when the language is set.
+
+### 5.3 Composing
+
+A sentence built around another `Text` has to come out in one language
+throughout, which is what `Format` is for: the frame and every `Text`
+argument resolve in the same language, and anything that is not a `Text`
+is printed as it stands.
+
+```go
+var exitLook = inkwell.Text{
+    {Lang: "en", Text: "That way: %s."},
+    {Lang: "hu", Text: "Arra van: %s."},
+}
+
+g.ExitLook = func(e inkwell.Exit) inkwell.Action {
+    return inkwell.Say(paul, inkwell.Format(exitLook, e.Label))
+}
+```
+
+This is not a join, and that is the point: English puts the preposition
+between the verb and its object, Hungarian puts it after them. A frame
+per language is the only thing that survives contact with a second one.
+
+`Map` is the other composer — it rewrites every translation and keeps
+the languages, which is what a derived label wants:
+
+```go
+pin := scene.Title.Map(func(s string) string {
+    name, _, _ := strings.Cut(s, " — ")
+    return name
+})
+```
+
+### 5.4 What the engine says itself
+
+The handful of sentences inkwell puts on screen without a game having
+authored them live in `i18n.strings.go`, in English and Hungarian. They
+are variables, so a game that speaks a language the engine has not been
+taught can teach it one:
+
+```go
+inkwell.MsgNothing = append(inkwell.MsgNothing, inkwell.Translation{
+    Lang: "de",
+    Text: "Nichts von Bedeutung.",
+})
+```
+
+| Variable      | What it answers                                  |
+| ------------- | ------------------------------------------------ |
+| `MsgNothing`  | a verb nothing is bound to                       |
+| `MsgNotThat`  | an unpaired use-with, when `UseWithFail` is nil  |
+| `MsgNeedItem` | `RequireItem` on an item the player hasn't got   |
+| `HintVerb`    | the status line over a plain target              |
+| `HintVerbOn`  | the status line while an item is held            |
+| `ScoreLabel`  | the `TopBar` score prefix                        |
+
+The four preset verbs carry both languages too, and a game that wants a
+third replaces them through `VerbManager.Set`.
+
+### 5.5 Language-stable state
+
+Two things that used to be keyed by wording are not any more, because
+wording is no longer a stable identity.
+
+A `Once` dialogue choice is recorded against its **position** in its
+node, not its text — a choice the player has used up stays used up when
+the game is played in another language, and a translator can reword a
+line without reopening somebody's save.
+
+`TopBar.NoteVar` reads a `State` var, and a `Condition` compares against
+that value, so the value itself has to be identical in every language.
+`TopBar.Notes` maps it to what the player reads:
+
+```go
+&inkwell.TopBar{
+    NoteVar: "note",
+    Notes: map[string]inkwell.Text{
+        "paused": {
+            {Lang: "en", Text: "paused"},
+            {Lang: "hu", Text: "szünet"},
+        },
+    },
+}
+```
+
+### 5.6 The font
+
+`Text` is only half of it: a game that speaks a second language needs a
+font that can draw it. The engine used to render through
+`ebitenutil.DebugPrintAt`, whose atlas is 256 cells — U+0000 to U+00FF,
+Latin-1 and no further. That is enough for English and stops one
+character short of Hungarian: `ő` and `ű` are in Latin Extended-A, and
+so is most of what Polish, Czech, Croatian and Turkish need. Anything
+past U+00FF drew as a blank gap, em dashes and ellipses included.
+
+inkwell now ships its own atlas, `font.png`, baked by
+`internal/fontgen` out of `bitmapfont/v4`:
+
+| Range           | What it is                                   |
+| --------------- | -------------------------------------------- |
+| U+0020–U+007E   | ASCII                                        |
+| U+00A0–U+00FF   | Latin-1 supplement                           |
+| U+0100–U+017F   | Latin Extended-A                             |
+| U+2010–U+2027   | dashes, curly quotes, dagger, bullet, ellipsis |
+| U+20AC          | €                                            |
+| U+2190–U+2193   | arrows                                       |
+
+348 glyphs, under 8 KB — the Latin part of a font whose full face is
+2.5 MB of embedded CJK, which is the whole of what a European point &
+click ever puts on screen. A rune outside the coverage draws a hollow
+box, so a gap is visible rather than silent.
+
+`GlyphW` and `GlyphH` are unchanged at 6×16, every cell carries the same
+baked drop shadow the debug font had, and the run still starts one pixel
+right of `x` — so every layout measured against the old renderer still
+measures the same.
+
+To widen the coverage, edit `ranges` in `internal/fontgen/main.go` and
+run it; it regenerates both `font.png` and `i18n.glyphs.go`, and refuses
+any rune the fixed 6-pixel cell cannot hold.
+
+```
+go -C internal/fontgen run .
+```
+
+`internal/fontgen` is its own module, so the engine's own dependency
+list stays at one entry.
+
+---
+
+## 6. Geometry primitives
 
 ```go
 // inkwell/util.geometry.go
@@ -477,9 +710,9 @@ each frame.
 
 ---
 
-## 6. Entity reference
+## 7. Entity reference
 
-### 6.1 Asset
+### 7.1 Asset
 
 ```go
 // inkwell/asset.def.go
@@ -511,14 +744,14 @@ g.AssetManager.Register(inkwell.Asset{
 })
 ```
 
-### 6.2 Scene
+### 7.2 Scene
 
 ```go
 // inkwell/scene.def.go
 
 type Scene struct {
     Name       string
-    Title      string         // optional human-readable name (TopBar widget reads this)
+    Title      Text           // optional human-readable name (TopBar widget reads this)
     Background string         // Asset.Name
     Music      string         // Asset.Name (optional)
     Hotspots   []Hotspot
@@ -550,22 +783,22 @@ routes through a BFS over the polygon adjacency graph (polygons that
 share an edge are neighbours), with the midpoint of each shared edge
 used as a waypoint. Destinations outside every walkbox are clipped to
 the nearest boundary. With no walkboxes the character walks in a
-straight line — see [§6.8](#68-character) and [§15.4](#154-character-movement).
+straight line — see [§7.8](#78-character) and [§16.4](#164-character-movement).
 
 `Triggers` fire on the rising edge of their `When` condition. The
-engine samples each trigger once per idle frame; see [§6.5](#65-trigger).
+engine samples each trigger once per idle frame; see [§7.5](#75-trigger).
 
 `Exits` are the scene's connections to other scenes, declared as data. The
-engine turns each one into a hotspot — see [§6.3](#63-exit).
+engine turns each one into a hotspot — see [§7.3](#73-exit).
 
-### 6.3 Exit
+### 7.3 Exit
 
 ```go
 // inkwell/scene.exit.go
 
 type Exit struct {
     To      string      // target scene; empty means "back the way you came"
-    Label   string      // what the status line calls it
+    Label   Text        // what the status line calls it
     Side    ExitSide    // where it sits when Area is nil
     Area    Shape       // overrides the edge strip Side would give it
     Needs   string      // flag that has to be set before it opens
@@ -592,15 +825,24 @@ scene's own literal rather than in a map kept somewhere else:
 Scene{
     Name: "alley",
     Exits: []Exit{
-        {To: "noodle_house", Label: "back out to the street", Side: ExitLeft},
-        {To: "", Label: "the fire escape", Side: ExitBack,
-         Needs: "has_ladder", Blocked: Say("paul", "Can't reach it.")},
+        {
+            To:    "noodle_house",
+            Label: Text{{Lang: "en", Text: "back out to the street"}},
+            Side:  ExitLeft,
+        },
+        {
+            To:      "",
+            Label:   Text{{Lang: "en", Text: "the fire escape"}},
+            Side:    ExitBack,
+            Needs:   "has_ladder",
+            Blocked: Say("paul", Text{{Lang: "en", Text: "Can't reach it."}}),
+        },
     },
 }
 ```
 
 The engine expands each exit into a `Hotspot` with `Cursor: CursorExit`, the
-exit's `Label`, `OnUse` bound to `GoTo(To)` — or [`Back()`](#73-built-in-actions)
+exit's `Label`, `OnUse` bound to `GoTo(To)` — or [`Back()`](#83-built-in-actions)
 when `To` is empty — and, when `Needs` is set, the whole travel wrapped in
 `If(Flag(Needs), travel, Blocked)`. The exit is visible either way: a locked
 door still says it is a door.
@@ -610,8 +852,8 @@ door still says it is a door.
 in one place:
 
 ```go
-g.ExitLook = func(e Exit) Action { return Say("paul", "That way: "+e.Label+".") }
-g.ExitTake = func(e Exit) Action { return Say("paul", "It's a way out, not a thing.") }
+g.ExitLook = func(e Exit) Action { return Say("paul", Format(exitLook, e.Label)) }
+g.ExitTake = func(e Exit) Action { return Say("paul", exitTake) }
 ```
 
 **Placement.** With no `Area`, an exit is a strip along one edge of the
@@ -624,10 +866,10 @@ under the HUD.
 **The graph stays readable.** The generated hotspot is named
 `ExitName(To)` — `"exit:noodle_house"`, or `"exit:back"` — so the location
 graph can be read straight back out of the registered scenes, and
-[`Validate`](#17-validation) rejects an exit that names a scene nobody
+[`Validate`](#18-validation) rejects an exit that names a scene nobody
 registered.
 
-### 6.4 Hotspot
+### 7.4 Hotspot
 
 ```go
 // inkwell/scene.hotspot.go
@@ -635,7 +877,7 @@ registered.
 type Hotspot struct {
     Name   string
     Area   Shape           // Rectangle or Polygon
-    Label  string          // hover hint
+    Label  Text            // hover hint
     Cursor CursorKind
 
     // built-in verb handlers
@@ -669,7 +911,7 @@ resolves a click via `hotspot.handler(verbName)` which maps the four
 built-in verbs to their `On*` fields and falls back to `OnVerb[verbName]`
 for custom verbs.
 
-### 6.5 Trigger
+### 7.5 Trigger
 
 ```go
 // inkwell/scene.trigger.go
@@ -694,7 +936,7 @@ frame — the edge is preserved across the busy window. Save/Load resets
 trigger state to "freshly armed", matching the behaviour of scene
 re-entry.
 
-### 6.6 Item
+### 7.6 Item
 
 ```go
 // inkwell/item.def.go
@@ -702,7 +944,7 @@ re-entry.
 type Item struct {
     Name        string
     Sprite      string                  // Asset.Name
-    Description string
+    Description Text
 
     OnUseSelf Action
     // targetName → action. Target can be a hotspot Name or another item Name.
@@ -722,7 +964,7 @@ hotspot with an item selected resolves the action via, in order:
 author never wrote is still content, and the domain is the only one that
 knows what its characters say about it.
 
-### 6.7 Inventory
+### 7.7 Inventory
 
 ```go
 // inkwell/item.inventory.go
@@ -741,14 +983,14 @@ func (i *Inventory) Items() []string           // copy
 Not a manager — pure runtime state owned by `Game`. Mutated by actions
 (`Give`, `TakeAway`) and by the `InventoryBar` widget on click.
 
-### 6.8 Character
+### 7.8 Character
 
 ```go
 // inkwell/actor.def.go
 
 type Character struct {
     Name        string
-    Label       string                       // what the UI shows; empty = Name
+    Label       Text                         // what the UI shows; empty = Name
     Sprite      string                       // Asset.Name (placeholder if missing)
     Animations  map[string]AnimationClip
     Speed       float64
@@ -764,8 +1006,9 @@ const (
     VoiceLog                  // the log alone
 )
 
-func (c Character) DisplayName() string  // Label, or Name
-func (g *Game) CharacterLabel(name string) string
+func (c Character) DisplayName() Text    // Label, or Name
+func (g *Game) CharacterLabel(name string) Text
+func (g *Game) ItemLabel(name string) Text      // Description, or Name
 func (g *Game) VoiceOf(name string) Voice
 
 type AnimationClip struct {
@@ -800,9 +1043,9 @@ footprint. `Loop: true` rewinds to frame 0 after the last frame;
 
 Movement is driven by the `Walk` action and `Game.tickCharacters` —
 stepping at `Speed` pixels/sec (default 60) along the waypoint list
-computed by [walkbox routing](#62-scene).
+computed by [walkbox routing](#72-scene).
 
-### 6.9 Dialogue
+### 7.9 Dialogue
 
 ```go
 // inkwell/dialog.def.go
@@ -821,11 +1064,11 @@ type DialogueNode struct {
 
 type DialogueLine struct {
     Speaker string                      // Character.Name
-    Text    string
+    Text    Text
 }
 
 type DialogueChoice struct {
-    Text    string
+    Text    Text
     Show    Condition                   // nil = always visible
     Once    bool                        // hide after first pick
     Actions []Action                    // run when chosen
@@ -840,11 +1083,12 @@ The dialog flow:
 2. The `DialogBox` widget renders lines one at a time; click advances.
 3. After the last line, visible `Choices` are shown.
 4. Picking a choice runs `Seq(choice.Actions...)`. `Once` choices remember
-   that they fired via `State.NoteTalked`.
+   that they fired via `State.NoteTalked`, keyed by the choice's position
+   in its node rather than its wording — see [§5.5](#55-language-stable-state).
 5. `EndDialogue()` closes the conversation; `GotoNode("other")` jumps to
    another node in the same dialogue.
 
-### 6.10 Script
+### 7.10 Script
 
 ```go
 // inkwell/action.script.go
@@ -859,14 +1103,14 @@ A `Script` is just a named composite action — useful when you want to
 reuse a cutscene (intro, victory, transition) from multiple call sites.
 Fire one with `RunScript("name")`.
 
-### 6.11 Verb
+### 7.11 Verb
 
 ```go
 // inkwell/ui.verb.go
 
 type Verb struct {
     Name    string                      // canonical id, e.g. "look"
-    Label   string                      // display label, e.g. "Nézd"
+    Label   Text                        // display label, e.g. "Look at" / "Nézd"
     Default Action                      // run when a hotspot has no handler
 }
 ```
@@ -876,8 +1120,15 @@ type Verb struct {
 
 ```go
 g.VerbManager.Register(inkwell.Verb{
-    Name: "push", Label: "Lökd",
-    Default: inkwell.Say("player", "Nem mozdul."),
+    Name: "push",
+    Label: inkwell.Text{
+        {Lang: "en", Text: "Push"},
+        {Lang: "hu", Text: "Lökd"},
+    },
+    Default: inkwell.Say("player", inkwell.Text{
+        {Lang: "en", Text: "It won't move."},
+        {Lang: "hu", Text: "Nem mozdul."},
+    }),
 })
 ```
 
@@ -886,9 +1137,9 @@ frame, so adding a verb at runtime is enough to make it appear.
 
 ---
 
-## 7. The action system
+## 8. The action system
 
-### 7.1 Action and Runner
+### 8.1 Action and Runner
 
 ```go
 // inkwell/action.def.go
@@ -913,7 +1164,7 @@ queues issued while one is running are dropped (logged at debug level).
 A multi-actor scene can still run parallel work via `Par(...)` inside a
 single composite action.
 
-### 7.2 Status and Ctx
+### 8.2 Status and Ctx
 
 ```go
 type Status int
@@ -936,7 +1187,7 @@ type Ctx struct {
 `Seq` to the next step, `StatusFailed` short-circuits the whole branch
 (`RequireItem` uses this to abort a sequence when the item is absent).
 
-### 7.3 Built-in actions
+### 8.3 Built-in actions
 
 | Constructor                              | Behaviour                                                                 |
 |------------------------------------------|---------------------------------------------------------------------------|
@@ -944,13 +1195,13 @@ type Ctx struct {
 | `Par(a ...Action) Action`                | Run children simultaneously; completes when every child reports `Done`.   |
 | `If(c Condition, then Action, els ...Action) Action` | Run `then` if `c` evaluates true; otherwise `Seq(els...)` (if any).|
 | `Wait(seconds float64) Action`           | Block the runner for `seconds`.                                            |
-| `Say(speaker, text string) Action`       | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with text length, 1.2s floor. |
+| `Say(speaker string, text Text) Action`  | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with the resolved text's length, 1.2s floor. |
 | `GoTo(scene string) Action`              | Switch the current scene via a fade transition.                            |
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character string, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
 | `Give(item string) Action`               | Add `item` to inventory.                                                   |
 | `TakeAway(item string) Action`           | Remove `item` from inventory.                                              |
-| `RequireItem(item string) Action`        | If the item is not in inventory, flash "Ehhez kell egy …" and fail.        |
+| `RequireItem(item string) Action`        | If the item is not in inventory, flash `MsgNeedItem` and fail.             |
 | `SetFlag(name string) Action`            | `State.SetFlag(name)`.                                                     |
 | `ClearFlag(name string) Action`          | `State.ClearFlag(name)`.                                                   |
 | `SetVar(name string, v any) Action`      | `State.SetVar(name, v)`.                                                   |
@@ -961,10 +1212,10 @@ type Ctx struct {
 | `EndDialogue() Action`                   | Close the active dialog.                                                   |
 | `GotoNode(node string) Action`           | Jump to a node within the active dialog.                                   |
 | `RunScript(name string) Action`          | Run a registered `Script`'s `Actions`.                                     |
-| `ShowEnd(text string) Action`            | Display the end-card overlay; runner never finishes.                       |
+| `ShowEnd(text Text) Action`              | Display the end-card overlay; runner never finishes.                       |
 | `Custom(fn func(*Ctx) Status) Action`    | Escape hatch — wrap an arbitrary callback as an action.                    |
 
-### 7.4 Custom actions
+### 8.4 Custom actions
 
 Implement `Action` and `Runner` directly when you need long-running state
 (an animation, a tween, an HTTP poll):
@@ -1001,7 +1252,7 @@ bumpScore := inkwell.Custom(func(ctx *inkwell.Ctx) inkwell.Status {
 
 ---
 
-## 8. Conditions
+## 9. Conditions
 
 ```go
 // inkwell/action.condition.go
@@ -1027,7 +1278,7 @@ Conditions are stateless — they are evaluated lazily, including inside
 
 ---
 
-## 9. World state
+## 10. World state
 
 ```go
 // inkwell/state.def.go
@@ -1060,14 +1311,14 @@ could be used by triggers once those land.
 
 ---
 
-## 10. The widget system
+## 11. The widget system
 
 The HUD is a tree of `Widget`s, each registered into `g.WidgetManager`. The
 library ships built-in widgets for every classic adventure UI piece;
 domain code can register arbitrary new ones — chat panels, minimaps,
 hotbars — without touching the library.
 
-### 10.1 Widget interface
+### 11.1 Widget interface
 
 ```go
 // inkwell/ui.widget.go
@@ -1127,7 +1378,7 @@ A widget is responsible for its own input handling, hit-testing, state
 and rendering. The library does not impose a layout layer — widgets carry
 their own `Bounds` (or compute them dynamically, like `RadialVerbs`).
 
-### 10.2 Z-order and input consumption
+### 11.2 Z-order and input consumption
 
 - **`Draw` runs from the bottom layer up** — a widget on a higher layer is
   painted on top. Inside one layer, registration order decides.
@@ -1168,7 +1419,7 @@ to `handleSceneInput`, which is where hotspot interactions live. If a
 widget already consumed the click, `handleSceneInput` becomes a no-op for
 that frame.
 
-### 10.3 Built-in widgets
+### 11.3 Built-in widgets
 
 Each widget lives in its own `inkwell/ui.<name>.go` file. Fields with a
 zero value fall back to a sensible default.
@@ -1239,7 +1490,7 @@ type RadialVerbs struct {
 
     // Override the rendered label per verb name (e.g. shorten "Használd"
     // → "Tedd" so it fits inside the disk).
-    Labels map[string]string
+    Labels map[string]Text
 }
 ```
 
@@ -1360,11 +1611,13 @@ type TopBar struct {
     Name     string
     When     Condition
     Height   int                  // default 12
-    LeftText string                // overrides scene title
+    LeftText Text                  // overrides scene title
     ScoreVar string                // State.Var key; "" = no score
     ScoreMax int
+    ScoreLabel Text                // overrides the engine's word for it
     TimeVar  string                // State.Var key; "" = no time
     NoteVar  string                // State.Var key; appended to the left text
+    Notes    map[string]Text       // what to print for each value NoteVar takes
 }
 ```
 
@@ -1397,7 +1650,7 @@ current scene — same registration works across all scenes.
 
 ```go
 type CharStat struct {
-    Label  string
+    Label  Text
     VarKey string                  // State.Var(VarKey) is fmt-printed
 }
 
@@ -1405,7 +1658,7 @@ type CharacterPanel struct {
     Name      string
     Bounds    Rectangle
     Character string                // Character.Name
-    Title     string                // role badge ("PLAYER", "NPC", "GUIDE", …)
+    Title     Text                  // role badge ("PLAYER", "NPC", "GUIDE", …)
     Stats     []CharStat
 }
 ```
@@ -1434,7 +1687,7 @@ type ChatLog struct {
 Set `Game.MaxLogLines` to bound the buffer (recommended ~64 for a small
 ChatLog).
 
-### 10.4 The `clickBlocker` contract
+### 11.4 The `clickBlocker` contract
 
 Some widgets occupy a fixed area; clicking inside should not pop a
 `RadialVerbs` menu over them. They implement the optional library-internal
@@ -1451,7 +1704,7 @@ Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogBox`,
 visible). Implement it on your own widgets to mark them as solid input
 zones for the radial menu.
 
-### 10.5 Registration helpers
+### 11.5 Registration helpers
 
 ```go
 // inkwell/ui.defaults.go
@@ -1465,7 +1718,7 @@ Pass `""` for any character name to skip its `CharacterPanel`. All three
 helpers register in conventional Z-order (debug overlay back, cursor
 front).
 
-### 10.6 Custom widgets
+### 11.6 Custom widgets
 
 Anything implementing `Widget` plugs in. The library doesn't care about
 widget identity beyond the name; it just calls `Tick` and `Draw`. Read
@@ -1492,7 +1745,7 @@ g.WidgetManager.Register(&Minimap{
 
 ---
 
-## 11. Themes
+## 12. Themes
 
 ```go
 // inkwell/ui.theme.go
@@ -1549,7 +1802,7 @@ type Theme struct {
 }
 ```
 
-### 11.1 Preset themes
+### 12.1 Preset themes
 
 `NewGame` automatically calls `RegisterPresetThemes(g)` and
 `UseTheme("classic-scumm")`. The four shipped presets:
@@ -1561,7 +1814,7 @@ type Theme struct {
 | `paper-notebook`  | Cream paper + ink + a touch of sepia for the highlights.   |
 | `terminal-green`  | Retro phosphor green on black.                              |
 
-### 11.2 Custom themes
+### 12.2 Custom themes
 
 Register your own:
 
@@ -1580,7 +1833,7 @@ theme every frame, so the change shows up on the next draw.
 
 ---
 
-## 12. Asset pipeline
+## 13. Asset pipeline
 
 `AssetManager.Register` only stores the spec (`Name`, `Path`, `Kind`). The
 first request for an image goes through `loadedAssets.image(name)`:
@@ -1606,12 +1859,12 @@ character placeholder (humanoid / quadruped) or the real sprite.
 
 Supported image formats: PNG and JPEG (registered via blank imports in
 `asset.manager.go`). Audio assets (`AssetAudio`) are decoded on demand
-by `AudioPlayer` — see [§13](#13-audio). Fonts (`AssetFont`) share the
+by `AudioPlayer` — see [§14](#14-audio). Fonts (`AssetFont`) share the
 same registry but are not loaded by the library at this milestone.
 
 ---
 
-## 13. Audio
+## 14. Audio
 
 ```go
 // inkwell/asset.audio.go
@@ -1648,7 +1901,7 @@ methods, so a domain authored against the original stub still works.
 
 ---
 
-## 14. Input
+## 15. Input
 
 ```go
 // inkwell/input.def.go
@@ -1673,7 +1926,7 @@ directly.
 
 ---
 
-## 15. The game loop
+## 16. The game loop
 
 ```go
 // inkwell/core.dsl.go
@@ -1695,7 +1948,7 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
    unset), `ebiten.SetWindowTitle(g.Title)`, then
    `ebiten.RunGame(&engine{g})`.
 
-### 15.1 `engine.Update`
+### 16.1 `engine.Update`
 
 ```
 poll input
@@ -1717,7 +1970,7 @@ handleSceneInput()       // hotspot resolution + right-click reset
 tick characters
 ```
 
-### 15.2 `engine.Draw`
+### 16.2 `engine.Draw`
 
 ```
 fill Theme.SceneBackdrop (if any)
@@ -1730,7 +1983,7 @@ for w in WidgetManager (by layer, then registration order):
 draw transition overlay
 ```
 
-### 15.3 `handleSceneInput`
+### 16.3 `handleSceneInput`
 
 Runs only after every widget had a chance. The flow:
 
@@ -1746,7 +1999,7 @@ Runs only after every widget had a chance. The flow:
 4. On every successful click, push a `LogAction` line so the `ChatLog`
    widget can display it.
 
-### 15.4 Character movement
+### 16.4 Character movement
 
 `Game.tickCharacters` runs every frame. For each moving character it
 steps the head of its waypoint queue at `def.Speed` pixels per second
@@ -1755,7 +2008,7 @@ proceeds to the next one. The character becomes idle when the queue
 empties.
 
 The waypoint queue is built when `Walk(name, to)` runs — see
-[§6.2](#62-scene) and [`scene.path.go`](#21-project-layout) for the
+[§7.2](#72-scene) and [`scene.path.go`](#22-project-layout) for the
 walkbox routing. The `Walk` runner returns `StatusRunning` until
 `characterMoving(name)` reports false.
 
@@ -1767,7 +2020,7 @@ the whole-sprite / placeholder draw when no clip applies.
 
 ---
 
-## 16. Scene transitions
+## 17. Scene transitions
 
 ```go
 // inkwell/scene.transition.go (unexported)
@@ -1793,7 +2046,7 @@ intro script runs immediately.
 
 ---
 
-## 17. Validation
+## 18. Validation
 
 ```go
 func (g *Game) Validate() error
@@ -1817,7 +2070,7 @@ eagerly at `Register` time via panic.
 
 ---
 
-## 18. Save and load
+## 19. Save and load
 
 ```go
 // inkwell/state.save.go
@@ -1861,7 +2114,7 @@ future version returns an error rather than silently truncating fields.
 
 ---
 
-## 19. Errors
+## 20. Errors
 
 ```go
 // inkwell/core.errors.go
@@ -1888,7 +2141,7 @@ should crash loudly in development.
 
 ---
 
-## 20. Testing
+## 21. Testing
 
 ```bash
 go build ./...
@@ -1915,7 +2168,7 @@ Library-internal unit tests are not shipped yet; the building blocks are
 small enough to verify through smoke runs
 of the demo for the time being.
 
-### 20.1 Useful runtime debug switches
+### 21.1 Useful runtime debug switches
 
 ```go
 inkwell.DebugLog = true                 // logf output to stderr (script queue, audio, scene change)
@@ -1924,7 +2177,7 @@ inkwell.DebugLog = true                 // logf output to stderr (script queue, 
 
 ---
 
-## 21. Project layout
+## 22. Project layout
 
 All library source files live at the repo root; no nested package
 directory. The naming convention is `theme.identifier.go` — `ls core.*`
@@ -1950,6 +2203,13 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── asset.manager.go               # AssetManager alias + lazy loader
 ├── asset.audio.go                 # AudioPlayer (WAV/OGG/MP3, looping music)
 ├── asset.text.go                  # drawText / wrapText helpers
+│
+├── i18n.text.go                   # Translation, Text, T, Format, Lang
+├── i18n.strings.go                # the engine's own wording, per language
+├── i18n.font.go                   # the glyph atlas and its lookup
+├── i18n.glyphs.go                 # generated: the atlas coverage
+├── font.png                       # generated: the atlas itself
+├── internal/fontgen/              # the generator (its own module)
 │
 ├── scene.def.go                   # Scene, SceneActor
 ├── scene.manager.go               # SceneManager alias
@@ -2013,6 +2273,6 @@ no in-tree coupling.
 
 ---
 
-## 22. License
+## 23. License
 
 MIT — see [`LICENSE.md`](LICENSE.md). Copyright © 2026 Teletype Games.

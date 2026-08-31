@@ -71,7 +71,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 		}
 		txt := m.Text
 		if m.Kind == LogResponse && m.Speaker != "" {
-			txt = m.Speaker + ": " + m.Text
+			txt = g.CharacterLabel(m.Speaker).String() + ": " + m.Text
 		}
 		for _, w := range WrapText(txt, wrapW) {
 			rendered = append(rendered, line{text: w, col: col})

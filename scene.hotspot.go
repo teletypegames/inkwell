@@ -14,7 +14,7 @@ const (
 type Hotspot struct {
 	Name   string
 	Area   Shape
-	Label  string
+	Label  Text
 	Cursor CursorKind
 
 	OnLook Action

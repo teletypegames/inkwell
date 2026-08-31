@@ -26,11 +26,11 @@ type DialogueNode struct {
 
 type DialogueLine struct {
 	Speaker string
-	Text    string
+	Text    Text
 }
 
 type DialogueChoice struct {
-	Text    string
+	Text    Text
 	Show    Condition // nil = always
 	Once    bool
 	Actions []Action

@@ -195,7 +195,7 @@ type waitRunner struct {
 	elapsed float64
 }
 
-func Wait(seconds float64) Action { return &waitAction{seconds: seconds} }
+func Wait(seconds float64) Action   { return &waitAction{seconds: seconds} }
 func (a *waitAction) Start() Runner { return &waitRunner{spec: a} }
 func (r *waitRunner) Tick(ctx *Ctx) Status {
 	r.elapsed += ctx.DT
@@ -207,29 +207,43 @@ func (r *waitRunner) Tick(ctx *Ctx) Status {
 
 // ----- Say --------------------------------------------------------------
 
-type sayAction struct{ speaker, text string }
+type sayAction struct {
+	speaker string
+	text    Text
+}
 type sayRunner struct {
 	spec     *sayAction
 	elapsed  float64
 	duration float64
 	started  bool
 	bubble   bool
+	line     string
 }
 
-func Say(speaker, text string) Action { return &sayAction{speaker: speaker, text: text} }
+// Say puts one line in a character's mouth. The line is a Text, so the same
+// call carries every language it has been written in; which one reaches the
+// player is decided when the runner starts, not when the content is
+// authored.
+func Say(speaker string, text Text) Action {
+	return &sayAction{
+		speaker: speaker,
+		text:    text,
+	}
+}
 
 func (a *sayAction) Start() Runner { return &sayRunner{spec: a} }
 
 func (r *sayRunner) Tick(ctx *Ctx) Status {
 	if !r.started {
 		r.started = true
+		r.line = r.spec.text.String()
 		// duration scales with text length, with a 1.2s floor
-		r.duration = 1.2 + float64(len([]rune(r.spec.text)))*0.05
+		r.duration = 1.2 + float64(len([]rune(r.line)))*0.05
 		r.bubble = ctx.Game.VoiceOf(r.spec.speaker) == VoiceBubble
 		if r.bubble {
-			ctx.Game.SetSpeech(r.spec.speaker, r.spec.text)
+			ctx.Game.SetSpeech(r.spec.speaker, r.line)
 		}
-		ctx.Game.LogResponse(r.spec.speaker, r.spec.text)
+		ctx.Game.LogResponse(r.spec.speaker, r.line)
 	}
 	r.elapsed += ctx.DT
 	// skip on click
@@ -249,7 +263,7 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 
 type gotoAction struct{ scene string }
 
-func GoTo(scene string) Action { return &gotoAction{scene: scene} }
+func GoTo(scene string) Action      { return &gotoAction{scene: scene} }
 func (a *gotoAction) Start() Runner { return a }
 func (a *gotoAction) Tick(ctx *Ctx) Status {
 	ctx.Game.changeScene(a.scene)
@@ -278,7 +292,7 @@ func (a backAction) Tick(ctx *Ctx) Status {
 
 type giveAction struct{ item string }
 
-func Give(item string) Action { return &giveAction{item: item} }
+func Give(item string) Action       { return &giveAction{item: item} }
 func (a *giveAction) Start() Runner { return a }
 func (a *giveAction) Tick(ctx *Ctx) Status {
 	ctx.Game.Inventory.Add(a.item)
@@ -287,7 +301,7 @@ func (a *giveAction) Tick(ctx *Ctx) Status {
 
 type takeAwayAction struct{ item string }
 
-func TakeAway(item string) Action { return &takeAwayAction{item: item} }
+func TakeAway(item string) Action       { return &takeAwayAction{item: item} }
 func (a *takeAwayAction) Start() Runner { return a }
 func (a *takeAwayAction) Tick(ctx *Ctx) Status {
 	ctx.Game.Inventory.Remove(a.item)
@@ -298,13 +312,13 @@ func (a *takeAwayAction) Tick(ctx *Ctx) Status {
 // the named item selected or in inventory. Used at the top of Use handlers.
 type requireItemAction struct{ item string }
 
-func RequireItem(item string) Action { return &requireItemAction{item: item} }
+func RequireItem(item string) Action       { return &requireItemAction{item: item} }
 func (a *requireItemAction) Start() Runner { return a }
 func (a *requireItemAction) Tick(ctx *Ctx) Status {
 	if ctx.Game.Inventory.Has(a.item) {
 		return StatusDone
 	}
-	ctx.Game.FlashLine("Ehhez kell egy " + a.item + ".")
+	ctx.Game.FlashLine(Format(MsgNeedItem, ctx.Game.ItemLabel(a.item)))
 	return StatusFailed
 }
 
@@ -312,13 +326,13 @@ func (a *requireItemAction) Tick(ctx *Ctx) Status {
 
 type setFlagAction struct{ name string }
 
-func SetFlag(name string) Action { return &setFlagAction{name: name} }
-func (a *setFlagAction) Start() Runner { return a }
+func SetFlag(name string) Action              { return &setFlagAction{name: name} }
+func (a *setFlagAction) Start() Runner        { return a }
 func (a *setFlagAction) Tick(ctx *Ctx) Status { ctx.Game.State.SetFlag(a.name); return StatusDone }
 
 type clearFlagAction struct{ name string }
 
-func ClearFlag(name string) Action { return &clearFlagAction{name: name} }
+func ClearFlag(name string) Action       { return &clearFlagAction{name: name} }
 func (a *clearFlagAction) Start() Runner { return a }
 func (a *clearFlagAction) Tick(ctx *Ctx) Status {
 	ctx.Game.State.ClearFlag(a.name)
@@ -331,7 +345,7 @@ type setVarAction struct {
 }
 
 func SetVar(name string, v any) Action { return &setVarAction{name: name, v: v} }
-func (a *setVarAction) Start() Runner { return a }
+func (a *setVarAction) Start() Runner  { return a }
 func (a *setVarAction) Tick(ctx *Ctx) Status {
 	ctx.Game.State.SetVar(a.name, a.v)
 	return StatusDone
@@ -341,7 +355,7 @@ func (a *setVarAction) Tick(ctx *Ctx) Status {
 
 type playMusicAction struct{ name string }
 
-func PlayMusic(name string) Action { return &playMusicAction{name: name} }
+func PlayMusic(name string) Action       { return &playMusicAction{name: name} }
 func (a *playMusicAction) Start() Runner { return a }
 func (a *playMusicAction) Tick(ctx *Ctx) Status {
 	ctx.Game.Audio.PlayMusic(a.name)
@@ -350,13 +364,13 @@ func (a *playMusicAction) Tick(ctx *Ctx) Status {
 
 type stopMusicAction struct{}
 
-func StopMusic() Action { return &stopMusicAction{} }
-func (a *stopMusicAction) Start() Runner { return a }
+func StopMusic() Action                         { return &stopMusicAction{} }
+func (a *stopMusicAction) Start() Runner        { return a }
 func (a *stopMusicAction) Tick(ctx *Ctx) Status { ctx.Game.Audio.StopMusic(); return StatusDone }
 
 type playSoundAction struct{ name string }
 
-func PlaySound(name string) Action { return &playSoundAction{name: name} }
+func PlaySound(name string) Action       { return &playSoundAction{name: name} }
 func (a *playSoundAction) Start() Runner { return a }
 func (a *playSoundAction) Tick(ctx *Ctx) Status {
 	ctx.Game.Audio.PlaySound(a.name)
@@ -367,7 +381,7 @@ func (a *playSoundAction) Tick(ctx *Ctx) Status {
 
 type runDialogueAction struct{ name string }
 
-func RunDialogue(name string) Action { return &runDialogueAction{name: name} }
+func RunDialogue(name string) Action       { return &runDialogueAction{name: name} }
 func (a *runDialogueAction) Start() Runner { return &runDialogueRunner{spec: a} }
 
 type runDialogueRunner struct {
@@ -388,7 +402,7 @@ func (r *runDialogueRunner) Tick(ctx *Ctx) Status {
 
 type endDialogueAction struct{}
 
-func EndDialogue() Action { return &endDialogueAction{} }
+func EndDialogue() Action                  { return &endDialogueAction{} }
 func (a *endDialogueAction) Start() Runner { return a }
 func (a *endDialogueAction) Tick(ctx *Ctx) Status {
 	ctx.Game.endDialogue()
@@ -397,7 +411,7 @@ func (a *endDialogueAction) Tick(ctx *Ctx) Status {
 
 type gotoNodeAction struct{ node string }
 
-func GotoNode(node string) Action { return &gotoNodeAction{node: node} }
+func GotoNode(node string) Action       { return &gotoNodeAction{node: node} }
 func (a *gotoNodeAction) Start() Runner { return a }
 func (a *gotoNodeAction) Tick(ctx *Ctx) Status {
 	ctx.Game.gotoDialogueNode(a.node)
@@ -408,7 +422,7 @@ func (a *gotoNodeAction) Tick(ctx *Ctx) Status {
 
 type runScriptAction struct{ name string }
 
-func RunScript(name string) Action { return &runScriptAction{name: name} }
+func RunScript(name string) Action       { return &runScriptAction{name: name} }
 func (a *runScriptAction) Start() Runner { return &runScriptRunner{spec: a} }
 
 type runScriptRunner struct {
@@ -456,9 +470,9 @@ func (r *walkRunner) Tick(ctx *Ctx) Status {
 
 // ----- misc -------------------------------------------------------------
 
-type showEndAction struct{ text string }
+type showEndAction struct{ text Text }
 
-func ShowEnd(text string) Action { return &showEndAction{text: text} }
+func ShowEnd(text Text) Action         { return &showEndAction{text: text} }
 func (a *showEndAction) Start() Runner { return &showEndRunner{spec: a} }
 
 type showEndRunner struct {
@@ -469,7 +483,7 @@ type showEndRunner struct {
 func (r *showEndRunner) Tick(ctx *Ctx) Status {
 	if !r.started {
 		r.started = true
-		ctx.Game.showEndCard(r.spec.text)
+		ctx.Game.showEndCard(r.spec.text.String())
 	}
 	return StatusRunning // never finishes; player closes the window
 }
