@@ -16,8 +16,8 @@ type AssetManager = Manager[Asset]
 // The Asset structs in the manager remain immutable spec; this is where
 // the actual *ebiten.Image bytes live, lazily decoded on first access.
 type loadedAssets struct {
-	images       map[string]*ebiten.Image
-	placeholders map[string]bool
+	images             map[string]*ebiten.Image
+	placeholders       map[string]bool
 	defaultW, defaultH int
 }
 
@@ -50,8 +50,10 @@ func (la *loadedAssets) image(am *AssetManager, name string) *ebiten.Image {
 	return img
 }
 
+// isPlaceholder reports whether the named image fell back to a generated
+// rectangle. It answers for what has been loaded, so it is only meaningful
+// after image() has been asked for the same name.
 func (la *loadedAssets) isPlaceholder(name string) bool {
-	_, _ = la.images[name], la.placeholders[name] // ensure populated via image()
 	return la.placeholders[name]
 }
 

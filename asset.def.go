@@ -5,7 +5,6 @@ type AssetKind int
 const (
 	AssetImage AssetKind = iota
 	AssetAudio
-	AssetFont
 )
 
 type Asset struct {

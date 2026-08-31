@@ -92,16 +92,6 @@ func (t Text) lookup(lang string) (string, bool) {
 // language but words it as "" is not empty; nothing authors one.
 func (t Text) Empty() bool { return len(t) == 0 }
 
-// Langs lists the languages the Text was written in, in the order it lists
-// them.
-func (t Text) Langs() []string {
-	out := make([]string, 0, len(t))
-	for _, tr := range t {
-		out = append(out, tr.Lang)
-	}
-	return out
-}
-
 // Map rewrites every translation, keeping the languages. A derived label —
 // a scene title cut down to the part that fits on a map pin — is the same
 // cut in every language.

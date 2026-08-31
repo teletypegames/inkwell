@@ -1,7 +1,6 @@
 package inkwell
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,7 +54,6 @@ type Game struct {
 	State     *State
 	Inventory *Inventory
 	Audio     *AudioPlayer
-	Camera    *Camera
 	Input     *Input
 
 	startID     string
@@ -97,37 +95,11 @@ type Game struct {
 	triggerStates map[string]*triggerState
 }
 
-// LogKind classifies a chat-log entry — UI widgets style them differently.
-type LogKind int
-
-const (
-	LogAction   LogKind = iota // player command ("> look at door")
-	LogResponse                // in-world reply / Say output
-	LogSystem                  // game/system message
-)
-
-// LogMessage is a single line in the chat-log buffer.
-type LogMessage struct {
-	Speaker string // empty for actions / system
-	Text    string
-	Kind    LogKind
-}
-
 // speechState is what the SpeechBubble widget renders. Mutated by Say.
 type speechState struct {
 	Active  bool
 	Speaker string
 	Text    string
-}
-
-// runtimeDialog holds the in-flight Dialogue state. Mutated by the
-// startDialogue/gotoDialogueNode/endDialogue plumbing and read by the
-// DialogBox widget.
-type runtimeDialog struct {
-	Dialogue   *Dialogue
-	Node       *DialogueNode
-	LineIdx    int
-	ChoiceHits []Rectangle
 }
 
 // NewGame initializes a game with empty entity managers, the SCUMM-style
@@ -154,7 +126,6 @@ func NewGame(title string, w, h int) *Game {
 		State:            NewState(),
 		Inventory:        NewInventory(),
 		Audio:            NewAudioPlayer(),
-		Camera:           NewCamera(),
 		Input:            newInput(),
 		loaded:           newLoadedAssets(w, h),
 		chars:            make(map[string]*runtimeChar),
@@ -240,32 +211,6 @@ func (g *Game) FlashLine(text Text) {
 	g.flash = text.String()
 	g.flashTimer = 2.0
 }
-
-// LogAction appends a player-command line (rendered with the prompt color
-// by ChatLog widgets).
-func (g *Game) LogAction(text string) {
-	g.appendLog(LogMessage{Text: text, Kind: LogAction})
-}
-
-// LogResponse appends a reply line (rendered with the response color).
-func (g *Game) LogResponse(speaker, text string) {
-	g.appendLog(LogMessage{Speaker: speaker, Text: text, Kind: LogResponse})
-}
-
-// LogSystem appends a system/meta line (rendered with the response color).
-func (g *Game) LogSystem(text string) {
-	g.appendLog(LogMessage{Text: text, Kind: LogSystem})
-}
-
-func (g *Game) appendLog(m LogMessage) {
-	g.messages = append(g.messages, m)
-	if g.MaxLogLines > 0 && len(g.messages) > g.MaxLogLines {
-		g.messages = g.messages[len(g.messages)-g.MaxLogLines:]
-	}
-}
-
-// Messages returns the current log buffer (read-only).
-func (g *Game) Messages() []LogMessage { return g.messages }
 
 // HotspotAt returns the topmost hotspot in the current scene whose Area
 // contains p, or nil if none. Exposed so widgets (e.g., a verb coin
@@ -355,68 +300,6 @@ func (g *Game) HoverHint() string {
 	return Format(HintVerb, verb, g.hoverLabel).String()
 }
 
-// ----- validation -------------------------------------------------------
-
-func (g *Game) Validate() error {
-	if !g.SceneManager.Has(g.startID) {
-		return fmt.Errorf("%w: %q", ErrNoStartScene, g.startID)
-	}
-	for _, name := range g.SceneManager.Names() {
-		s := g.SceneManager.MustGet(name)
-		if s.Background == "" {
-			return fmt.Errorf("%w: scene %q", ErrSceneMissingBackground, name)
-		}
-		if s.Background != "" && !g.AssetManager.Has(s.Background) {
-			return fmt.Errorf("%w: scene %q background %q", ErrUnknownAsset, name, s.Background)
-		}
-		if s.Music != "" && !g.AssetManager.Has(s.Music) {
-			return fmt.Errorf("%w: scene %q music %q", ErrUnknownAsset, name, s.Music)
-		}
-		for _, a := range g.sceneActors(s) {
-			if !g.CharacterManager.Has(a.CharacterName) {
-				return fmt.Errorf("%w: scene %q actor %q", ErrUnknownCharacter, name, a.CharacterName)
-			}
-		}
-		for _, e := range s.Exits {
-			if e.To != "" && !g.SceneManager.Has(e.To) {
-				return fmt.Errorf("%w: scene %q exit to %q", ErrUnknownScene, name, e.To)
-			}
-		}
-	}
-	for _, name := range []string{g.onStart, g.onFinale} {
-		if name != "" && !g.ScriptManager.Has(name) {
-			return fmt.Errorf("%w: %q", ErrUnknownScript, name)
-		}
-	}
-	if g.Player != "" && !g.CharacterManager.Has(g.Player) {
-		return fmt.Errorf("%w: player %q", ErrUnknownCharacter, g.Player)
-	}
-	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
-		return fmt.Errorf("inkwell: no active theme (got %q)", g.activeTheme)
-	}
-	return nil
-}
-
-// ----- runtime: characters & scenes -------------------------------------
-
-type runtimeChar struct {
-	def Character
-	pos Point
-	// path is the queue of remaining waypoints, head-first. Empty when
-	// idle. The last entry equals target.
-	path []Point
-	// target is the final destination — kept separately so saves and the
-	// post-Load resume in tickCharacters can rebuild a missing path.
-	target Point
-	moving bool
-
-	// animation playback state — see actor.animation.go for the rules
-	// that drive currentClip selection.
-	currentClip string
-	clipElapsed float64
-	clipFrame   int
-}
-
 func (g *Game) makeCtx() *Ctx {
 	c := &Ctx{Game: g, DT: 1.0 / 60.0}
 	if g.currentScene != "" {
@@ -425,209 +308,5 @@ func (g *Game) makeCtx() *Ctx {
 	}
 	return c
 }
-
-func (g *Game) changeScene(name string) {
-	if !g.SceneManager.Has(name) {
-		logf("changeScene: unknown %q", name)
-		return
-	}
-	prev := g.currentScene
-	g.transition.start(func() {
-		if prev != "" && prev != name {
-			g.previousScene = prev
-		}
-		if prev != "" {
-			old := g.SceneManager.MustGet(prev)
-			if old.OnLeave != nil {
-				g.queueAction(old.OnLeave, "OnLeave")
-			}
-		}
-		g.currentScene = name
-		g.State.NoteVisit(name)
-		g.placeActors(name)
-		g.resetTriggers()
-		s := g.SceneManager.MustGet(name)
-		if s.Music != "" {
-			g.Audio.PlayMusic(s.Music)
-		}
-		if s.OnEnter != nil {
-			g.queueAction(s.OnEnter, "OnEnter")
-		}
-	})
-}
-
-// sceneActors is the cast a scene actually shows: its own list, or the
-// player alone when the scene names nobody.
-func (g *Game) sceneActors(s Scene) []SceneActor {
-	if s.Actors != nil || g.Player == "" {
-		return s.Actors
-	}
-	def, ok := g.CharacterManager.Get(g.Player)
-	if !ok {
-		return nil
-	}
-	return []SceneActor{{
-		CharacterName: def.Name,
-		At:            def.Start,
-	}}
-}
-
-func (g *Game) placeActors(sceneName string) {
-	s := g.SceneManager.MustGet(sceneName)
-	for _, a := range g.sceneActors(s) {
-		def := g.CharacterManager.MustGet(a.CharacterName)
-		rc, ok := g.chars[def.Name]
-		if !ok {
-			rc = &runtimeChar{def: def, pos: a.At}
-			g.chars[def.Name] = rc
-		} else {
-			rc.def = def
-			rc.pos = a.At
-			rc.moving = false
-		}
-	}
-}
-
-func (g *Game) runtimeChar(name string) (*runtimeChar, bool) {
-	c, ok := g.chars[name]
-	return c, ok
-}
-
-func (g *Game) walkCharacter(name string, to Point) {
-	c, ok := g.chars[name]
-	if !ok {
-		return
-	}
-	var boxes []Polygon
-	if g.currentScene != "" {
-		s := g.SceneManager.MustGet(g.currentScene)
-		boxes = s.Walkboxes
-		if boxes == nil {
-			boxes = g.Walkboxes
-		}
-	}
-	path := pathfind(c.pos, to, boxes)
-	if len(path) == 0 {
-		c.moving = false
-		return
-	}
-	c.path = path
-	c.target = path[len(path)-1]
-	c.moving = true
-}
-
-func (g *Game) characterMoving(name string) bool {
-	c, ok := g.chars[name]
-	return ok && c.moving
-}
-
-func (g *Game) tickCharacters(dt float64) {
-	for _, c := range g.chars {
-		g.tickAnimation(c, dt)
-		if !c.moving {
-			continue
-		}
-		// Resume after Load: moving with no live path means we lost the
-		// route but still know the final destination; rebuild a trivial
-		// straight-line path so the character finishes its walk.
-		if len(c.path) == 0 {
-			if c.pos == c.target {
-				c.moving = false
-				continue
-			}
-			c.path = []Point{c.target}
-		}
-		next := c.path[0]
-		dx := next.X - c.pos.X
-		dy := next.Y - c.pos.Y
-		d := c.pos.Dist(next)
-		speed := c.def.Speed
-		if speed <= 0 {
-			speed = 60
-		}
-		step := speed * dt
-		if d <= step {
-			c.pos = next
-			c.path = c.path[1:]
-			if len(c.path) == 0 {
-				c.moving = false
-			}
-			continue
-		}
-		c.pos.X += dx / d * step
-		c.pos.Y += dy / d * step
-	}
-}
-
-// ----- script & dialog plumbing -----------------------------------------
-
-// Do queues an action. Queued actions run one at a time and in order —
-// the engine starts the next one on the first frame the previous one is
-// done, so a widget or a domain pump can hand work in at any moment.
-func (g *Game) Do(a Action) {
-	if a == nil {
-		return
-	}
-	g.queue = append(g.queue, a)
-}
-
-func (g *Game) queueAction(a Action, label string) {
-	if a == nil {
-		return
-	}
-	logf("queueAction %s", label)
-	g.Do(a)
-}
-
-// pumpQueue starts the next queued action when nothing else is running.
-func (g *Game) pumpQueue() {
-	if g.scriptRunner != nil || len(g.queue) == 0 {
-		return
-	}
-	a := g.queue[0]
-	g.queue = g.queue[1:]
-	g.scriptRunner = a.Start()
-	g.scriptCtx = g.makeCtx()
-}
-
-func (g *Game) startDialogue(name string) {
-	d, ok := g.DialogueManager.Get(name)
-	if !ok {
-		logf("startDialogue: unknown %q", name)
-		return
-	}
-	startNode := d.Start
-	if startNode == "" && len(d.Nodes) > 0 {
-		startNode = d.Nodes[0].Name
-	}
-	node, ok := d.Node(startNode)
-	if !ok {
-		return
-	}
-	g.activeDialog = name
-	g.dialog = &runtimeDialog{Dialogue: &d, Node: &node, LineIdx: 0}
-}
-
-func (g *Game) endDialogue() {
-	g.activeDialog = ""
-	g.dialog = nil
-}
-
-func (g *Game) gotoDialogueNode(name string) {
-	if g.dialog == nil || g.activeDialog == "" {
-		return
-	}
-	d := g.DialogueManager.MustGet(g.activeDialog)
-	node, ok := d.Node(name)
-	if !ok {
-		logf("gotoNode: unknown %q in %q", name, g.activeDialog)
-		return
-	}
-	g.dialog.Node = &node
-	g.dialog.LineIdx = 0
-	g.dialog.ChoiceHits = nil
-}
-
-func (g *Game) dialogueActive() bool { return g.dialog != nil }
 
 func (g *Game) showEndCard(text string) { g.endCard = text }

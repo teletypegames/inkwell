@@ -108,10 +108,10 @@ func (g *Game) buildSave() saveFile {
 			Selected: g.Inventory.Selected(),
 		},
 		State: savedState{
-			Flags:   copyBoolMap(g.State.flags),
-			Vars:    copyAnyMap(g.State.vars),
-			Visited: copyIntMap(g.State.visited),
-			Talked:  copyIntMap(g.State.talked),
+			Flags:   copyMap(g.State.flags),
+			Vars:    copyMap(g.State.vars),
+			Visited: copyMap(g.State.visited),
+			Talked:  copyMap(g.State.talked),
 		},
 	}
 	for name, c := range g.chars {
@@ -215,33 +215,14 @@ func (g *Game) applySave(sf *saveFile) error {
 	return nil
 }
 
-func copyBoolMap(m map[string]bool) map[string]bool {
+// copyMap snapshots a state map into the save file, so a later mutation of
+// the live game cannot reach through into a marshalled save. An empty map is
+// left out of the JSON entirely.
+func copyMap[K comparable, V any](m map[K]V) map[K]V {
 	if len(m) == 0 {
 		return nil
 	}
-	out := make(map[string]bool, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-func copyIntMap(m map[string]int) map[string]int {
-	if len(m) == 0 {
-		return nil
-	}
-	out := make(map[string]int, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-func copyAnyMap(m map[string]any) map[string]any {
-	if len(m) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(m))
+	out := make(map[K]V, len(m))
 	for k, v := range m {
 		out[k] = v
 	}

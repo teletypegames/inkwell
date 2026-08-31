@@ -1,7 +1,5 @@
 package inkwell
 
-import "sort"
-
 // Named is implemented by every entity that can be registered into a Manager.
 type Named interface {
 	GetName() string
@@ -9,7 +7,7 @@ type Named interface {
 
 // Manager is the single registry shape used by every entity type. Each entity
 // kind gets a named alias (ItemManager = Manager[Item], etc.). Insertion
-// order is preserved — Names() returns it. SortedNames() returns alphabetical.
+// order is preserved — Names() and All() both hand it back.
 type Manager[T Named] struct {
 	items map[string]T
 	order []string
@@ -65,8 +63,7 @@ func (m *Manager[T]) Has(name string) bool {
 
 func (m *Manager[T]) Len() int { return len(m.items) }
 
-// Names returns the registered names in insertion order. Use SortedNames
-// when iteration order needs to be stable across runs.
+// Names returns the registered names in insertion order.
 func (m *Manager[T]) Names() []string {
 	return append([]string(nil), m.order...)
 }
@@ -80,30 +77,9 @@ func (m *Manager[T]) All() []T {
 	return out
 }
 
-func (m *Manager[T]) SortedNames() []string {
-	names := append([]string(nil), m.order...)
-	sort.Strings(names)
-	return names
-}
-
 func (m *Manager[T]) Each(fn func(T)) {
 	for _, n := range m.order {
 		fn(m.items[n])
-	}
-}
-
-// Remove drops a registered entry. Used by hot-reload / dynamic UI changes.
-// Silently no-ops on unknown names.
-func (m *Manager[T]) Remove(name string) {
-	if _, ok := m.items[name]; !ok {
-		return
-	}
-	delete(m.items, name)
-	for i, n := range m.order {
-		if n == name {
-			m.order = append(m.order[:i], m.order[i+1:]...)
-			return
-		}
 	}
 }
 

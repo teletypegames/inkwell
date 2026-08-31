@@ -6,8 +6,7 @@ type Point struct {
 	X, Y float64
 }
 
-func (p Point) Add(q Point) Point { return Point{p.X + q.X, p.Y + q.Y} }
-func (p Point) Sub(q Point) Point { return Point{p.X - q.X, p.Y - q.Y} }
+func (p Point) Add(q Point) Point { return Point{X: p.X + q.X, Y: p.Y + q.Y} }
 func (p Point) Dist(q Point) float64 {
 	dx, dy := p.X-q.X, p.Y-q.Y
 	return math.Sqrt(dx*dx + dy*dy)
@@ -30,8 +29,6 @@ func (r Rectangle) Contains(p Point) bool {
 }
 
 func (r Rectangle) Bounds() Rectangle { return r }
-
-func (r Rectangle) Center() Point { return Point{X: r.X + r.W/2, Y: r.Y + r.H/2} }
 
 type Polygon struct {
 	Points []Point

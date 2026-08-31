@@ -207,9 +207,7 @@ type ThemeManager      = Manager[Theme]
 | `Len() int`            | Number of registered entries.                              |
 | `Names() []string`     | Returns names in **insertion order** (used for widget Z-order). |
 | `All() []T`            | Returns every entry in **insertion order**.                |
-| `SortedNames() []string` | Returns names alphabetically.                            |
 | `Each(fn func(T))`     | Iterates in insertion order.                               |
-| `Remove(name string)`  | Drops a registration; silent no-op if unknown.             |
 
 ### 3.2 The `Named` contract
 
@@ -271,7 +269,6 @@ type Game struct {
     State     *State
     Inventory *Inventory
     Audio     *AudioPlayer
-    Camera    *Camera
     Input     *Input
 
     // log buffer
@@ -478,7 +475,6 @@ var Fallback string        // used when Lang has no translation
 func (t Text) String() string            // resolve against Lang
 func (t Text) In(lang string) string      // resolve against a named language
 func (t Text) Empty() bool
-func (t Text) Langs() []string
 func (t Text) Map(fn func(string) string) Text
 func Format(format Text, args ...any) Text
 ```
@@ -684,7 +680,6 @@ list stays at one entry.
 type Point struct{ X, Y float64 }
 
 func (p Point) Add(q Point) Point
-func (p Point) Sub(q Point) Point
 func (p Point) Dist(q Point) float64
 
 type Shape interface {
@@ -697,7 +692,6 @@ type Rectangle struct{ X, Y, W, H float64 }
 func Rect(x, y, w, h float64) Rectangle
 func (r Rectangle) Contains(p Point) bool
 func (r Rectangle) Bounds() Rectangle
-func (r Rectangle) Center() Point
 
 type Polygon struct{ Points []Point }
 
@@ -723,7 +717,6 @@ type AssetKind int
 const (
     AssetImage AssetKind = iota
     AssetAudio
-    AssetFont
 )
 
 type Asset struct {
@@ -1257,7 +1250,7 @@ bumpScore := inkwell.Custom(func(ctx *inkwell.Ctx) inkwell.Status {
 ## 9. Conditions
 
 ```go
-// inkwell/action.condition.go
+// inkwell/condition.def.go
 
 type Condition interface {
     Eval(ctx *Ctx) bool
@@ -1733,7 +1726,7 @@ zones for the radial menu.
 ### 11.5 Registration helpers
 
 ```go
-// inkwell/ui.defaults.go
+// inkwell/ui.preset_scumm.go, ui.preset_radial.go, ui.preset_rich.go
 
 func RegisterDefaultUI(g *Game)                              // SCUMM-style verb bar + inventory
 func RegisterRadialVerbUI(g *Game)                            // verb-coin (right-click) + wider inventory
@@ -2013,8 +2006,8 @@ character placeholder (humanoid / quadruped) or the real sprite.
 
 Supported image formats: PNG and JPEG (registered via blank imports in
 `asset.manager.go`). Audio assets (`AssetAudio`) are decoded on demand
-by `AudioPlayer` — see [§14](#14-audio). Fonts (`AssetFont`) share the
-same registry but are not loaded by the library at this milestone.
+by `AudioPlayer` — see [§14](#14-audio). The engine's own font is not an
+asset at all: it is the atlas baked into `font.png` — see [§5.6](#56-the-font).
 
 ---
 
@@ -2290,16 +2283,15 @@ future version returns an error rather than silently truncating fields.
 var (
     ErrUnknownAsset           = errors.New("inkwell: unknown asset")
     ErrUnknownScene           = errors.New("inkwell: unknown scene")
-    ErrUnknownItem            = errors.New("inkwell: unknown item")
     ErrUnknownCharacter       = errors.New("inkwell: unknown character")
-    ErrUnknownDialogue        = errors.New("inkwell: unknown dialogue")
-    ErrUnknownDialogueNode    = errors.New("inkwell: unknown dialogue node")
     ErrUnknownScript          = errors.New("inkwell: unknown script")
-    ErrUnknownVerb            = errors.New("inkwell: unknown verb")
-    ErrDuplicateName          = errors.New("inkwell: duplicate name")
     ErrNoStartScene           = errors.New("inkwell: StartAt not set or unknown scene")
     ErrSceneMissingBackground = errors.New("inkwell: scene has no background")
 )
+
+Every one of them is returned by `Game.Validate` — an error the library
+never returns is not a sentinel, it is a name to keep in step, so the list
+is exactly what the validator can say.
 ```
 
 All wrap-able with `fmt.Errorf("%w: …", err, ctx)` and checkable with
@@ -2349,31 +2341,37 @@ inkwell.DebugLog = true                 // logf output to stderr (script queue, 
 ## 22. Project layout
 
 All library source files live at the repo root; no nested package
-directory. The naming convention is `theme.identifier.go` — `ls core.*`
-or `ls ui.*` instantly groups related sources.
+directory. The naming convention is `category.identifier.go` — `ls core.*`
+or `ls ui.*` instantly groups related sources. Below the category file that
+holds a group's shared contract, each file holds **one** thing: one action,
+one condition, one preset theme, one widget. Adding a built-in action is
+adding a file; the tree below writes those runs of files as a glob rather
+than listing all twenty-three.
 
 ```
-inkwell/                            # module git.teletypegames.org/games/inkwell
+inkwell/                            # module git.teletypegames.org/engines/inkwell
 ├── go.mod
 ├── go.sum
 │
 ├── core.doc.go                    # package docs
 ├── core.manager.go                # Manager[T Named], Named, TypeLabel
-├── core.game.go                   # Game aggregate, runtime state, helpers
+├── core.game.go                   # Game aggregate, its managers and accessors
+├── core.validate.go               # Game.Validate
+├── core.log.go                    # LogKind, LogMessage, the chat-log buffer
 ├── core.engine.go                 # ebiten.Game adapter (Update/Draw/Layout)
 ├── core.dsl.go                    # Run()
 ├── core.errors.go                 # sentinel errors
 │
 ├── util.geometry.go               # Point, Rectangle, Polygon, Shape
-├── util.timer.go                  # Timer helper
 ├── util.log.go                    # DebugLog + logf
 │
 ├── asset.def.go                   # Asset, AssetKind
 ├── asset.manager.go               # AssetManager alias + lazy loader
 ├── asset.audio.go                 # AudioPlayer (WAV/OGG/MP3, looping music)
 ├── asset.text.go                  # drawText / wrapText helpers
+├── asset.fs.go                    # AssetFS: an embed.FS or the OS filesystem
 │
-├── i18n.text.go                   # Translation, Text, T, Format, Lang
+├── i18n.text.go                   # Translation, Text, Format, Lang
 ├── i18n.strings.go                # the engine's own wording, per language
 ├── i18n.font.go                   # the glyph atlas and its lookup
 ├── i18n.glyphs.go                 # generated: the atlas coverage
@@ -2387,7 +2385,7 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── scene.trigger.go               # Trigger + rising-edge engine sweep
 ├── scene.path.go                  # walkbox routing (BFS over polygon adjacency)
 ├── scene.transition.go            # fade-to-black overlay (internal)
-├── scene.camera.go                # Camera (stub identity transform)
+├── scene.change.go                # changeScene: the fade, and what happens mid-fade
 │
 ├── item.def.go                    # Item
 ├── item.manager.go                # ItemManager alias
@@ -2396,14 +2394,22 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── actor.def.go                   # Character
 ├── actor.manager.go               # CharacterManager alias
 ├── actor.animation.go             # AnimationClip + tickAnimation
+├── actor.runtime.go               # runtimeChar: placing, walking, ticking the cast
+├── actor.draw.go                  # the cast on screen, placeholder shapes included
 │
 ├── dialog.def.go                  # Dialogue, DialogueNode, DialogueChoice
 ├── dialog.manager.go              # DialogueManager alias
+├── dialog.runtime.go              # the conversation in flight
 │
-├── action.def.go                  # Action, Runner, Ctx, Status + every built-in action
-├── action.condition.go            # Condition interface + combinators
-├── action.script.go               # Script entity
+├── action.def.go                  # Action, Runner, Ctx, Status: the contract
 ├── action.manager.go              # ScriptManager alias
+├── action.script.go               # Script entity
+├── action.queue.go                # Game.Do and the one-at-a-time queue
+├── action.custom.go               # Custom
+├── action.*.go                    # one built-in action per file: say, goto, wait, walk, …
+│
+├── condition.def.go               # Condition
+├── condition.*.go                 # one condition per file: flag, has_item, and, or, …
 │
 ├── state.def.go                   # State (flags, vars, visited, talked)
 ├── state.save.go                  # Save/Load JSON persistence
@@ -2413,8 +2419,11 @@ inkwell/                            # module git.teletypegames.org/games/inkwell
 ├── ui.widget.go                   # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
 ├── ui.manager.go                  # WidgetManager alias + layer-ordered iterators
 ├── ui.theme.go                    # Theme + ThemeManager
-├── ui.theme_presets.go            # 4 preset themes
-├── ui.defaults.go                 # RegisterDefaultUI/RadialVerbUI/RichUI
+├── ui.theme_presets.go            # RegisterPresetThemes
+├── ui.theme_*.go                  # one preset theme per file
+├── ui.preset_scumm.go             # RegisterDefaultUI
+├── ui.preset_radial.go            # RegisterRadialVerbUI
+├── ui.preset_rich.go              # RegisterRichUI
 ├── ui.verb.go                     # Verb + VerbManager
 ├── ui.verb_bar.go                 # VerbBar widget
 ├── ui.verb_radial.go              # RadialVerbs widget

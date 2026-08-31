@@ -125,13 +125,6 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // BlocksClickAt — clickBlocker contract for the RadialVerbs widget.
 func (b *InventoryBar) BlocksClickAt(p Point) bool {
 	if b.Slots <= 0 {
