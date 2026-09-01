@@ -1574,9 +1574,27 @@ type Condition interface {
 | `OnStage(name string) Condition`       | The named [Stage](#712-stage) is the one showing. |
 | `Started() Condition`                  | A session exists — begun or loaded.              |
 | `VarEq(name string, v any) Condition`  | `State.Var(name) == v` (Go equality).            |
+| `Given{Flag, NotFlag, Item, NotItem, Var, Is}` | A literal: every set field must hold. `Given{}` holds always. |
 
 Conditions are stateless — they are evaluated lazily, including inside
 `If` and `DialogChoice.Show`.
+
+`Given` is the one that is a struct rather than a constructor, and it is
+there for the place a condition is read most: a dialog choice, where "only
+if the player holds the tape and has not been told yet" is two stacked
+fields rather than a call tree.
+
+```go
+Show: inkwell.Given{
+    Item:    "mystery_tape",
+    NotFlag: "dex_told",
+},
+```
+
+Every field set on a `Given` has to hold — `Flag` raised, `NotFlag` not,
+`Item` in the inventory, `NotItem` not, `Var` equal to `Is` — so a `Given`
+is an `And` of its fields, and `Or(Given{…}, Given{…})` is still how
+alternatives read.
 
 ---
 
