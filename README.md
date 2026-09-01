@@ -981,7 +981,7 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 ### 7.8 Character
 
 ```go
-// inkwell/actor.def.go
+// inkwell/character.def.go
 
 type Character struct {
     Name        string
@@ -1043,7 +1043,7 @@ computed by [walkbox routing](#72-scene).
 ### 7.9 Dialogue
 
 ```go
-// inkwell/dialog.def.go
+// inkwell/dialogue.def.go
 
 type Dialogue struct {
     Name  string
@@ -1075,7 +1075,7 @@ func (d Dialogue) Node(name string) (DialogueNode, bool)
 The dialog flow:
 1. `RunDialogue("name")` action starts the dialogue; the runner keeps
    returning `StatusRunning` until the dialog closes.
-2. The `DialogBox` widget renders lines one at a time; click advances.
+2. The `DialogueBox` widget renders lines one at a time; click advances.
 3. After the last line, visible `Choices` are shown.
 4. Picking a choice runs `Seq(choice.Actions...)`. `Once` choices remember
    that they fired via `State.NoteTalked`, keyed by the choice's position
@@ -1086,7 +1086,7 @@ The dialog flow:
 ### 7.10 Script
 
 ```go
-// inkwell/action.script.go
+// inkwell/script.def.go
 
 type Script struct {
     Name    string
@@ -1101,7 +1101,7 @@ Fire one with `RunScript("name")`.
 ### 7.11 Verb
 
 ```go
-// inkwell/ui.verb.go
+// inkwell/verb.def.go
 
 type Verb struct {
     Name    string                      // canonical id, e.g. "look"
@@ -1204,8 +1204,8 @@ type Ctx struct {
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
 | `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
 | `RunDialogue(name string) Action`        | Start a registered `Dialogue`; runner blocks until the dialog closes.       |
-| `EndDialogue() Action`                   | Close the active dialog.                                                   |
-| `GotoNode(node string) Action`           | Jump to a node within the active dialog.                                   |
+| `EndDialogue() Action`                   | Close the active dialogue.                                                   |
+| `GotoNode(node string) Action`           | Jump to a node within the active dialogue.                                   |
 | `RunScript(name string) Action`          | Run a registered `Script`'s `Actions`.                                     |
 | `ShowEnd(text Text) Action`              | Display the end-card overlay; runner never finishes.                       |
 | `Custom(fn func(*Ctx) Status) Action`    | Escape hatch — wrap an arbitrary callback as an action.                    |
@@ -1293,7 +1293,7 @@ func (s *State) Visited(name string) int
 func (s *State) NoteVisit(name string)             // engine bumps on scene enter
 
 func (s *State) Talked(node string) int
-func (s *State) NoteTalked(node string)            // DialogBox bumps on Once-choice pick
+func (s *State) NoteTalked(node string)            // DialogueBox bumps on Once-choice pick
 ```
 
 `Flag`/`SetFlag` are the workhorse for puzzle state ("cupboard_open").
@@ -1316,7 +1316,7 @@ hotbars — without touching the library.
 ### 11.1 Widget interface
 
 ```go
-// inkwell/ui.widget.go
+// inkwell/widget.def.go
 
 type Widget interface {
     Named
@@ -1326,14 +1326,14 @@ type Widget interface {
 
 type Layer int
 const (
-    LayerScene   Layer = 0    // over the picture, under the HUD
-    LayerPanel   Layer = 100  // the plate the HUD sits on
-    LayerHUD     Layer = 200  // verbs, inventory, status line, top bar
-    LayerSpeech  Layer = 300  // speech bubbles
-    LayerDialog  Layer = 400  // the dialogue box
-    LayerMenu    Layer = 500  // radial verbs, menus
-    LayerCurtain Layer = 600  // end cards, fades
-    LayerCursor  Layer = 700  // the pointer
+    LayerScene    Layer = 0    // over the picture, under the HUD
+    LayerPanel    Layer = 100  // the plate the HUD sits on
+    LayerHUD      Layer = 200  // verbs, inventory, status line, top bar
+    LayerSpeech   Layer = 300  // speech bubbles
+    LayerDialogue Layer = 400  // the dialogue box
+    LayerMenu     Layer = 500  // radial verbs, menus
+    LayerCurtain  Layer = 600  // end cards, fades
+    LayerCursor   Layer = 700  // the pointer
 )
 
 type Layered interface {
@@ -1423,7 +1423,7 @@ or a key it consumes is not also read as "skip this line".
 
 Two built-ins say yes, and for the same reason. `Menu`, because a menu that
 cannot answer a key press while a cutscene plays cannot be closed once one
-starts. And `DialogBox`, because a conversation **is** the running script:
+starts. And `DialogueBox`, because a conversation **is** the running script:
 `RunDialogue` holds the frame for as long as the dialogue is up, so the box
 has to tick inside it or its lines never advance and no choice is ever
 clicked. Nothing else should need it.
@@ -1435,10 +1435,10 @@ that frame.
 
 ### 11.3 Built-in widgets
 
-Each widget lives in its own `inkwell/ui.<name>.go` file. Fields with a
+Each widget lives in its own `inkwell/widget.<name>.go` file. Fields with a
 zero value fall back to a sensible default.
 
-#### `Panel` (`ui.panel.go`)
+#### `Panel` (`widget.panel.go`)
 
 A generic colored rectangle, optionally with a stroke border. Useful as a
 backdrop for grouping other widgets.
@@ -1449,11 +1449,11 @@ type Panel struct {
     Bounds      Rectangle
     BG          color.Color    // nil → Theme.PanelBG
     Border      int            // 0 = no border
-    BorderColor color.Color    // nil → Theme.DialogBorder
+    BorderColor color.Color    // nil → Theme.DialogueBorder
 }
 ```
 
-#### `StatusLine` (`ui.status.go`)
+#### `StatusLine` (`widget.status.go`)
 
 A single line at `Y`. Shows the active flash message (if any) — set by
 `Game.FlashLine` — otherwise the composed hover hint (`verb + target` or
@@ -1468,7 +1468,7 @@ type StatusLine struct {
 }
 ```
 
-#### `VerbBar` (`ui.verb_bar.go`)
+#### `VerbBar` (`widget.verb_bar.go`)
 
 The SCUMM permanent verb panel. Reads `VerbManager.Names()` every frame
 and lays the labels into a `Cols × ceil(N/Cols)` grid.
@@ -1487,7 +1487,7 @@ type VerbBar struct {
 Click on a button → `Game.SetSelectedVerb(name)`. Implements
 `BlocksClickAt` so `RadialVerbs` does not pop up over it.
 
-#### `RadialVerbs` (`ui.verb_radial.go`)
+#### `RadialVerbs` (`widget.verb_radial.go`)
 
 Verb-coin or permanent verb-wheel.
 
@@ -1517,7 +1517,7 @@ In **always-visible mode**, the wheel is drawn permanently at `Center`
 and left-click on a slice picks the verb. Labels are positioned at
 `0.62 × Radius` from the center so short overrides stay inside the rim.
 
-#### `InventoryBar` (`ui.inventory.go`)
+#### `InventoryBar` (`widget.inventory.go`)
 
 Item slots in a grid. Hover sets `Game.SetHoverLabel(item.Description)`;
 click toggles selection (or, under the `look` verb, runs a `Say` with
@@ -1537,7 +1537,7 @@ type InventoryBar struct {
 
 Implements `BlocksClickAt` covering the slot grid.
 
-#### `SpeechBubble` (`ui.speech.go`)
+#### `SpeechBubble` (`widget.speech.go`)
 
 Renders whatever `Game.SetSpeech(...)` last set, positioned above the
 speaker's head (`character.pos.Y − character.def.H − OffsetY`). Falls back
@@ -1556,7 +1556,7 @@ type SpeechBubble struct {
 Text color follows `Character.SpeechColor` when set, otherwise
 `Theme.SpeechDefaultText`.
 
-#### `DialogBox` (`ui.dialog_box.go`)
+#### `DialogueBox` (`widget.dialogue_box.go`)
 
 Dormant unless `Game.dialogueActive()`. While active, **consumes every
 click** — the rest of the HUD and the scene are inert. The widget renders
@@ -1567,7 +1567,7 @@ It ticks inside the script that is running it — see `Awake` in
 [11.2](#112-z-order-and-input-consumption).
 
 ```go
-type DialogBox struct {
+type DialogueBox struct {
     Name       string
     Bounds     Rectangle      // default Rect(0, 140, Width, 60)
     LineHeight int            // default 14
@@ -1575,11 +1575,11 @@ type DialogBox struct {
 }
 ```
 
-Hovered choices use `Theme.DialogChoiceHover`. Once-only choices are
+Hovered choices use `Theme.DialogueChoiceHover`. Once-only choices are
 omitted automatically after their first pick (tracked by
 `State.NoteTalked`).
 
-#### `EndCard` (`ui.end_card.go`)
+#### `EndCard` (`widget.end_card.go`)
 
 A fullscreen overlay shown when `Game.showEndCard(text)` is called (which
 the `ShowEnd` action does). Consumes every click so nothing underneath
@@ -1589,7 +1589,7 @@ reacts.
 type EndCard struct{ Name string }
 ```
 
-#### `Cursor` (`ui.cursor.go`)
+#### `Cursor` (`widget.cursor.go`)
 
 The crosshair cursor (color from `Theme.CursorColor`). When the inventory
 has a selected item with a non-placeholder sprite, that sprite is drawn
@@ -1599,7 +1599,7 @@ at the cursor position instead.
 type Cursor struct{ Name string }
 ```
 
-#### `HotspotDebug` (`ui.hotspot_debug.go`)
+#### `HotspotDebug` (`widget.hotspot_debug.go`)
 
 Stroke-outlines every hotspot in the current scene. F1 toggles it at
 runtime (override via `ToggleKey`).
@@ -1612,7 +1612,7 @@ type HotspotDebug struct {
 }
 ```
 
-#### `TopBar` (`ui.top_bar.go`)
+#### `TopBar` (`widget.top_bar.go`)
 
 A horizontal strip across the top with three sections:
 
@@ -1644,7 +1644,7 @@ whatever the game is doing to it" sets `NoteVar` and writes that var.
 Empty fields are skipped, so the widget gracefully degrades to two- or
 one-section layouts.
 
-#### `Menu` (`ui.menu.go`)
+#### `Menu` (`widget.menu.go`)
 
 A nested list in a window — see [11.7](#117-the-menu-system) for the tree
 model and the keys.
@@ -1661,7 +1661,7 @@ type Menu struct {
 }
 ```
 
-#### `CharacterPanel` (`ui.character_panel.go`)
+#### `CharacterPanel` (`widget.character_panel.go`)
 
 A floating info card showing one character's portrait, role badge and
 custom stat rows. **Auto-hides** when the character isn't an actor in the
@@ -1685,7 +1685,7 @@ type CharacterPanel struct {
 The portrait reuses the placeholder rendering when no sprite is on disk
 (humanoid vs. quadruped picked from `W` vs. `H`).
 
-#### `ChatLog` (`ui.chat_log.go`)
+#### `ChatLog` (`widget.chat_log.go`)
 
 Renders the `Game.Messages()` ring buffer with per-kind colors —
 `LogAction` lines use `Theme.ChatLogPrompt`, `LogResponse` uses
@@ -1718,7 +1718,7 @@ type clickBlocker interface {
 }
 ```
 
-Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogBox`,
+Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogueBox`,
 `TopBar`, `CharacterPanel`, `ChatLog`, `RadialVerbs` (itself, when
 visible), `Menu` (its window, while it is open). Implement it on your own widgets to mark them as solid input
 zones for the radial menu.
@@ -1726,7 +1726,7 @@ zones for the radial menu.
 ### 11.5 Registration helpers
 
 ```go
-// inkwell/ui.preset_scumm.go, ui.preset_radial.go, ui.preset_rich.go
+// inkwell/widget.preset_scumm.go, widget.preset_radial.go, widget.preset_rich.go
 
 func RegisterDefaultUI(g *Game)                              // SCUMM-style verb bar + inventory
 func RegisterRadialVerbUI(g *Game)                            // verb-coin (right-click) + wider inventory
@@ -1775,7 +1775,7 @@ its parent's page and titles the page it opens, which is what makes the
 breadcrumb in the title bar fall out for free:
 
 ```go
-// inkwell/ui.menu.go
+// inkwell/widget.menu.go
 
 type MenuItem struct {
     Label    Text
@@ -1823,9 +1823,9 @@ which is how a HUD button would drive one.
 ticks while a script holds the frame, because a menu that goes deaf when a
 cutscene starts is a menu that cannot be closed.
 
-Colours come from the dialogue tokens of the active `Theme` — `DialogBG`,
-`DialogBorder`, `DialogSpeaker` for the title bar, `DialogChoiceBG` behind
-the cursor, `DialogChoiceHover` for the row it is on, `TopBarAccent` for
+Colours come from the dialogue tokens of the active `Theme` — `DialogueBG`,
+`DialogueBorder`, `DialogueSpeaker` for the title bar, `DialogueChoiceBG` behind
+the cursor, `DialogueChoiceHover` for the row it is on, `TopBarAccent` for
 the value column — so a menu needs no theme work to look like the rest of
 the game. A disabled row is drawn darkened rather than in a colour of its
 own, which needs no token and works in every theme.
@@ -1895,7 +1895,7 @@ Root: inkwell.MenuItem{
 ## 12. Themes
 
 ```go
-// inkwell/ui.theme.go
+// inkwell/theme.def.go
 
 type Theme struct {
     Name string
@@ -1919,12 +1919,12 @@ type Theme struct {
     SpeechDefaultText color.Color
 
     // dialog
-    DialogBG          color.Color
-    DialogBorder      color.Color
-    DialogChoiceBG    color.Color
-    DialogChoiceHover color.Color
-    DialogSpeaker     color.Color
-    DialogText        color.Color
+    DialogueBG          color.Color
+    DialogueBorder      color.Color
+    DialogueChoiceBG    color.Color
+    DialogueChoiceHover color.Color
+    DialogueSpeaker     color.Color
+    DialogueText        color.Color
 
     // misc overlays
     EndCardBG      color.Color
@@ -2089,7 +2089,7 @@ directly.
 ## 16. The game loop
 
 ```go
-// inkwell/core.dsl.go
+// inkwell/core.run.go
 
 func Run(g *Game) error                          // toplevel — same as g.Run()
 ```
@@ -2258,7 +2258,7 @@ without mutating the live `*Game`.
 
 What is **not** saved:
 
-- The in-flight script `Runner` or any active dialog. `Load` cancels
+- The in-flight script `Runner` or any active dialogue. `Load` cancels
   both, so saves are effectively taken at an idle/ready boundary.
 - The animation playback state. After load, characters are placed at
   the saved position; the next idle frame re-derives the clip.
@@ -2341,8 +2341,12 @@ inkwell.DebugLog = true                 // logf output to stderr (script queue, 
 ## 22. Project layout
 
 All library source files live at the repo root; no nested package
-directory. The naming convention is `category.identifier.go` — `ls core.*`
-or `ls ui.*` instantly groups related sources. Below the category file that
+directory. The naming convention is `category.identifier.go` — `ls widget.*`
+or `ls action.*` instantly groups a category, and the category is the word
+the entity itself uses: `character.*` holds `Character`, `script.*` holds
+`Script`, `dialogue.*` holds `Dialogue`. There is no `ui.*` group, because
+"UI" is not an entity anybody registers — a widget, a theme and a verb are
+three categories that happen to be drawn. Below the category file that
 holds a group's shared contract, each file holds **one** thing: one action,
 one condition, one preset theme, one widget. Adding a built-in action is
 adding a file; the tree below writes those runs of files as a glob rather
@@ -2359,7 +2363,7 @@ inkwell/                            # module git.teletypegames.org/engines/inkwe
 ├── core.validate.go               # Game.Validate
 ├── core.log.go                    # LogKind, LogMessage, the chat-log buffer
 ├── core.engine.go                 # ebiten.Game adapter (Update/Draw/Layout)
-├── core.dsl.go                    # Run()
+├── core.run.go                    # Run()
 ├── core.errors.go                 # sentinel errors
 │
 ├── util.geometry.go               # Point, Rectangle, Polygon, Shape
@@ -2391,19 +2395,17 @@ inkwell/                            # module git.teletypegames.org/engines/inkwe
 ├── item.manager.go                # ItemManager alias
 ├── item.inventory.go              # Inventory
 │
-├── actor.def.go                   # Character
-├── actor.manager.go               # CharacterManager alias
-├── actor.animation.go             # AnimationClip + tickAnimation
-├── actor.runtime.go               # runtimeChar: placing, walking, ticking the cast
-├── actor.draw.go                  # the cast on screen, placeholder shapes included
+├── character.def.go               # Character
+├── character.manager.go           # CharacterManager alias
+├── character.animation.go         # AnimationClip + tickAnimation
+├── character.runtime.go           # runtimeChar: placing, walking, ticking the cast
+├── character.draw.go              # the cast on screen, placeholder shapes included
 │
-├── dialog.def.go                  # Dialogue, DialogueNode, DialogueChoice
-├── dialog.manager.go              # DialogueManager alias
-├── dialog.runtime.go              # the conversation in flight
+├── dialogue.def.go                # Dialogue, DialogueNode, DialogueChoice
+├── dialogue.manager.go            # DialogueManager alias
+├── dialogue.runtime.go            # the conversation in flight
 │
 ├── action.def.go                  # Action, Runner, Ctx, Status: the contract
-├── action.manager.go              # ScriptManager alias
-├── action.script.go               # Script entity
 ├── action.queue.go                # Game.Do and the one-at-a-time queue
 ├── action.custom.go               # Custom
 ├── action.*.go                    # one built-in action per file: say, goto, wait, walk, …
@@ -2411,35 +2413,43 @@ inkwell/                            # module git.teletypegames.org/engines/inkwe
 ├── condition.def.go               # Condition
 ├── condition.*.go                 # one condition per file: flag, has_item, and, or, …
 │
+├── script.def.go                  # Script
+├── script.manager.go              # ScriptManager alias
+│
 ├── state.def.go                   # State (flags, vars, visited, talked)
 ├── state.save.go                  # Save/Load JSON persistence
 │
 ├── input.def.go                   # Input (consume-on-use)
 │
-├── ui.widget.go                   # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
-├── ui.manager.go                  # WidgetManager alias + layer-ordered iterators
-├── ui.theme.go                    # Theme + ThemeManager
-├── ui.theme_presets.go            # RegisterPresetThemes
-├── ui.theme_*.go                  # one preset theme per file
-├── ui.preset_scumm.go             # RegisterDefaultUI
-├── ui.preset_radial.go            # RegisterRadialVerbUI
-├── ui.preset_rich.go              # RegisterRichUI
-├── ui.verb.go                     # Verb + VerbManager
-├── ui.verb_bar.go                 # VerbBar widget
-├── ui.verb_radial.go              # RadialVerbs widget
-├── ui.inventory.go                # InventoryBar widget
-├── ui.status.go                   # StatusLine widget
-├── ui.speech.go                   # SpeechBubble widget
-├── ui.dialog_box.go               # DialogBox widget
-├── ui.end_card.go                 # EndCard widget
-├── ui.cursor.go                   # Cursor widget
-├── ui.hotspot_debug.go            # HotspotDebug widget
-├── ui.menu.go                     # Menu + MenuItem: the menu system
-├── ui.debug_menu.go               # DebugMenuRoot: the menu system's one built-in use
-├── ui.panel.go                    # Panel widget
-├── ui.top_bar.go                  # TopBar widget
-├── ui.character_panel.go          # CharacterPanel widget + CharStat
-├── ui.chat_log.go                 # ChatLog widget
+├── theme.def.go                   # Theme
+├── theme.manager.go               # ThemeManager alias
+├── theme.presets.go               # RegisterPresetThemes
+├── theme.*.go                     # one preset theme per file
+│
+├── verb.def.go                    # Verb
+├── verb.manager.go                # VerbManager alias
+├── verb.defaults.go               # the built-in SCUMM verb set
+│
+├── widget.def.go                  # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
+├── widget.manager.go              # WidgetManager alias + layer-ordered iterators
+├── widget.preset_scumm.go         # RegisterDefaultUI
+├── widget.preset_radial.go        # RegisterRadialVerbUI
+├── widget.preset_rich.go          # RegisterRichUI
+├── widget.verb_bar.go             # VerbBar
+├── widget.verb_radial.go          # RadialVerbs
+├── widget.inventory.go            # InventoryBar
+├── widget.status.go               # StatusLine
+├── widget.speech.go               # SpeechBubble
+├── widget.dialogue_box.go         # DialogueBox
+├── widget.end_card.go             # EndCard
+├── widget.cursor.go               # Cursor
+├── widget.hotspot_debug.go        # HotspotDebug
+├── widget.menu.go                 # Menu + MenuItem: the menu system
+├── widget.debug_menu.go           # DebugMenuRoot: the menu system's one built-in use
+├── widget.panel.go                # Panel
+├── widget.top_bar.go              # TopBar
+├── widget.character_panel.go      # CharacterPanel + CharStat
+├── widget.chat_log.go             # ChatLog
 │
 ├── LICENSE.md                     # MIT
 └── README.md                      # this file

@@ -111,7 +111,7 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 		},
 	})
 	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 18})
-	g.WidgetManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 90, float64(g.Width), 56), LineHeight: 12, Padding: 6})
+	g.WidgetManager.Register(&DialogueBox{Name: "dialogue", Bounds: Rect(0, 90, float64(g.Width), 56), LineHeight: 12, Padding: 6})
 	g.WidgetManager.Register(&EndCard{Name: "endcard"})
 	g.WidgetManager.Register(&Cursor{Name: "cursor"})
 }

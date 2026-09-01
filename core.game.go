@@ -74,13 +74,13 @@ type Game struct {
 	selectedVerb  string
 
 	// UI runtime state (read by widgets, written by actions / engine)
-	hoverLabel   string
-	flash        string
-	flashTimer   float64
-	endCard      string
-	speech       speechState
-	dialog       *runtimeDialog
-	activeDialog string
+	hoverLabel     string
+	flash          string
+	flashTimer     float64
+	endCard        string
+	speech         speechState
+	dialogue       *runtimeDialogue
+	activeDialogue string
 
 	// in-game message log for ChatLog widgets; ring buffer behavior.
 	messages    []LogMessage

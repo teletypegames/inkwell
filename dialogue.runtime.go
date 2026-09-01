@@ -1,9 +1,9 @@
 package inkwell
 
-// runtimeDialog holds the in-flight Dialogue state. Mutated by the
+// runtimeDialogue holds the in-flight Dialogue state. Mutated by the
 // startDialogue/gotoDialogueNode/endDialogue plumbing and read by the
-// DialogBox widget.
-type runtimeDialog struct {
+// DialogueBox widget.
+type runtimeDialogue struct {
 	Dialogue   *Dialogue
 	Node       *DialogueNode
 	LineIdx    int
@@ -24,28 +24,28 @@ func (g *Game) startDialogue(name string) {
 	if !ok {
 		return
 	}
-	g.activeDialog = name
-	g.dialog = &runtimeDialog{Dialogue: &d, Node: &node, LineIdx: 0}
+	g.activeDialogue = name
+	g.dialogue = &runtimeDialogue{Dialogue: &d, Node: &node, LineIdx: 0}
 }
 
 func (g *Game) endDialogue() {
-	g.activeDialog = ""
-	g.dialog = nil
+	g.activeDialogue = ""
+	g.dialogue = nil
 }
 
 func (g *Game) gotoDialogueNode(name string) {
-	if g.dialog == nil || g.activeDialog == "" {
+	if g.dialogue == nil || g.activeDialogue == "" {
 		return
 	}
-	d := g.DialogueManager.MustGet(g.activeDialog)
+	d := g.DialogueManager.MustGet(g.activeDialogue)
 	node, ok := d.Node(name)
 	if !ok {
-		logf("gotoNode: unknown %q in %q", name, g.activeDialog)
+		logf("gotoNode: unknown %q in %q", name, g.activeDialogue)
 		return
 	}
-	g.dialog.Node = &node
-	g.dialog.LineIdx = 0
-	g.dialog.ChoiceHits = nil
+	g.dialogue.Node = &node
+	g.dialogue.LineIdx = 0
+	g.dialogue.ChoiceHits = nil
 }
 
-func (g *Game) dialogueActive() bool { return g.dialog != nil }
+func (g *Game) dialogueActive() bool { return g.dialogue != nil }

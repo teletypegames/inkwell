@@ -11,7 +11,7 @@ type runtimeChar struct {
 	target Point
 	moving bool
 
-	// animation playback state — see actor.animation.go for the rules
+	// animation playback state — see character.animation.go for the rules
 	// that drive currentClip selection.
 	currentClip string
 	clipElapsed float64
