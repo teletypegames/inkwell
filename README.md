@@ -1449,6 +1449,7 @@ type Ctx struct {
 | `LoadSlot(slot int) Action`              | Restore a saved session, at the top of the next frame.                     |
 | `SaveSlot(slot int) Action`              | Write the session to a slot, where it is called.                           |
 | `Quit() Action`                          | Close the window at the end of the frame.                                  |
+| `Flash(text Text) Action`                | Put a line in the status strip for ~2s — `Game.FlashLine` as an action.    |
 | `PlayMusic(asset string) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
 | `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
