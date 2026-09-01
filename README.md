@@ -293,7 +293,7 @@ type Game struct {
 
     // domain defaults
     UseWithFail func(item string, h *Hotspot) Action  // unauthored use-with pair
-    Player      string                                // actor a scene with none gets
+    Player      string                                // who a click walks; actor a scene with none gets
     Walkboxes   []Polygon                             // floor a scene with none walks
     WindowScale int                                   // window = resolution × this (0 = 4)
 
@@ -1219,6 +1219,8 @@ second spelling of `Say` for that.
 
 `Label` is what a HUD prints: a code name, a title, a shout. `Start` is
 where `Game.Player` is placed in a scene that lists no actors of its own.
+`Game.Player` is also who walks: a left click on empty floor sends that
+character there, routed through the scene's walkboxes.
 
 When no real sprite is on disk, `drawCharacter` falls back to a stylised
 placeholder: humanoid if `W < H`, quadruped otherwise. `SpeechColor` (if
@@ -1706,9 +1708,9 @@ has to tick inside it or its lines never advance and no choice is ever
 clicked. Nothing else should need it.
 
 After all widgets ticked, the engine offers the (possibly consumed) click
-to `handleSceneInput`, which is where hotspot interactions live. If a
-widget already consumed the click, `handleSceneInput` becomes a no-op for
-that frame.
+to `handleSceneInput`, which is where hotspot interactions live, and where
+a click on nothing walks `Game.Player`. If a widget already consumed the
+click, `handleSceneInput` becomes a no-op for that frame.
 
 ### 11.3 Built-in widgets
 
@@ -2589,6 +2591,10 @@ Runs only after every widget had a chance. The flow:
      "Nem ehhez." flash.
    - Otherwise look up `hotspot.handler(selectedVerb)`. Fall back to the
      verb's `Default` action. Fail with "Semmi említésre méltó."
+   - If no hotspot is under the cursor and the click is inside
+     `SceneArea`, walk `Game.Player` to the click, through the walkboxes. This calls `walkCharacter` directly rather
+     than queueing a `Walk` action: a queued walk would be a script, and
+     a script owns the frame, so the next click could not redirect it.
 4. On every successful click, push a `LogAction` line so the `ChatLog`
    widget can display it.
 

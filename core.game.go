@@ -66,9 +66,10 @@ type Game struct {
 	// than reaching into State after construction.
 	Flags []string
 
-	// Player names the character a scene gets when it lists no actors of
-	// its own, placed at that character's Start. Empty leaves such a
-	// scene unpeopled.
+	// Player names the character the player controls: the one a click on
+	// empty floor walks, and the one a scene gets when it lists no actors
+	// of its own, placed at that character's Start. Empty means nobody
+	// walks on a click and such a scene stays unpeopled.
 	Player string
 
 	// Walkboxes is the floor a scene walks on when it declares none of
