@@ -43,7 +43,7 @@ import "git.teletypegames.org/games/inkwell"
    - 7.6 [Item](#76-item)
    - 7.7 [Inventory](#77-inventory)
    - 7.8 [Character](#78-character)
-   - 7.9 [Dialogue](#79-dialogue)
+   - 7.9 [Dialog](#79-dialog)
    - 7.10 [Script](#710-script)
    - 7.11 [Verb](#711-verb)
 8. [The action system](#8-the-action-system)
@@ -96,7 +96,7 @@ Monkey Island, Day of the Tentacle):
 The design collapses to **one organising pattern**: every named entity is
 registered via `Manager.Register(Entity{Name: "..."})`. No builders, no
 fluent chains, no scattered registries. The same mental model applies to
-items, scenes, characters, dialogues, scripts, assets, verbs, widgets and
+items, scenes, characters, dialogs, scripts, assets, verbs, widgets and
 themes alike.
 
 A complete example game ("Morning Coffee") lives in the separate
@@ -187,7 +187,7 @@ Each entity kind has its own alias (generic type alias, Go 1.24+):
 type ItemManager       = Manager[Item]
 type SceneManager      = Manager[Scene]
 type CharacterManager  = Manager[Character]
-type DialogueManager   = Manager[Dialogue]
+type DialogManager     = Manager[Dialog]
 type ScriptManager     = Manager[Script]
 type AssetManager      = Manager[Asset]
 type VerbManager       = Manager[Verb]
@@ -247,7 +247,7 @@ type Game struct {
     ItemManager      *ItemManager
     SceneManager     *SceneManager
     CharacterManager *CharacterManager
-    DialogueManager  *DialogueManager
+    DialogManager    *DialogManager
     ScriptManager    *ScriptManager
     AssetManager     *AssetManager
     VerbManager      *VerbManager
@@ -480,7 +480,7 @@ func Format(format Text, args ...any) Text
 ```
 
 The wording stays where the thing it names is. A hotspot's label is in
-the hotspot; a line of dialogue is in the scene that speaks it. Nothing
+the hotspot; a line of dialog is in the scene that speaks it. Nothing
 is lifted out into a catalogue keyed by identifier, because an
 identifier is one more name to invent and one more thing to keep in
 step — and because a translator reading a scene file can see what the
@@ -606,7 +606,7 @@ third replaces them through `VerbManager.Set`.
 Two things that used to be keyed by wording are not any more, because
 wording is no longer a stable identity.
 
-A `Once` dialogue choice is recorded against its **position** in its
+A `Once` dialog choice is recorded against its **position** in its
 node, not its text — a choice the player has used up stays used up when
 the game is played in another language, and a translator can reword a
 line without reopening somebody's save.
@@ -1040,48 +1040,48 @@ Movement is driven by the `Walk` action and `Game.tickCharacters` —
 stepping at `Speed` pixels/sec (default 60) along the waypoint list
 computed by [walkbox routing](#72-scene).
 
-### 7.9 Dialogue
+### 7.9 Dialog
 
 ```go
-// inkwell/dialogue.def.go
+// inkwell/dialog.def.go
 
-type Dialogue struct {
+type Dialog struct {
     Name  string
     Start string                        // initial node Name; "" = first in slice
-    Nodes []DialogueNode
+    Nodes []DialogNode
 }
 
-type DialogueNode struct {
+type DialogNode struct {
     Name    string
-    Lines   []DialogueLine              // shown one-at-a-time on click
-    Choices []DialogueChoice
+    Lines   []DialogLine              // shown one-at-a-time on click
+    Choices []DialogChoice
 }
 
-type DialogueLine struct {
+type DialogLine struct {
     Speaker string                      // Character.Name
     Text    Text
 }
 
-type DialogueChoice struct {
+type DialogChoice struct {
     Text    Text
     Show    Condition                   // nil = always visible
     Once    bool                        // hide after first pick
     Actions []Action                    // run when chosen
 }
 
-func (d Dialogue) Node(name string) (DialogueNode, bool)
+func (d Dialog) Node(name string) (DialogNode, bool)
 ```
 
 The dialog flow:
-1. `RunDialogue("name")` action starts the dialogue; the runner keeps
+1. `RunDialog("name")` action starts the dialog; the runner keeps
    returning `StatusRunning` until the dialog closes.
-2. The `DialogueBox` widget renders lines one at a time; click advances.
+2. The `DialogBox` widget renders lines one at a time; click advances.
 3. After the last line, visible `Choices` are shown.
 4. Picking a choice runs `Seq(choice.Actions...)`. `Once` choices remember
    that they fired via `State.NoteTalked`, keyed by the choice's position
    in its node rather than its wording — see [§5.5](#55-language-stable-state).
-5. `EndDialogue()` closes the conversation; `GotoNode("other")` jumps to
-   another node in the same dialogue.
+5. `EndDialog()` closes the conversation; `GotoNode("other")` jumps to
+   another node in the same dialog.
 
 ### 7.10 Script
 
@@ -1203,9 +1203,9 @@ type Ctx struct {
 | `PlayMusic(asset string) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
 | `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
-| `RunDialogue(name string) Action`        | Start a registered `Dialogue`; runner blocks until the dialog closes.       |
-| `EndDialogue() Action`                   | Close the active dialogue.                                                   |
-| `GotoNode(node string) Action`           | Jump to a node within the active dialogue.                                   |
+| `RunDialog(name string) Action`        | Start a registered `Dialog`; runner blocks until the dialog closes.       |
+| `EndDialog() Action`                   | Close the active dialog.                                                   |
+| `GotoNode(node string) Action`           | Jump to a node within the active dialog.                                   |
 | `RunScript(name string) Action`          | Run a registered `Script`'s `Actions`.                                     |
 | `ShowEnd(text Text) Action`              | Display the end-card overlay; runner never finishes.                       |
 | `Custom(fn func(*Ctx) Status) Action`    | Escape hatch — wrap an arbitrary callback as an action.                    |
@@ -1269,7 +1269,7 @@ type Condition interface {
 | `VarEq(name string, v any) Condition`  | `State.Var(name) == v` (Go equality).            |
 
 Conditions are stateless — they are evaluated lazily, including inside
-`If` and `DialogueChoice.Show`.
+`If` and `DialogChoice.Show`.
 
 ---
 
@@ -1293,7 +1293,7 @@ func (s *State) Visited(name string) int
 func (s *State) NoteVisit(name string)             // engine bumps on scene enter
 
 func (s *State) Talked(node string) int
-func (s *State) NoteTalked(node string)            // DialogueBox bumps on Once-choice pick
+func (s *State) NoteTalked(node string)            // DialogBox bumps on Once-choice pick
 ```
 
 `Flag`/`SetFlag` are the workhorse for puzzle state ("cupboard_open").
@@ -1301,7 +1301,7 @@ func (s *State) NoteTalked(node string)            // DialogueBox bumps on Once-
 references for richer dashboards. The `TopBar` widget reads vars by name
 to render score / time.
 
-`Visited` and `Talked` underpin the "Once" semantics in dialogues and
+`Visited` and `Talked` underpin the "Once" semantics in dialogs and
 could be used by triggers once those land.
 
 ---
@@ -1326,14 +1326,14 @@ type Widget interface {
 
 type Layer int
 const (
-    LayerScene    Layer = 0    // over the picture, under the HUD
-    LayerPanel    Layer = 100  // the plate the HUD sits on
-    LayerHUD      Layer = 200  // verbs, inventory, status line, top bar
-    LayerSpeech   Layer = 300  // speech bubbles
-    LayerDialogue Layer = 400  // the dialogue box
-    LayerMenu     Layer = 500  // radial verbs, menus
-    LayerCurtain  Layer = 600  // end cards, fades
-    LayerCursor   Layer = 700  // the pointer
+    LayerScene   Layer = 0    // over the picture, under the HUD
+    LayerPanel   Layer = 100  // the plate the HUD sits on
+    LayerHUD     Layer = 200  // verbs, inventory, status line, top bar
+    LayerSpeech  Layer = 300  // speech bubbles
+    LayerDialog  Layer = 400  // the dialog box
+    LayerMenu    Layer = 500  // radial verbs, menus
+    LayerCurtain Layer = 600  // end cards, fades
+    LayerCursor  Layer = 700  // the pointer
 )
 
 type Layered interface {
@@ -1423,8 +1423,8 @@ or a key it consumes is not also read as "skip this line".
 
 Two built-ins say yes, and for the same reason. `Menu`, because a menu that
 cannot answer a key press while a cutscene plays cannot be closed once one
-starts. And `DialogueBox`, because a conversation **is** the running script:
-`RunDialogue` holds the frame for as long as the dialogue is up, so the box
+starts. And `DialogBox`, because a conversation **is** the running script:
+`RunDialog` holds the frame for as long as the dialog is up, so the box
 has to tick inside it or its lines never advance and no choice is ever
 clicked. Nothing else should need it.
 
@@ -1449,7 +1449,7 @@ type Panel struct {
     Bounds      Rectangle
     BG          color.Color    // nil → Theme.PanelBG
     Border      int            // 0 = no border
-    BorderColor color.Color    // nil → Theme.DialogueBorder
+    BorderColor color.Color    // nil → Theme.DialogBorder
 }
 ```
 
@@ -1556,9 +1556,9 @@ type SpeechBubble struct {
 Text color follows `Character.SpeechColor` when set, otherwise
 `Theme.SpeechDefaultText`.
 
-#### `DialogueBox` (`widget.dialogue_box.go`)
+#### `DialogBox` (`widget.dialog_box.go`)
 
-Dormant unless `Game.dialogueActive()`. While active, **consumes every
+Dormant unless `Game.dialogActive()`. While active, **consumes every
 click** — the rest of the HUD and the scene are inert. The widget renders
 either the current line of `runtimeDialog.Node.Lines` (click → next line)
 or the visible `Choices` once the lines are exhausted.
@@ -1567,7 +1567,7 @@ It ticks inside the script that is running it — see `Awake` in
 [11.2](#112-z-order-and-input-consumption).
 
 ```go
-type DialogueBox struct {
+type DialogBox struct {
     Name       string
     Bounds     Rectangle      // default Rect(0, 140, Width, 60)
     LineHeight int            // default 14
@@ -1575,7 +1575,7 @@ type DialogueBox struct {
 }
 ```
 
-Hovered choices use `Theme.DialogueChoiceHover`. Once-only choices are
+Hovered choices use `Theme.DialogChoiceHover`. Once-only choices are
 omitted automatically after their first pick (tracked by
 `State.NoteTalked`).
 
@@ -1718,7 +1718,7 @@ type clickBlocker interface {
 }
 ```
 
-Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogueBox`,
+Built-ins that implement it: `VerbBar`, `InventoryBar`, `DialogBox`,
 `TopBar`, `CharacterPanel`, `ChatLog`, `RadialVerbs` (itself, when
 visible), `Menu` (its window, while it is open). Implement it on your own widgets to mark them as solid input
 zones for the radial menu.
@@ -1823,9 +1823,9 @@ which is how a HUD button would drive one.
 ticks while a script holds the frame, because a menu that goes deaf when a
 cutscene starts is a menu that cannot be closed.
 
-Colours come from the dialogue tokens of the active `Theme` — `DialogueBG`,
-`DialogueBorder`, `DialogueSpeaker` for the title bar, `DialogueChoiceBG` behind
-the cursor, `DialogueChoiceHover` for the row it is on, `TopBarAccent` for
+Colours come from the dialog tokens of the active `Theme` — `DialogBG`,
+`DialogBorder`, `DialogSpeaker` for the title bar, `DialogChoiceBG` behind
+the cursor, `DialogChoiceHover` for the row it is on, `TopBarAccent` for
 the value column — so a menu needs no theme work to look like the rest of
 the game. A disabled row is drawn darkened rather than in a colour of its
 own, which needs no token and works in every theme.
@@ -1919,12 +1919,12 @@ type Theme struct {
     SpeechDefaultText color.Color
 
     // dialog
-    DialogueBG          color.Color
-    DialogueBorder      color.Color
-    DialogueChoiceBG    color.Color
-    DialogueChoiceHover color.Color
-    DialogueSpeaker     color.Color
-    DialogueText        color.Color
+    DialogBG          color.Color
+    DialogBorder      color.Color
+    DialogChoiceBG    color.Color
+    DialogChoiceHover color.Color
+    DialogSpeaker     color.Color
+    DialogText        color.Color
 
     // misc overlays
     EndCardBG      color.Color
@@ -2249,7 +2249,7 @@ relative to the working directory), one file per slot named
 - The full `State`: flags, vars, visited and talked counters.
 - The inventory item list plus the currently selected slot.
 
-Static registrations (items, scenes, characters, dialogues, scripts,
+Static registrations (items, scenes, characters, dialogs, scripts,
 assets, verbs, widgets, themes) are **not** persisted — they are
 reconstructed by `domain.Build()` on every launch. References in the
 save are validated against the current managers before any runtime
@@ -2258,7 +2258,7 @@ without mutating the live `*Game`.
 
 What is **not** saved:
 
-- The in-flight script `Runner` or any active dialogue. `Load` cancels
+- The in-flight script `Runner` or any active dialog. `Load` cancels
   both, so saves are effectively taken at an idle/ready boundary.
 - The animation playback state. After load, characters are placed at
   the saved position; the next idle frame re-derives the clip.
@@ -2344,7 +2344,7 @@ All library source files live at the repo root; no nested package
 directory. The naming convention is `category.identifier.go` — `ls widget.*`
 or `ls action.*` instantly groups a category, and the category is the word
 the entity itself uses: `character.*` holds `Character`, `script.*` holds
-`Script`, `dialogue.*` holds `Dialogue`. There is no `ui.*` group, because
+`Script`, `dialog.*` holds `Dialog`. There is no `ui.*` group, because
 "UI" is not an entity anybody registers — a widget, a theme and a verb are
 three categories that happen to be drawn. Below the category file that
 holds a group's shared contract, each file holds **one** thing: one action,
@@ -2353,106 +2353,106 @@ adding a file; the tree below writes those runs of files as a glob rather
 than listing all twenty-three.
 
 ```
-inkwell/                            # module git.teletypegames.org/engines/inkwell
+inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── go.mod
 ├── go.sum
 │
-├── core.doc.go                    # package docs
-├── core.manager.go                # Manager[T Named], Named, TypeLabel
-├── core.game.go                   # Game aggregate, its managers and accessors
-├── core.validate.go               # Game.Validate
-├── core.log.go                    # LogKind, LogMessage, the chat-log buffer
-├── core.engine.go                 # ebiten.Game adapter (Update/Draw/Layout)
-├── core.run.go                    # Run()
-├── core.errors.go                 # sentinel errors
+├── core.doc.go                 # package docs
+├── core.manager.go             # Manager[T Named], Named, TypeLabel
+├── core.game.go                # Game aggregate, its managers and accessors
+├── core.validate.go            # Game.Validate
+├── core.log.go                 # LogKind, LogMessage, the chat-log buffer
+├── core.engine.go              # ebiten.Game adapter (Update/Draw/Layout)
+├── core.run.go                 # Run()
+├── core.errors.go              # sentinel errors
 │
-├── util.geometry.go               # Point, Rectangle, Polygon, Shape
-├── util.log.go                    # DebugLog + logf
+├── util.geometry.go            # Point, Rectangle, Polygon, Shape
+├── util.log.go                 # DebugLog + logf
 │
-├── asset.def.go                   # Asset, AssetKind
-├── asset.manager.go               # AssetManager alias + lazy loader
-├── asset.audio.go                 # AudioPlayer (WAV/OGG/MP3, looping music)
-├── asset.text.go                  # drawText / wrapText helpers
-├── asset.fs.go                    # AssetFS: an embed.FS or the OS filesystem
+├── asset.def.go                # Asset, AssetKind
+├── asset.manager.go            # AssetManager alias + lazy loader
+├── asset.audio.go              # AudioPlayer (WAV/OGG/MP3, looping music)
+├── asset.text.go               # drawText / wrapText helpers
+├── asset.fs.go                 # AssetFS: an embed.FS or the OS filesystem
 │
-├── i18n.text.go                   # Translation, Text, Format, Lang
-├── i18n.strings.go                # the engine's own wording, per language
-├── i18n.font.go                   # the glyph atlas and its lookup
-├── i18n.glyphs.go                 # generated: the atlas coverage
-├── font.png                       # generated: the atlas itself
-├── internal/fontgen/              # the generator (its own module)
+├── i18n.text.go                # Translation, Text, Format, Lang
+├── i18n.strings.go             # the engine's own wording, per language
+├── i18n.font.go                # the glyph atlas and its lookup
+├── i18n.glyphs.go              # generated: the atlas coverage
+├── font.png                    # generated: the atlas itself
+├── internal/fontgen/           # the generator (its own module)
 │
-├── scene.def.go                   # Scene, SceneActor
-├── scene.manager.go               # SceneManager alias
-├── scene.hotspot.go               # Hotspot, CursorKind
-├── scene.exit.go                  # Exit, ExitSide + edge-strip geometry
-├── scene.trigger.go               # Trigger + rising-edge engine sweep
-├── scene.path.go                  # walkbox routing (BFS over polygon adjacency)
-├── scene.transition.go            # fade-to-black overlay (internal)
-├── scene.change.go                # changeScene: the fade, and what happens mid-fade
+├── scene.def.go                # Scene, SceneActor
+├── scene.manager.go            # SceneManager alias
+├── scene.hotspot.go            # Hotspot, CursorKind
+├── scene.exit.go               # Exit, ExitSide + edge-strip geometry
+├── scene.trigger.go            # Trigger + rising-edge engine sweep
+├── scene.path.go               # walkbox routing (BFS over polygon adjacency)
+├── scene.transition.go         # fade-to-black overlay (internal)
+├── scene.change.go             # changeScene: the fade, and what happens mid-fade
 │
-├── item.def.go                    # Item
-├── item.manager.go                # ItemManager alias
-├── item.inventory.go              # Inventory
+├── item.def.go                 # Item
+├── item.manager.go             # ItemManager alias
+├── item.inventory.go           # Inventory
 │
-├── character.def.go               # Character
-├── character.manager.go           # CharacterManager alias
-├── character.animation.go         # AnimationClip + tickAnimation
-├── character.runtime.go           # runtimeChar: placing, walking, ticking the cast
-├── character.draw.go              # the cast on screen, placeholder shapes included
+├── character.def.go            # Character
+├── character.manager.go        # CharacterManager alias
+├── character.animation.go      # AnimationClip + tickAnimation
+├── character.runtime.go        # runtimeChar: placing, walking, ticking the cast
+├── character.draw.go           # the cast on screen, placeholder shapes included
 │
-├── dialogue.def.go                # Dialogue, DialogueNode, DialogueChoice
-├── dialogue.manager.go            # DialogueManager alias
-├── dialogue.runtime.go            # the conversation in flight
+├── dialog.def.go               # Dialog, DialogNode, DialogChoice
+├── dialog.manager.go           # DialogManager alias
+├── dialog.runtime.go           # the conversation in flight
 │
-├── action.def.go                  # Action, Runner, Ctx, Status: the contract
-├── action.queue.go                # Game.Do and the one-at-a-time queue
-├── action.custom.go               # Custom
-├── action.*.go                    # one built-in action per file: say, goto, wait, walk, …
+├── action.def.go               # Action, Runner, Ctx, Status: the contract
+├── action.queue.go             # Game.Do and the one-at-a-time queue
+├── action.custom.go            # Custom
+├── action.*.go                 # one built-in action per file: say, goto, wait, walk, …
 │
-├── condition.def.go               # Condition
-├── condition.*.go                 # one condition per file: flag, has_item, and, or, …
+├── condition.def.go            # Condition
+├── condition.*.go              # one condition per file: flag, has_item, and, or, …
 │
-├── script.def.go                  # Script
-├── script.manager.go              # ScriptManager alias
+├── script.def.go               # Script
+├── script.manager.go           # ScriptManager alias
 │
-├── state.def.go                   # State (flags, vars, visited, talked)
-├── state.save.go                  # Save/Load JSON persistence
+├── state.def.go                # State (flags, vars, visited, talked)
+├── state.save.go               # Save/Load JSON persistence
 │
-├── input.def.go                   # Input (consume-on-use)
+├── input.def.go                # Input (consume-on-use)
 │
-├── theme.def.go                   # Theme
-├── theme.manager.go               # ThemeManager alias
-├── theme.presets.go               # RegisterPresetThemes
-├── theme.*.go                     # one preset theme per file
+├── theme.def.go                # Theme
+├── theme.manager.go            # ThemeManager alias
+├── theme.presets.go            # RegisterPresetThemes
+├── theme.*.go                  # one preset theme per file
 │
-├── verb.def.go                    # Verb
-├── verb.manager.go                # VerbManager alias
-├── verb.defaults.go               # the built-in SCUMM verb set
+├── verb.def.go                 # Verb
+├── verb.manager.go             # VerbManager alias
+├── verb.defaults.go            # the built-in SCUMM verb set
 │
-├── widget.def.go                  # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
-├── widget.manager.go              # WidgetManager alias + layer-ordered iterators
-├── widget.preset_scumm.go         # RegisterDefaultUI
-├── widget.preset_radial.go        # RegisterRadialVerbUI
-├── widget.preset_rich.go          # RegisterRichUI
-├── widget.verb_bar.go             # VerbBar
-├── widget.verb_radial.go          # RadialVerbs
-├── widget.inventory.go            # InventoryBar
-├── widget.status.go               # StatusLine
-├── widget.speech.go               # SpeechBubble
-├── widget.dialogue_box.go         # DialogueBox
-├── widget.end_card.go             # EndCard
-├── widget.cursor.go               # Cursor
-├── widget.hotspot_debug.go        # HotspotDebug
-├── widget.menu.go                 # Menu + MenuItem: the menu system
-├── widget.debug_menu.go           # DebugMenuRoot: the menu system's one built-in use
-├── widget.panel.go                # Panel
-├── widget.top_bar.go              # TopBar
-├── widget.character_panel.go      # CharacterPanel + CharStat
-├── widget.chat_log.go             # ChatLog
+├── widget.def.go               # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
+├── widget.manager.go           # WidgetManager alias + layer-ordered iterators
+├── widget.preset_scumm.go      # RegisterDefaultUI
+├── widget.preset_radial.go     # RegisterRadialVerbUI
+├── widget.preset_rich.go       # RegisterRichUI
+├── widget.verb_bar.go          # VerbBar
+├── widget.verb_radial.go       # RadialVerbs
+├── widget.inventory.go         # InventoryBar
+├── widget.status.go            # StatusLine
+├── widget.speech.go            # SpeechBubble
+├── widget.dialog_box.go        # DialogBox
+├── widget.end_card.go          # EndCard
+├── widget.cursor.go            # Cursor
+├── widget.hotspot_debug.go     # HotspotDebug
+├── widget.menu.go              # Menu + MenuItem: the menu system
+├── widget.debug_menu.go        # DebugMenuRoot: the menu system's one built-in use
+├── widget.panel.go             # Panel
+├── widget.top_bar.go           # TopBar
+├── widget.character_panel.go   # CharacterPanel + CharStat
+├── widget.chat_log.go          # ChatLog
 │
-├── LICENSE.md                     # MIT
-└── README.md                      # this file
+├── LICENSE.md                  # MIT
+└── README.md                   # this file
 ```
 
 The companion demo project (`inkwell-demo`) lives in its own repo at

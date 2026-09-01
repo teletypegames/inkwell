@@ -151,11 +151,11 @@ func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
 		if !WidgetVisible(ctx.Game.makeCtx(), w) {
 			continue
 		}
-		// DialogueBox advertises its bounds via clickBlocker even when no
-		// dialogue is open, so the verb-coin would refuse to pop up over
-		// scenery that happens to sit under the dialogue rect. Skip the
-		// dialogue when it's actually inactive.
-		if _, isDialogue := w.(*DialogueBox); isDialogue && !ctx.Game.dialogueActive() {
+		// DialogBox advertises its bounds via clickBlocker even when no
+		// dialog is open, so the verb-coin would refuse to pop up over
+		// scenery that happens to sit under the dialog rect. Skip the
+		// dialog when it's actually inactive.
+		if _, isDialog := w.(*DialogBox); isDialog && !ctx.Game.dialogActive() {
 			continue
 		}
 		// CharacterPanel auto-hides when its character isn't in the
@@ -175,7 +175,7 @@ func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
 
 // clickBlocker is the optional widget contract for "if the cursor is on
 // me, claim the click — don't let modal pop-ups open over me." Implemented
-// by VerbBar, InventoryBar, DialogueBox by default.
+// by VerbBar, InventoryBar, DialogBox by default.
 type clickBlocker interface {
 	BlocksClickAt(p Point) bool
 }

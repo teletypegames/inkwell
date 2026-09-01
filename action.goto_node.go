@@ -6,6 +6,6 @@ type gotoNodeAction struct{ node string }
 func GotoNode(node string) Action       { return &gotoNodeAction{node: node} }
 func (a *gotoNodeAction) Start() Runner { return a }
 func (a *gotoNodeAction) Tick(ctx *Ctx) Status {
-	ctx.Game.gotoDialogueNode(a.node)
+	ctx.Game.gotoDialogNode(a.node)
 	return StatusDone
 }

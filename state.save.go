@@ -58,7 +58,7 @@ func (g *Game) slotPath(slot int) string {
 }
 
 // Save serialises the current session into saves/slot<N>.json (or
-// SaveDir/slot<N>.json if set). The in-flight script and dialogue are
+// SaveDir/slot<N>.json if set). The in-flight script and dialog are
 // dropped — saves capture state at idle/ready boundaries.
 func (g *Game) Save(slot int) error {
 	if err := os.MkdirAll(g.saveDir(), 0o755); err != nil {
@@ -136,8 +136,8 @@ func (g *Game) applySave(sf *saveFile) error {
 
 	g.scriptRunner = nil
 	g.scriptCtx = nil
-	g.dialogue = nil
-	g.activeDialogue = ""
+	g.dialog = nil
+	g.activeDialog = ""
 	g.ClearSpeech()
 	g.endCard = ""
 	g.flash = ""

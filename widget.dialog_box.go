@@ -7,11 +7,11 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// DialogueBox renders the active conversation: one line at a time (advanced
+// DialogBox renders the active conversation: one line at a time (advanced
 // on click) followed by the player's choices. The widget is dormant
-// unless ctx.Game.dialogueActive() — and while active it consumes input
+// unless ctx.Game.dialogActive() — and while active it consumes input
 // so nothing underneath reacts.
-type DialogueBox struct {
+type DialogBox struct {
 	Name       string
 	When       Condition
 	Bounds     Rectangle
@@ -19,22 +19,22 @@ type DialogueBox struct {
 	Padding    int
 }
 
-func (d *DialogueBox) GetName() string        { return d.Name }
-func (d *DialogueBox) VisibleWhen() Condition { return d.When }
-func (d *DialogueBox) Layer() Layer           { return LayerDialogue }
+func (d *DialogBox) GetName() string        { return d.Name }
+func (d *DialogBox) VisibleWhen() Condition { return d.When }
+func (d *DialogBox) Layer() Layer           { return LayerDialog }
 
-// TicksDuringScript: the conversation *is* the running script. RunDialogue
-// holds the frame for as long as the dialogue is up, so the box has to tick
+// TicksDuringScript: the conversation *is* the running script. RunDialog
+// holds the frame for as long as the dialog is up, so the box has to tick
 // inside it — otherwise its lines never advance, no choice is ever clicked,
-// and the dialogue can never reach the EndDialogue that would let go.
-func (d *DialogueBox) TicksDuringScript() bool { return true }
+// and the dialog can never reach the EndDialog that would let go.
+func (d *DialogBox) TicksDuringScript() bool { return true }
 
-func (d *DialogueBox) Tick(ctx *UICtx) {
+func (d *DialogBox) Tick(ctx *UICtx) {
 	g := ctx.Game
-	if !g.dialogueActive() {
+	if !g.dialogActive() {
 		return
 	}
-	// while a dialogue is open, ALL clicks belong to it
+	// while a dialog is open, ALL clicks belong to it
 	if g.Input.RightClicked() {
 		g.Input.ConsumeRight()
 	}
@@ -44,7 +44,7 @@ func (d *DialogueBox) Tick(ctx *UICtx) {
 	g.Input.ConsumeLeft()
 	mp := g.Input.Point()
 
-	dlg := g.dialogue
+	dlg := g.dialog
 	if dlg.LineIdx >= 0 && dlg.LineIdx < len(dlg.Node.Lines) {
 		dlg.LineIdx++
 		if dlg.LineIdx >= len(dlg.Node.Lines) {
@@ -71,9 +71,9 @@ func (d *DialogueBox) Tick(ctx *UICtx) {
 
 // resolveChoices is the choices the player can see right now, as positions
 // in the node's own list.
-func (d *DialogueBox) resolveChoices(ctx *UICtx) []int {
+func (d *DialogBox) resolveChoices(ctx *UICtx) []int {
 	g := ctx.Game
-	dlg := g.dialogue
+	dlg := g.dialog
 	out := make([]int, 0, len(dlg.Node.Choices))
 	for i, c := range dlg.Node.Choices {
 		gctx := g.makeCtx()
@@ -93,14 +93,14 @@ func (d *DialogueBox) resolveChoices(ctx *UICtx) []int {
 // up has to stay used up when the game is played in another language, and a
 // translator has to be free to reword a line without reopening somebody's
 // save.
-func choiceKey(n *DialogueNode, i int) string {
+func choiceKey(n *DialogNode, i int) string {
 	return n.Name + ":" + strconv.Itoa(i)
 }
 
-// BlocksClickAt — when a dialogue is open, every click is ours.
-func (d *DialogueBox) BlocksClickAt(p Point) bool {
-	// without ctx we can't know if a dialogue is active; conservatively block
-	// when the cursor is in the dialogue bounds (used only by RadialVerbs).
+// BlocksClickAt — when a dialog is open, every click is ours.
+func (d *DialogBox) BlocksClickAt(p Point) bool {
+	// without ctx we can't know if a dialog is active; conservatively block
+	// when the cursor is in the dialog bounds (used only by RadialVerbs).
 	b := d.Bounds
 	if b.W == 0 {
 		return false
@@ -108,9 +108,9 @@ func (d *DialogueBox) BlocksClickAt(p Point) bool {
 	return b.Contains(p)
 }
 
-func (d *DialogueBox) Draw(dst *ebiten.Image, ctx *UICtx) {
+func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game
-	if !g.dialogueActive() {
+	if !g.dialogActive() {
 		return
 	}
 	th := g.Theme()
@@ -127,16 +127,16 @@ func (d *DialogueBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 		lh = 14
 	}
 
-	vector.DrawFilledRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), th.DialogueBG, false)
-	vector.StrokeRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), 1, th.DialogueBorder, false)
+	vector.DrawFilledRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), th.DialogBG, false)
+	vector.StrokeRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), 1, th.DialogBorder, false)
 
-	dlg := g.dialogue
+	dlg := g.dialog
 	if dlg.LineIdx >= 0 && dlg.LineIdx < len(dlg.Node.Lines) {
 		ln := dlg.Node.Lines[dlg.LineIdx]
-		g.DrawText(dst, g.CharacterLabel(ln.Speaker).String()+":", int(b.X)+pad, int(b.Y)+2, th.DialogueSpeaker)
+		g.DrawText(dst, g.CharacterLabel(ln.Speaker).String()+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
 		lines := WrapText(ln.Text.String(), int(b.W)-pad*2)
 		for i, l := range lines {
-			g.DrawText(dst, l, int(b.X)+pad, int(b.Y)+18+i*lh, th.DialogueText)
+			g.DrawText(dst, l, int(b.X)+pad, int(b.Y)+18+i*lh, th.DialogText)
 		}
 		return
 	}
@@ -148,11 +148,11 @@ func (d *DialogueBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 		c := dlg.Node.Choices[idx]
 		r := Rect(b.X+float64(pad), b.Y+4+float64(i*lh), b.W-float64(pad)*2, float64(lh-1))
 		dlg.ChoiceHits = append(dlg.ChoiceHits, r)
-		bg := th.DialogueChoiceBG
+		bg := th.DialogChoiceBG
 		if r.Contains(mp) {
-			bg = th.DialogueChoiceHover
+			bg = th.DialogChoiceHover
 		}
 		vector.DrawFilledRect(dst, float32(r.X), float32(r.Y), float32(r.W), float32(r.H), bg, false)
-		g.DrawText(dst, c.Text.String(), int(r.X)+2, int(r.Y)-1, th.DialogueText)
+		g.DrawText(dst, c.Text.String(), int(r.X)+2, int(r.Y)-1, th.DialogText)
 	}
 }

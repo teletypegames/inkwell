@@ -35,7 +35,7 @@ type Translation struct {
 //	},
 //
 // The wording stays where the thing it names is: a hotspot's label is in the
-// hotspot, a line of dialogue is in the scene that speaks it. Nothing is
+// hotspot, a line of dialog is in the scene that speaks it. Nothing is
 // lifted out into a catalogue keyed by identifier, because an identifier is
 // one more name to invent and one more thing to keep in step — and because a
 // translator reading a scene file can see what the line is answering.

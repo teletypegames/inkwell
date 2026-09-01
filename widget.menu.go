@@ -173,26 +173,26 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 
 	vector.DrawFilledRect(dst,
 		float32(frame.X), float32(frame.Y), float32(frame.W), float32(frame.H),
-		th.DialogueBG, false)
+		th.DialogBG, false)
 	vector.StrokeRect(dst,
 		float32(frame.X), float32(frame.Y), float32(frame.W), float32(frame.H),
-		1, th.DialogueBorder, false)
+		1, th.DialogBorder, false)
 
 	titleY := int(frame.Y) + baseline + 1
 	crumbX := int(frame.X) + pad
 	if len(m.pages) > 1 {
-		g.DrawText(dst, "←", crumbX, titleY, th.DialogueSpeaker)
+		g.DrawText(dst, "←", crumbX, titleY, th.DialogSpeaker)
 	}
 	crumbX += GlyphW + 2
 	closeX := int(frame.X+frame.W) - pad - GlyphW
-	g.DrawText(dst, "×", closeX, titleY, th.DialogueSpeaker)
-	g.DrawText(dst, m.breadcrumb(closeX-crumbX-GlyphW), crumbX, titleY, th.DialogueSpeaker)
-	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight()), th.DialogueBorder)
+	g.DrawText(dst, "×", closeX, titleY, th.DialogSpeaker)
+	g.DrawText(dst, m.breadcrumb(closeX-crumbX-GlyphW), crumbX, titleY, th.DialogSpeaker)
+	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight()), th.DialogBorder)
 
 	cctx := g.makeCtx()
 	if len(page.rows) == 0 {
 		rect := m.slotRect(frame, 0)
-		g.DrawText(dst, MenuEmpty.String(), int(rect.X)+2, int(rect.Y)+baseline, dimmed(th.DialogueText))
+		g.DrawText(dst, MenuEmpty.String(), int(rect.X)+2, int(rect.Y)+baseline, dimmed(th.DialogText))
 	}
 	for slot := 0; slot < m.visibleRows(frame); slot++ {
 		index := page.top + slot
@@ -201,12 +201,12 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 		}
 		row := page.rows[index]
 		rect := m.slotRect(frame, slot)
-		label := th.DialogueText
+		label := th.DialogText
 		if index == page.cursor {
 			vector.DrawFilledRect(dst,
 				float32(rect.X), float32(rect.Y), float32(rect.W), float32(rect.H),
-				th.DialogueChoiceBG, false)
-			label = th.DialogueChoiceHover
+				th.DialogChoiceBG, false)
+			label = th.DialogChoiceHover
 		}
 		if row.Enabled != nil && !row.Enabled.Eval(cctx) {
 			label = dimmed(label)
@@ -228,7 +228,7 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 
 	footY := float32(frame.Y+frame.H) - float32(m.footerHeight())
-	m.rule(dst, frame, footY, th.DialogueBorder)
+	m.rule(dst, frame, footY, th.DialogBorder)
 	g.DrawText(dst, ClipText(MenuKeys.String(), int(frame.W)-pad*2),
 		int(frame.X)+pad, int(footY)+baseline, dimmed(th.StatusText))
 }

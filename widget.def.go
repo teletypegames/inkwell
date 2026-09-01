@@ -4,7 +4,7 @@ import "github.com/hajimehoshi/ebiten/v2"
 
 // Widget is the minimal surface a HUD element must implement to participate
 // in the per-frame loop. The library ships several built-in widgets
-// (VerbBar, InventoryBar, DialogueBox, etc.) and the domain can register
+// (VerbBar, InventoryBar, DialogBox, etc.) and the domain can register
 // arbitrary new ones — chat panels, minimaps, hotbars — as long as they
 // satisfy this interface.
 //
@@ -38,8 +38,8 @@ const (
 	LayerHUD Layer = 200
 	// LayerSpeech is speech bubbles, which float over the scene.
 	LayerSpeech Layer = 300
-	// LayerDialogue is the dialogue box.
-	LayerDialogue Layer = 400
+	// LayerDialog is the dialog box.
+	LayerDialog Layer = 400
 	// LayerMenu is what opens on top of the game: radial verbs, menus.
 	LayerMenu Layer = 500
 	// LayerCurtain is what covers the game: end cards, fades.

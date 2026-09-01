@@ -24,7 +24,7 @@ func RegisterDefaultUI(g *Game) {
 	})
 	g.WidgetManager.Register(&StatusLine{Name: "status", Y: 142, Align: AlignCenter})
 	g.WidgetManager.Register(&SpeechBubble{Name: "speech", MaxWidth: 200, Padding: 3, OffsetY: 4, FallbackY: 14})
-	g.WidgetManager.Register(&DialogueBox{Name: "dialogue", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
+	g.WidgetManager.Register(&DialogBox{Name: "dialog", Bounds: Rect(0, 140, float64(g.Width), 60), LineHeight: 14, Padding: 6})
 	g.WidgetManager.Register(&EndCard{Name: "endcard"})
 	g.WidgetManager.Register(&Cursor{Name: "cursor"})
 }

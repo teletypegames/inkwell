@@ -17,7 +17,7 @@ type Panel struct {
 	BG color.Color
 	// Border thickness in pixels (0 = no border).
 	Border int
-	// BorderColor, if nil, falls back to Theme.DialogueBorder.
+	// BorderColor, if nil, falls back to Theme.DialogBorder.
 	BorderColor color.Color
 }
 
@@ -37,7 +37,7 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if p.Border > 0 {
 		bc := p.BorderColor
 		if bc == nil {
-			bc = ctx.Game.Theme().DialogueBorder
+			bc = ctx.Game.Theme().DialogBorder
 		}
 		vector.StrokeRect(dst,
 			float32(p.Bounds.X), float32(p.Bounds.Y),

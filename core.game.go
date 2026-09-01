@@ -16,7 +16,7 @@ type Game struct {
 	ItemManager      *ItemManager
 	SceneManager     *SceneManager
 	CharacterManager *CharacterManager
-	DialogueManager  *DialogueManager
+	DialogManager    *DialogManager
 	ScriptManager    *ScriptManager
 	AssetManager     *AssetManager
 	VerbManager      *VerbManager
@@ -74,13 +74,13 @@ type Game struct {
 	selectedVerb  string
 
 	// UI runtime state (read by widgets, written by actions / engine)
-	hoverLabel     string
-	flash          string
-	flashTimer     float64
-	endCard        string
-	speech         speechState
-	dialogue       *runtimeDialogue
-	activeDialogue string
+	hoverLabel   string
+	flash        string
+	flashTimer   float64
+	endCard      string
+	speech       speechState
+	dialog       *runtimeDialog
+	activeDialog string
 
 	// in-game message log for ChatLog widgets; ring buffer behavior.
 	messages    []LogMessage
@@ -117,7 +117,7 @@ func NewGame(title string, w, h int) *Game {
 		ItemManager:      NewManager[Item](),
 		SceneManager:     NewManager[Scene](),
 		CharacterManager: NewManager[Character](),
-		DialogueManager:  NewManager[Dialogue](),
+		DialogManager:    NewManager[Dialog](),
 		ScriptManager:    NewManager[Script](),
 		AssetManager:     NewManager[Asset](),
 		VerbManager:      NewManager[Verb](),
