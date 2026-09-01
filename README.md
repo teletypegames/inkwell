@@ -33,6 +33,7 @@ import "git.teletypegames.org/games/inkwell"
    - 5.4 [What the engine says itself](#54-what-the-engine-says-itself)
    - 5.5 [Language-stable state](#55-language-stable-state)
    - 5.6 [The font](#56-the-font)
+   - 5.7 [A ladder of lines](#57-a-ladder-of-lines)
 6. [Geometry primitives](#6-geometry-primitives)
 7. [Entity reference](#7-entity-reference)
    - 7.1 [Asset](#71-asset)
@@ -396,6 +397,7 @@ func (g *Game) PreviousScene() string
 func (g *Game) SceneArea() Rectangle
 func (g *Game) SceneHotspots(name string) []Hotspot
 func (g *Game) HotspotAt(p Point) *Hotspot
+func (g *Game) InvokeVerb(h *Hotspot, verb string)
 func (g *Game) CharacterInScene(name string) bool
 ```
 
@@ -410,6 +412,15 @@ what [exit strips](#73-exit) are measured against.
 then one per `Exit`. Authored hotspots come first because the engine takes the
 first area that contains the click, so a painted thing beats the edge strip an
 exit sits on wherever the two overlap. The expansion is cached per scene.
+
+`InvokeVerb` is the one path from "the player picked a verb and a target" to
+an action on the queue: the hotspot's own `OnUseWith` first, then the item's,
+then `OnUseWithAny`, then `UseWithFail` — and with no item selected, the
+`On<Verb>` handler, the verb's own `Default`, or the nothing-happens flash.
+It is exported because a target does not have to be in the picture. A HUD
+widget that owns something clickable hands its own `Hotspot` here and gets
+the same logging and the same resolution as a painted one, instead of
+re-deciding all of it in its `Tick`.
 
 `CharacterInScene` is used by `CharacterPanel` to auto-hide when its character
 isn't an actor in the current scene.
@@ -670,6 +681,55 @@ go -C internal/fontgen run .
 `internal/fontgen` is its own module, so the engine's own dependency
 list stays at one entry.
 
+### 5.7 A ladder of lines
+
+```go
+// inkwell/i18n.ladder.go
+
+type Ladder struct {
+    Rungs []Text     // one line per attempt, in order
+    Last  Text       // stands once the rungs run out; empty picks at random
+}
+
+func (l Ladder) At(n int) Text
+```
+
+A `Ladder` is what somebody says the n-th time the player does the same
+fruitless thing. Answering a repeated failure with one line is the surest
+way to sound like a machine; a `Ladder` answers the first attempt with the
+first rung and keeps a character's patience visibly running out:
+
+```go
+var refuse = inkwell.Ladder{
+    Rungs: []inkwell.Text{
+        {
+            {Lang: "en", Text: "No. That's not going to work."},
+            {Lang: "hu", Text: "Nem. Ez így nem fog menni."},
+        },
+        {
+            {Lang: "en", Text: "Tried that. It didn't improve."},
+            {Lang: "hu", Text: "Ezt már próbáltam. Nem lett jobb."},
+        },
+    },
+    Last: inkwell.Text{
+        {Lang: "en", Text: "Leave it. It is not that kind of puzzle."},
+        {Lang: "hu", Text: "Hagyd. Nem ilyen fejtörő."},
+    },
+}
+
+inkwell.Say("paul", refuse.At(state.Talked(key)))
+```
+
+`At` counts the first attempt as 1. Past the last rung a `Ladder` picks one
+at random, which keeps a stock refusal from turning into a stuck record —
+unless it names a `Last`, which stands from then on, because a character who
+has given up has given up.
+
+The counter is the game's: `State.NoteTalked` / `State.Talked`
+([§10](#10-world-state)) already count how many times a thing has been
+worried at, keyed however the game wants — per item, per hotspot, per pair.
+`Game.UseWithFail` is the usual caller.
+
 ---
 
 ## 6. Geometry primitives
@@ -696,9 +756,14 @@ func (r Rectangle) Bounds() Rectangle
 type Polygon struct{ Points []Point }
 
 func Poly(pts ...Point) Polygon
+func PolyRect(x, y, w, h float64) Polygon     // the rectangle as four corners
 func (g Polygon) Contains(pt Point) bool      // ray-casting
 func (g Polygon) Bounds() Rectangle           // axis-aligned bbox
 ```
+
+`PolyRect` is there because a walkbox is a `Polygon` so that a floor can be
+any shape, but most floors start as a box — and spelling one out corner by
+corner says nothing a reader did not already get from the numbers.
 
 Both `Rectangle` and `Polygon` satisfy `Shape` and can be used as a
 `Hotspot.Area`. Internally, hotspots are hit-tested against `Shape.Contains`
@@ -747,7 +812,7 @@ g.AssetManager.Register(inkwell.Asset{
 type Scene struct {
     Name       string
     Title      Text           // optional human-readable name (TopBar widget reads this)
-    Background string         // Asset.Name
+    Background string         // Asset.Name; empty means the scene's own Name
     Music      string         // Asset.Name (optional)
     Hotspots   []Hotspot
     Exits      []Exit         // connections to other scenes
@@ -756,7 +821,10 @@ type Scene struct {
     Actors     []SceneActor
     OnEnter    Action
     OnLeave    Action
+    Derived    func(g *Game) []Exit  // exits worked out from the rest of the game
 }
+
+func (s Scene) BackgroundAsset() string
 
 type SceneActor struct {
     CharacterName string
@@ -783,8 +851,40 @@ straight line — see [§7.8](#78-character) and [§16.4](#164-character-movemen
 `Triggers` fire on the rising edge of their `When` condition. The
 engine samples each trigger once per idle frame; see [§7.5](#75-trigger).
 
+`Background` is an `Asset.Name`, and leaving it empty means the scene's own
+`Name` — `BackgroundAsset()` is the one accessor the engine reads. A game
+whose backgrounds are named after the scenes they belong to therefore writes
+the pairing down once, in the scene's name, instead of in a second constant,
+a second entity file and a field that repeats both.
+
 `Exits` are the scene's connections to other scenes, declared as data. The
 engine turns each one into a hotspot — see [§7.3](#73-exit).
+
+`Derived` hands back exits worked out from the rest of the game rather than
+written into this scene — the pins on a map screen, which are every location
+that says it leads there:
+
+```go
+SceneManager.Register(Scene{
+    Name:    "selector",
+    Derived: pins.fromGraph,
+})
+
+func (selector) fromGraph(g *inkwell.Game) []inkwell.Exit {
+    var exits []inkwell.Exit
+    for _, s := range g.SceneManager.All() {
+        if leadsToSelector(s) {
+            exits = append(exits, inkwell.Exit{To: s.Name, …})
+        }
+    }
+    return exits
+}
+```
+
+`Run` asks each scene once, before `Validate`, and appends what comes back to
+`Exits`. Everything downstream — validation, hotspot expansion, the debug
+menu — therefore sees one kind of exit, and the scene file stays a literal
+instead of being patched from the wiring after registration.
 
 ### 7.3 Exit
 
@@ -886,6 +986,9 @@ type Hotspot struct {
     // the engine looks up the item's Name here first.
     OnUseWith map[string]Action
 
+    // one answer for any item OnUseWith does not name.
+    OnUseWithAny Action
+
     // custom verbs registered through g.VerbManager.
     OnVerb map[string]Action
 }
@@ -905,6 +1008,17 @@ Hotspots are children of `Scene` — not their own manager. The engine
 resolves a click via `hotspot.handler(verbName)` which maps the four
 built-in verbs to their `On*` fields and falls back to `OnVerb[verbName]`
 for custom verbs.
+
+`OnUseWithAny` answers for an item `OnUseWith` does not name. A slot, a
+lock or a person usually has one reply for whatever you put on it, and
+enumerating the whole item catalogue to say it is a list that has to be kept
+in step with one. It stands between the authored pairs and
+`Game.UseWithFail`, so a hotspot with something of its own to say says it,
+and everything else still falls through to the game's general refusal.
+
+A hotspot does not have to be in the picture: a HUD widget can own one and
+hand it to [`Game.InvokeVerb`](#46-scene-helpers) — see
+[`HotspotPanel`](#113-built-in-widgets).
 
 ### 7.5 Trigger
 
@@ -1200,6 +1314,9 @@ type Ctx struct {
 | `SetFlag(name string) Action`            | `State.SetFlag(name)`.                                                     |
 | `ClearFlag(name string) Action`          | `State.ClearFlag(name)`.                                                   |
 | `SetVar(name string, v any) Action`      | `State.SetVar(name, v)`.                                                   |
+| `SetVarIfEmpty(name string, v any) Action` | `State.SetVar(name, v)` only while nothing has written it yet — what a scene's `OnEnter` wants for a first-arrival value. |
+| `Noting(name string, v any, inner Action) Action` | Write a var for exactly as long as `inner` runs, and clear it after. |
+| `UseTheme(name string) Action`           | Switch the active theme mid-script.                                        |
 | `PlayMusic(asset string) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
 | `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
@@ -1450,8 +1567,12 @@ type Panel struct {
     BG          color.Color    // nil → Theme.PanelBG
     Border      int            // 0 = no border
     BorderColor color.Color    // nil → Theme.DialogBorder
+    Blocks      bool           // opaque to clicks (see §11.4)
 }
 ```
+
+A plate the HUD is mounted on wants `Blocks`; a rule drawn on top of one
+does not, since the plate underneath has already said so.
 
 #### `StatusLine` (`widget.status.go`)
 
@@ -1688,10 +1809,11 @@ The portrait reuses the placeholder rendering when no sprite is on disk
 #### `ChatLog` (`widget.chat_log.go`)
 
 Renders the `Game.Messages()` ring buffer with per-kind colors —
-`LogAction` lines use `Theme.ChatLogPrompt`, `LogResponse` uses
-`Theme.ChatLogResponse`, `LogSystem` uses `Theme.ChatLogSystem`. Newest
-message at the bottom; older messages scroll out of view as the buffer
-fills.
+`LogAction` lines use `Theme.ChatLogPrompt`, `LogSystem` uses
+`Theme.ChatLogSystem`, and a `LogResponse` uses the speaker's own
+`Character.SpeechColor` where the character carries one, falling back to
+`Theme.ChatLogResponse`. Newest message at the bottom; older messages
+scroll out of view as the buffer fills.
 
 ```go
 type ChatLog struct {
@@ -1700,11 +1822,100 @@ type ChatLog struct {
     LineHeight int                 // default 10
     Padding    int                 // default 3
     ShowBorder bool                // draws a 1px border in CharacterPanelBorder
+
+    Speaker    SpeakerStyle        // how a reply names who said it
+    Voices     []Voice             // keep only replies in these voices; nil = all
+    Resting    string              // character the header carries before anybody speaks
+}
+
+type SpeakerStyle int
+const (
+    SpeakerInline SpeakerStyle = iota  // "DEX: " in front of every reply
+    SpeakerHeader                      // the latest speaker once, above a rule
+    SpeakerNone                        // nobody is named
+)
+```
+
+A log can be given over to part of the conversation rather than all of it.
+`Voices` keeps only the replies spoken in one of the voices it lists, which
+is how a game with a radio, a tape or a narrator hands that voice a panel of
+its own — without the widget having to know what the thing is. The engine
+already knows how a character reaches the player
+([`Character.Voice`](#78-character)), so the filter is that fact and not a
+second one to keep in step with it:
+
+```go
+&inkwell.ChatLog{
+    Name:    "channel",
+    Bounds:  inkwell.Rect(396, 262, 244, 118),
+    Speaker: inkwell.SpeakerHeader,
+    Voices:  []inkwell.Voice{inkwell.VoiceLog},
+    Resting: "dex",
 }
 ```
 
+`SpeakerHeader` suits a panel given over to one voice at a time: the name
+reads as a heading rather than as a word repeated down the margin. Player
+commands and system lines are nobody's, so `Voices` keeps them either way.
+
 Set `Game.MaxLogLines` to bound the buffer (recommended ~64 for a small
 ChatLog).
+
+#### `Letterbox` (`widget.letterbox.go`)
+
+The pair of bars that crop the picture top and bottom while a cutscene
+plays. It sits on `LayerScene`, so it draws over the picture and under the
+HUD — and a game that also hides its HUD for a cutscene gets the whole
+convention out of two registrations sharing one condition.
+
+```go
+type Letterbox struct {
+    Name  string
+    When  Condition
+    Bar   float64        // each bar's height; 0 → 18
+    Color color.Color    // nil → black
+}
+```
+
+#### `HotspotPanel` (`widget.hotspot_panel.go`)
+
+Makes a region of the HUD answer the verbs, the way a region of the picture
+already does. It owns nothing but a hit-test: the hotspots it hands back go
+through [`Game.InvokeVerb`](#46-scene-helpers), so a device mounted on the
+panel gets look, use, talk and take — and the use-with flow, the log lines
+and the nothing-happens fallback — out of the same code a painted hotspot
+does.
+
+```go
+type HotspotPanel struct {
+    Name     string
+    When     Condition
+    Bounds   Rectangle                    // the region the panel claims
+    Hotspots func(g *Game) []Hotspot      // its targets, in screen coordinates
+}
+```
+
+This is what keeps a game's own HUD from re-implementing the engine. Without
+it, a widget with two clickable slots on it has to read the selected verb,
+check for a held item, consume the click and answer every combination itself,
+in Go, in a switch — a hundred lines of engine re-decided, with the game's
+own writing trapped inside it. With it, the slots are `Hotspot` literals like
+any other, and the lines live in them.
+
+`Hotspots` is a function rather than a slice because what is mounted on a
+panel changes as the game does — a slot answers for whatever is in it — and a
+widget that asks each time needs no invalidation.
+
+The panel draws nothing. A game that wants its slots painted embeds it and
+declares a `Draw` of its own:
+
+```go
+type tapeSlots struct {
+    inkwell.HotspotPanel
+}
+
+func (slots *tapeSlots) Draw(dst *ebiten.Image, ctx *inkwell.UICtx) { … }
+```
 
 ### 11.4 The `clickBlocker` contract
 
@@ -2213,12 +2424,13 @@ intro script runs immediately.
 func (g *Game) Validate() error
 ```
 
-Run by `Run` before entering the Ebiten loop, and again from your tests.
-It cross-checks:
+Run by `Run` before entering the Ebiten loop — after every
+[`Scene.Derived`](#72-scene) has been resolved, so a derived exit is checked
+like an authored one — and again from your tests. It cross-checks:
 
 - `StartAt` points to a registered scene.
-- Every scene has a non-empty `Background` referencing a registered
-  `Asset`.
+- Every scene's `BackgroundAsset()` — its `Background`, or its own `Name`
+  when it leaves that empty — references a registered `Asset`.
 - Optional `Scene.Music` (if non-empty) references a registered `Asset`.
 - Every `SceneActor.CharacterName` is a registered character.
 - Every `Scene.Exit.To` names a registered scene (empty is allowed — it
@@ -2281,12 +2493,11 @@ future version returns an error rather than silently truncating fields.
 // inkwell/core.errors.go
 
 var (
-    ErrUnknownAsset           = errors.New("inkwell: unknown asset")
-    ErrUnknownScene           = errors.New("inkwell: unknown scene")
-    ErrUnknownCharacter       = errors.New("inkwell: unknown character")
-    ErrUnknownScript          = errors.New("inkwell: unknown script")
-    ErrNoStartScene           = errors.New("inkwell: StartAt not set or unknown scene")
-    ErrSceneMissingBackground = errors.New("inkwell: scene has no background")
+    ErrUnknownAsset     = errors.New("inkwell: unknown asset")
+    ErrUnknownScene     = errors.New("inkwell: unknown scene")
+    ErrUnknownCharacter = errors.New("inkwell: unknown character")
+    ErrUnknownScript    = errors.New("inkwell: unknown script")
+    ErrNoStartScene     = errors.New("inkwell: StartAt not set or unknown scene")
 )
 
 Every one of them is returned by `Game.Validate` — an error the library
@@ -2449,7 +2660,9 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── widget.panel.go             # Panel
 ├── widget.top_bar.go           # TopBar
 ├── widget.character_panel.go   # CharacterPanel + CharStat
-├── widget.chat_log.go          # ChatLog
+├── widget.chat_log.go          # ChatLog + SpeakerStyle
+├── widget.letterbox.go         # Letterbox
+├── widget.hotspot_panel.go     # HotspotPanel
 │
 ├── LICENSE.md                  # MIT
 └── README.md                   # this file

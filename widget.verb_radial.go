@@ -117,7 +117,7 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 		// verb's action on that hotspot — one round-trip per command,
 		// instead of forcing a follow-up left-click on the same target.
 		if r.pendingHotspot != nil {
-			g.invokeHotspotVerb(r.pendingHotspot, verb)
+			g.InvokeVerb(r.pendingHotspot, verb)
 		}
 	}
 	r.visible = false

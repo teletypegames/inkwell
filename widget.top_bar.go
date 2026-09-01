@@ -62,7 +62,7 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 		}
 	}
 	if t.NoteVar != "" {
-		if note := fmt.Sprint(g.State.Var(t.NoteVar)); note != "" && note != "<nil>" {
+		if note := varText(g.State.Var(t.NoteVar)); note != "" {
 			if txt, ok := t.Notes[note]; ok {
 				note = txt.String()
 			}
@@ -90,7 +90,7 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 
 	if t.TimeVar != "" {
-		tm := fmt.Sprint(g.State.Var(t.TimeVar))
+		tm := varText(g.State.Var(t.TimeVar))
 		x := g.Width - TextWidth(tm) - 4
 		g.DrawText(dst, tm, x, -1, th.TopBarText)
 	}
@@ -104,4 +104,21 @@ func (t *TopBar) BlocksClickAt(p Point) bool {
 		h = 12
 	}
 	return p.Y < float64(h)
+}
+
+// varText renders a State var for the bar. A var holding a Text resolves
+// into the player's language, which is what a game whose strip says
+// something in words rather than in numbers needs; anything else prints
+// as it stands, and an unset var says nothing at all.
+func varText(v any) string {
+	switch value := v.(type) {
+	case nil:
+		return ""
+	case Text:
+		return value.String()
+	case string:
+		return value
+	default:
+		return fmt.Sprint(value)
+	}
 }

@@ -19,6 +19,11 @@ type Panel struct {
 	Border int
 	// BorderColor, if nil, falls back to Theme.DialogBorder.
 	BorderColor color.Color
+	// Blocks makes the panel opaque to clicks, so a widget that pops up
+	// where the pointer is — the verb coin — does not open over it. A
+	// plate the HUD is mounted on wants this; a rule drawn on top of one
+	// does not, since the plate underneath has already said so.
+	Blocks bool
 }
 
 func (p *Panel) GetName() string        { return p.Name }
@@ -44,4 +49,9 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 			float32(p.Bounds.W), float32(p.Bounds.H),
 			float32(p.Border), bc, false)
 	}
+}
+
+// BlocksClickAt — a Panel swallows a click only when it was asked to.
+func (p *Panel) BlocksClickAt(pt Point) bool {
+	return p.Blocks && p.Bounds.Contains(pt)
 }

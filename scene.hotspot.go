@@ -27,6 +27,14 @@ type Hotspot struct {
 	// the engine looks up the item's Name here first.
 	OnUseWith map[string]Action
 
+	// OnUseWithAny answers for an item OnUseWith does not name — a thing
+	// with one reply for whatever you put on it, which is what a slot, a
+	// lock or a person usually is. It stands between the authored pairs
+	// and Game.UseWithFail, so a hotspot that has something of its own to
+	// say says it, and everything else still falls through to the game's
+	// general refusal.
+	OnUseWithAny Action
+
 	// OnVerb: custom verbs registered via g.VerbManager.
 	OnVerb map[string]Action
 }

@@ -10,6 +10,7 @@ func Run(g *Game) error {
 	// The domain may have swapped a manager in since NewGame, so the parts
 	// that hold a registry directly are wired here, not at construction.
 	g.Audio.attach(g.AssetManager)
+	g.resolveDerived()
 
 	if err := g.Validate(); err != nil {
 		return err

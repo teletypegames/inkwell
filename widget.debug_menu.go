@@ -207,7 +207,7 @@ func debugActionPointCount(ctx *Ctx) int {
 }
 
 // debugVerbRows is the verbs bound on one hotspot, plus the items it is paired
-// with. Every one of them goes through invokeHotspotVerb, the same path a
+// with. Every one of them goes through InvokeVerb, the same path a
 // click takes, so the chat log and the status line read as if the player had
 // done it.
 func debugVerbRows(scene, hotspot string) func(*Ctx) []MenuItem {
@@ -261,7 +261,7 @@ func debugPairRows(scene, hotspot string) func(*Ctx) []MenuItem {
 func debugInvoke(scene, hotspot, verb string) Action {
 	return Custom(func(ctx *Ctx) Status {
 		if spot := debugHotspot(ctx.Game, scene, hotspot); spot != nil {
-			ctx.Game.invokeHotspotVerb(spot, verb)
+			ctx.Game.InvokeVerb(spot, verb)
 		}
 		return StatusDone
 	})
@@ -273,7 +273,7 @@ func debugInvokeWith(scene, hotspot, item string) Action {
 		g.Inventory.Add(item)
 		g.Inventory.Select(item)
 		if spot := debugHotspot(g, scene, hotspot); spot != nil {
-			g.invokeHotspotVerb(spot, "use")
+			g.InvokeVerb(spot, "use")
 		}
 		return StatusDone
 	})

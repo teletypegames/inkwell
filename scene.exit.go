@@ -119,3 +119,20 @@ func (s ExitSide) area(r Rectangle) Shape {
 		return Rect(doorX, r.Y+r.H*(1-exitNearHeight), door, r.H*exitNearHeight)
 	}
 }
+
+// resolveDerived asks every scene that declares a Derived for its worked-out
+// exits and appends them to the ones written into the file. It runs once,
+// before Validate, so a derived exit is checked and drawn exactly like an
+// authored one.
+func (g *Game) resolveDerived() {
+	for _, name := range g.SceneManager.Names() {
+		s := g.SceneManager.MustGet(name)
+		if s.Derived == nil {
+			continue
+		}
+		if derived := s.Derived(g); len(derived) > 0 {
+			s.Exits = append(s.Exits, derived...)
+			g.SceneManager.Set(s)
+		}
+	}
+}

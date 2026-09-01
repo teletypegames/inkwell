@@ -74,3 +74,16 @@ func (g Polygon) Bounds() Rectangle {
 	}
 	return Rectangle{X: minX, Y: minY, W: maxX - minX, H: maxY - minY}
 }
+
+// PolyRect is the rectangle x,y,w,h as a four-cornered Polygon. A walkbox
+// is a Polygon so that a floor can be any shape, but most floors start as
+// a box, and spelling one out corner by corner says nothing a reader did
+// not already know from the numbers.
+func PolyRect(x, y, w, h float64) Polygon {
+	return Poly(
+		Point{X: x, Y: y},
+		Point{X: x + w, Y: y},
+		Point{X: x + w, Y: y + h},
+		Point{X: x, Y: y + h},
+	)
+}

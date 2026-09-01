@@ -117,14 +117,21 @@ func (e *engine) handleSceneInput() {
 	if h == nil {
 		return
 	}
-	g.invokeHotspotVerb(h, g.SelectedVerb())
+	g.InvokeVerb(h, g.SelectedVerb())
 }
 
-// invokeHotspotVerb runs the action bound to verb on hotspot h, honoring
-// the SCUMM use-with-item flow when an inventory item is selected.
-// Shared by left-click hotspot resolution and the verb-coin widget so
-// both paths log, flash and queue identically.
-func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
+// InvokeVerb runs the action bound to verb on hotspot h, honoring the
+// SCUMM use-with-item flow when an inventory item is selected: the
+// hotspot's own OnUseWith first, then the item's, then UseWithFail.
+//
+// It is the one path from "the player picked a verb and a target" to an
+// action on the queue, and it is exported because a target does not have
+// to be in the picture. A HUD widget that owns something clickable — a
+// device in the corner, a slot on a panel — hands its own Hotspot here
+// and gets the same logging, the same use-with resolution and the same
+// nothing-happens line as a painted hotspot, rather than re-deciding all
+// of that in its Tick. HotspotPanel is that widget.
+func (g *Game) InvokeVerb(h *Hotspot, verb string) {
 	if h == nil {
 		return
 	}
@@ -147,6 +154,12 @@ func (g *Game) invokeHotspotVerb(h *Hotspot, verb string) {
 				g.Inventory.Select("")
 				return
 			}
+		}
+		if h.OnUseWithAny != nil {
+			g.LogAction(logged)
+			g.queueAction(h.OnUseWithAny, "useWith any")
+			g.Inventory.Select("")
+			return
 		}
 		if g.UseWithFail != nil {
 			g.LogAction(logged)
@@ -201,7 +214,7 @@ func (e *engine) Draw(screen *ebiten.Image) {
 	// scene background
 	if g.currentScene != "" {
 		s := g.SceneManager.MustGet(g.currentScene)
-		img := g.loaded.image(g.AssetManager, s.Background)
+		img := g.loaded.image(g.AssetManager, s.BackgroundAsset())
 		bw, bh := img.Bounds().Dx(), img.Bounds().Dy()
 		if bw > 0 && bh > 0 {
 			op := &ebiten.DrawImageOptions{}

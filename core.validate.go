@@ -8,11 +8,8 @@ func (g *Game) Validate() error {
 	}
 	for _, name := range g.SceneManager.Names() {
 		s := g.SceneManager.MustGet(name)
-		if s.Background == "" {
-			return fmt.Errorf("%w: scene %q", ErrSceneMissingBackground, name)
-		}
-		if s.Background != "" && !g.AssetManager.Has(s.Background) {
-			return fmt.Errorf("%w: scene %q background %q", ErrUnknownAsset, name, s.Background)
+		if bg := s.BackgroundAsset(); !g.AssetManager.Has(bg) {
+			return fmt.Errorf("%w: scene %q background %q", ErrUnknownAsset, name, bg)
 		}
 		if s.Music != "" && !g.AssetManager.Has(s.Music) {
 			return fmt.Errorf("%w: scene %q music %q", ErrUnknownAsset, name, s.Music)
