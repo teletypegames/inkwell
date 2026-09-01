@@ -47,6 +47,7 @@ import "git.teletypegames.org/games/inkwell"
    - 7.9 [Dialog](#79-dialog)
    - 7.10 [Script](#710-script)
    - 7.11 [Verb](#711-verb)
+   - 7.12 [Stage](#712-stage)
 8. [The action system](#8-the-action-system)
    - 8.1 [Action and Runner](#81-action-and-runner)
    - 8.2 [Status and Ctx](#82-status-and-ctx)
@@ -258,6 +259,7 @@ type Game struct {
     VerbManager      *VerbManager
     WidgetManager    *WidgetManager
     ThemeManager     *ThemeManager
+    StageManager     *StageManager
 
     // exits
     SceneRect Rectangle          // the part of the window the picture occupies
@@ -271,7 +273,8 @@ type Game struct {
     WindowScale int                                   // window = resolution × this (0 = 4)
 
     // what the game boots as
-    StartScene   string    // the scene the player opens in
+    StartStage   string    // the screen the game opens on
+    StartScene   string    // the scene a session opens in
     StartScript  string    // queued after that scene's OnEnter, once
     FinaleScript string    // closing script, queued straight after StartScript
     StartTheme   string    // theme selected at boot ("" -> classic-scumm)
@@ -447,6 +450,15 @@ func (g *Game) SceneHotspots(name string) []Hotspot
 func (g *Game) HotspotAt(p Point) *Hotspot
 func (g *Game) InvokeVerb(h *Hotspot, verb string)
 func (g *Game) CharacterInScene(name string) bool
+
+func (g *Game) CurrentStage() string      // the screen showing
+func (g *Game) PreviousStage() string     // the one before it
+func (g *Game) OnWorldStage() bool        // is the game itself showing?
+func (g *Game) Started() bool             // does a session exist?
+func (g *Game) GoToStage(name string)     // show another screen, next frame
+func (g *Game) Restart()                  // begin a new session, next frame
+func (g *Game) LoadLater(slot int)        // restore a session, next frame
+func (g *Game) Quit()                     // close the window
 ```
 
 `CurrentScene` is where the player is, empty before the first scene is
@@ -1294,6 +1306,72 @@ frame, so adding a verb at runtime is enough to make it appear.
 
 ---
 
+### 7.12 Stage
+
+```go
+// inkwell/stage.def.go
+
+type Stage struct {
+    Name       string
+    Title      Text
+    World      bool     // this Stage is the game itself
+    Background string   // full-screen image for a Stage that is not the world
+    OnEnter    Action
+    OnLeave    Action
+}
+```
+
+A `Stage` is one full-screen thing the game can be showing, and exactly one
+of them is showing at a time. A main menu is a Stage, a settings screen is a
+Stage, a credits card is a Stage — and so is the game itself, which is the
+point: the world is not the thing every other screen floats over, it is one
+of the screens.
+
+That is the difference between a Stage and a [Scene](#72-scene). A Scene is a
+place in the fiction, and the engine always has one; walking from a room into
+an alley is a Scene change *inside* the world. A Stage is what owns the frame.
+Off the world Stage the scene is not painted, characters do not walk, triggers
+do not fire and a click reaches no hotspot — which is what a game showing its
+main menu wants, and what it could not have while the only way to hold the
+world still was a script that never finished.
+
+Widgets need no new field to follow this, because `OnStage(name)` is a
+`Condition` like any other:
+
+```go
+StageManager.Register(inkwell.Stage{Name: "game", World: true})
+StageManager.Register(inkwell.Stage{Name: "main_menu"})
+
+WidgetManager.Register(&inkwell.Menu{
+    Name:   "main_menu",
+    When:   inkwell.OnStage("main_menu"),
+    Sticky: true,
+    Root:   inkwell.MenuItem{ … },
+})
+```
+
+A HUD hides itself off the world exactly the way it already hides itself for
+a cutscene — one condition, no wrapper, no `if` at the top of a `Draw`.
+
+**Changing screens.** `GoToStage`, `Restart` and `LoadSlot` all land at the
+top of the *next* frame rather than where they are called. Replacing `State`,
+the inventory and every character underneath the action that asked for it is
+not something that action should have to survive, and one deferred point
+means a menu row can say the whole of what it means in one `Seq` without
+having to know what order the engine would otherwise have applied it in:
+
+```go
+Do: inkwell.Seq(inkwell.Restart(), inkwell.GoToStage("game")),
+```
+
+**Starting a session.** A game whose `StartStage` is the world starts one at
+boot: the start scene is entered and `StartScript` is queued. A game that
+opens on a menu starts one when the player says so — which is all `Restart`
+is. `Started()` reports whether one exists, and is what a "Resume" or "Save"
+row is enabled by.
+
+---
+
 ## 8. The action system
 
 ### 8.1 Action and Runner
@@ -1365,6 +1443,12 @@ type Ctx struct {
 | `SetVarIfEmpty(name string, v any) Action` | `State.SetVar(name, v)` only while nothing has written it yet — what a scene's `OnEnter` wants for a first-arrival value. |
 | `Noting(name string, v any, inner Action) Action` | Write a var for exactly as long as `inner` runs, and clear it after. |
 | `UseTheme(name string) Action`           | Switch the active theme mid-script.                                        |
+| `UseLang(lang string) Action`            | Switch the language every `Text` resolves into; reaches the next frame.    |
+| `GoToStage(name string) Action`          | Show another [Stage](#712-stage), at the top of the next frame.            |
+| `Restart() Action`                       | Begin a new session, at the top of the next frame.                         |
+| `LoadSlot(slot int) Action`              | Restore a saved session, at the top of the next frame.                     |
+| `SaveSlot(slot int) Action`              | Write the session to a slot, where it is called.                           |
+| `Quit() Action`                          | Close the window at the end of the frame.                                  |
 | `PlayMusic(asset string) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
 | `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
@@ -1431,6 +1515,8 @@ type Condition interface {
 | `HasItem(name string) Condition`       | `Inventory.Has(name)`                            |
 | `SelectedItem(name string) Condition`  | `Inventory.Selected() == name`                   |
 | `InScene(name string) Condition`       | The current `Ctx.Scene` matches.                 |
+| `OnStage(name string) Condition`       | The named [Stage](#712-stage) is the one showing. |
+| `Started() Condition`                  | A session exists — begun or loaded.              |
 | `VarEq(name string, v any) Condition`  | `State.Var(name) == v` (Go equality).            |
 
 Conditions are stateless — they are evaluated lazily, including inside
@@ -1825,6 +1911,7 @@ type Menu struct {
     Root       MenuItem            // first page; its Label titles the window
     Bounds     Rectangle           // zero = the right half of the screen
     ToggleKey  ebiten.Key          // zero = no key, Toggle() only
+    Sticky     bool                // the menu IS the screen; cannot be closed
     LineHeight int                 // default GlyphH + 2
     Padding    int                 // default 6
 }
@@ -1908,6 +1995,43 @@ commands and system lines are nobody's, so `Voices` keeps them either way.
 
 Set `Game.MaxLogLines` to bound the buffer (recommended ~64 for a small
 ChatLog).
+
+#### `KeyBinding` (`widget.key_binding.go`)
+
+A key and what it does — the whole widget. It draws nothing and occupies
+nothing; it exists so that "Escape opens the main menu" is a registration like
+everything else rather than a special case somewhere in the loop.
+
+```go
+type KeyBinding struct {
+    Name         string
+    When         Condition
+    Key          ebiten.Key
+    Do           Action
+    DuringScript bool    // answer on the frames a running script holds
+}
+```
+
+The key is claimed, so nothing underneath sees it, and `When` is how a binding
+belongs to one [Stage](#712-stage). `DuringScript` is what a pause key needs,
+since a cutscene is exactly when the player reaches for one.
+
+#### `TextCard` (`widget.text_card.go`)
+
+A block of lines centred on the screen — a credits roll that does not roll, a
+title card, an apology. It is the plainest thing a Stage that is not the world
+can be made of, and it needs no tree, no rows and no navigation to be one.
+
+```go
+type TextCard struct {
+    Name       string
+    When       Condition
+    Lines      []Text    // an empty Text is a blank line
+    Align      Align
+    LineHeight int       // 0 → GlyphH + 2
+    Backdrop   bool      // fill the screen behind the block
+}
+```
 
 #### `Letterbox` (`widget.letterbox.go`)
 
@@ -2077,6 +2201,14 @@ Only clicks inside the window are consumed, so a menu down one side of the
 screen leaves the other side playable. `ToggleKey` opens and closes it;
 zero binds no key at all and leaves that to `Open`, `Close` and `Toggle`,
 which is how a HUD button would drive one.
+
+`Sticky` makes the menu the screen rather than a window over one: it is open
+whenever it is visible, Escape and back-at-the-root do nothing, `ToggleKey` is
+ignored, and the close box is not drawn. A main menu at boot has nothing behind
+it to close onto, and a menu that can be dismissed into an empty frame is a way
+to lose a game rather than to leave one. A sticky menu is what a
+[Stage](#712-stage) is usually made of, and its key legend says so — it offers
+no ESC.
 
 `Menu` implements `Awake` ([11.2](#112-z-order-and-input-consumption)): it
 ticks while a script holds the frame, because a menu that goes deaf when a
@@ -2373,25 +2505,37 @@ func Run(g *Game) error                          // toplevel — same as g.Run()
 ### 16.1 `engine.Update`
 
 ```
+apply the pending screen change   // GoToStage / Restart / LoadSlot
+if quitting → return Termination
+
 poll input
 update transition
 pump the action queue      // start the next Do() when nothing is running
 if transition fading out → return
 
+world = the current Stage is the world
+
 if scriptRunner != nil:
     tick the Awake widgets, top layer down   // a menu, so it stays closable
     tick the runner
-    tick characters
+    if world: tick characters
     return
 
 clear hoverLabel
+if world: tick scene triggers
 for w in WidgetManager, top layer down:
     if not WidgetVisible(w): continue
     w.Tick(uictx)        // widgets consume input top-down
 
-handleSceneInput()       // hotspot resolution + right-click reset
-tick characters
+if world:
+    handleSceneInput()   // hotspot resolution + right-click reset
+    tick characters
 ```
+
+The pending screen change is applied before anything is ticked, so the world a
+`Restart` tears down is not one a runner is standing in the middle of. Off the
+world [Stage](#712-stage) the scene does not tick and is not drawn: a click
+that falls through a menu reaches nothing rather than the alley behind it.
 
 ### 16.2 `engine.Draw`
 
@@ -2479,7 +2623,9 @@ Run by `Run` before entering the Ebiten loop — after every
 [`Scene.Derived`](#72-scene) has been resolved, so a derived exit is checked
 like an authored one — and again from your tests. It cross-checks:
 
-- `StartScene` points to a registered scene.
+- `StartScene` points to a registered scene, and `StartStage` to a
+  registered [Stage](#712-stage).
+- Every `Stage.Background` (when set) references a registered `Asset`.
 - Every scene's `BackgroundAsset()` — its `Background`, or its own `Name`
   when it leaves that empty — references a registered `Asset`.
 - Optional `Scene.Music` (if non-empty) references a registered `Asset`.
@@ -2501,7 +2647,21 @@ eagerly at `Register` time via panic.
 
 func (g *Game) Save(slot int) error
 func (g *Game) Load(slot int) error
+func (g *Game) Slots(count int) []SlotInfo
+
+type SlotInfo struct {
+    Slot    int
+    Exists  bool
+    Scene   string
+    SavedAt time.Time
+}
 ```
+
+`Slots` reads the header of every slot from 1 to `count`, which is what a
+load or save screen lists. A slot that is missing or unreadable comes back as
+one that does not exist — a screen listing saves is not the place to report a
+parse error — so a game showing four slots gets four rows, three of which say
+"empty".
 
 Slots are written as JSON files under `g.SaveDir` (default `saves/`,
 relative to the working directory), one file per slot named
@@ -2511,6 +2671,8 @@ relative to the working directory), one file per slot named
 - Every character's position, target, and moving flag.
 - The full `State`: flags, vars, visited and talked counters.
 - The inventory item list plus the currently selected slot.
+- The time it was written (`saved_at`, schema version 2), so a load screen
+  can say when.
 
 Static registrations (items, scenes, characters, dialogs, scripts,
 assets, verbs, widgets, themes) are **not** persisted — they are
@@ -2549,6 +2711,7 @@ var (
     ErrUnknownCharacter = errors.New("inkwell: unknown character")
     ErrUnknownScript    = errors.New("inkwell: unknown script")
     ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
+    ErrNoStartStage     = errors.New("inkwell: StartStage not set or unknown stage")
 )
 
 Every one of them is returned by `Game.Validate` — an error the library
@@ -2713,6 +2876,10 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── widget.character_panel.go   # CharacterPanel + CharStat
 ├── widget.chat_log.go          # ChatLog + SpeakerStyle
 ├── widget.letterbox.go         # Letterbox
+├── widget.key_binding.go       # KeyBinding
+├── widget.text_card.go         # TextCard
+├── stage.def.go                # Stage
+├── stage.manager.go            # StageManager
 ├── widget.hotspot_panel.go     # HotspotPanel
 │
 ├── LICENSE.md                  # MIT

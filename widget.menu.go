@@ -87,6 +87,13 @@ type Menu struct {
 	// leaves Toggle to whatever the game wires it to.
 	ToggleKey ebiten.Key
 
+	// Sticky makes the menu the screen rather than a window over one: it is
+	// open whenever it is visible, Escape and back-at-the-root do nothing,
+	// and ToggleKey is ignored. A main menu at boot has nothing behind it to
+	// close onto, and a menu that can be dismissed into an empty frame is a
+	// way to lose a game rather than to leave one.
+	Sticky bool
+
 	// LineHeight is a row's height, Padding the window's inset. Zero gives
 	// GlyphH + 2 and 6.
 	LineHeight int
@@ -139,7 +146,11 @@ func (m *Menu) Toggle() {
 
 func (m *Menu) Tick(ctx *UICtx) {
 	g := ctx.Game
-	if m.ToggleKey != 0 && g.Input.ClaimKey(m.ToggleKey) {
+	if m.Sticky {
+		if !m.open {
+			m.Open()
+		}
+	} else if m.ToggleKey != 0 && g.Input.ClaimKey(m.ToggleKey) {
 		m.Toggle()
 	}
 	if !m.open {
@@ -185,7 +196,9 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 	crumbX += GlyphW + 2
 	closeX := int(frame.X+frame.W) - pad - GlyphW
-	g.DrawText(dst, "×", closeX, titleY, th.DialogSpeaker)
+	if !m.Sticky {
+		g.DrawText(dst, "×", closeX, titleY, th.DialogSpeaker)
+	}
 	g.DrawText(dst, m.breadcrumb(closeX-crumbX-GlyphW), crumbX, titleY, th.DialogSpeaker)
 	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight()), th.DialogBorder)
 
@@ -229,7 +242,11 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 
 	footY := float32(frame.Y+frame.H) - float32(m.footerHeight())
 	m.rule(dst, frame, footY, th.DialogBorder)
-	g.DrawText(dst, ClipText(MenuKeys.String(), int(frame.W)-pad*2),
+	keys := MenuKeys
+	if m.Sticky {
+		keys = MenuKeysSticky
+	}
+	g.DrawText(dst, ClipText(keys.String(), int(frame.W)-pad*2),
 		int(frame.X)+pad, int(footY)+baseline, dimmed(th.StatusText))
 }
 
@@ -243,7 +260,9 @@ func (m *Menu) keys(ctx *Ctx) {
 	in := ctx.Game.Input
 	switch {
 	case in.ClaimKey(ebiten.KeyEscape):
-		m.Close()
+		if !m.Sticky {
+			m.Close()
+		}
 	case in.ClaimKey(ebiten.KeyArrowUp):
 		m.move(-1)
 	case in.ClaimKey(ebiten.KeyArrowDown):
@@ -302,7 +321,7 @@ func (m *Menu) mouse(ctx *Ctx) {
 	}
 	g.Input.ConsumeLeft()
 	switch {
-	case m.closeRect().Contains(point):
+	case !m.Sticky && m.closeRect().Contains(point):
 		m.Close()
 	case len(m.pages) > 1 && m.backRect().Contains(point):
 		m.back(ctx)
@@ -339,7 +358,9 @@ func (m *Menu) enter(ctx *Ctx) {
 
 func (m *Menu) back(ctx *Ctx) {
 	if len(m.pages) <= 1 {
-		m.Close()
+		if !m.Sticky {
+			m.Close()
+		}
 		return
 	}
 	m.pages = m.pages[:len(m.pages)-1]

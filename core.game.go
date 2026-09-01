@@ -22,6 +22,7 @@ type Game struct {
 	VerbManager      *VerbManager
 	WidgetManager    *WidgetManager
 	ThemeManager     *ThemeManager
+	StageManager     *StageManager
 
 	// SceneRect is the part of the window the picture occupies. Zero means
 	// the whole window. A game with a HUD along the foot sets it, so that
@@ -44,7 +45,12 @@ type Game struct {
 	// New reads them; StartAt, OnStart, OnFinale and UseTheme set the
 	// same values for a caller that would rather build a game in steps.
 
-	// StartScene is the scene the player opens in.
+	// StartStage is the screen the game opens on — its main menu, or the
+	// world itself for a run that goes straight in.
+	StartStage string
+	// StartScene is the scene a session opens in. It is entered when the
+	// world starts, which is at boot for a game whose StartStage is the
+	// world, and on Restart for one that opens on a menu.
 	StartScene string
 	// StartScript is queued after that scene's OnEnter, once.
 	StartScript string
@@ -78,7 +84,12 @@ type Game struct {
 	Audio     *AudioPlayer
 	Input     *Input
 
-	activeTheme string
+	activeTheme   string
+	currentStage  string
+	previousStage string
+	started       bool
+	quitting      bool
+	pending       pendingChange
 
 	// runtime
 	queue         []Action
@@ -177,6 +188,9 @@ func New(spec Game) *Game {
 	if g.ThemeManager == nil {
 		g.ThemeManager = NewManager[Theme]()
 	}
+	if g.StageManager == nil {
+		g.StageManager = NewManager[Stage]()
+	}
 
 	g.State = NewState()
 	g.Inventory = NewInventory()
@@ -186,6 +200,7 @@ func New(spec Game) *Game {
 	g.chars = make(map[string]*runtimeChar)
 	g.transition = &transition{}
 	g.selectedVerb = "look"
+	g.pending = noChange
 
 	if g.VerbManager.Len() == 0 {
 		for _, v := range defaultVerbs() {
@@ -384,3 +399,135 @@ func (g *Game) makeCtx() *Ctx {
 }
 
 func (g *Game) showEndCard(text string) { g.endCard = text }
+
+// ----- stages -----------------------------------------------------------
+
+// pendingChange is a screen change asked for by an action and applied at the
+// top of the next frame. Replacing State, the inventory and every character
+// underneath the action that asked for it is not something that action should
+// have to survive, so nothing here happens where it is called.
+type pendingChange struct {
+	stage   string
+	restart bool
+	load    int
+}
+
+var noChange = pendingChange{load: -1}
+
+// CurrentStage is the screen showing, PreviousStage the one before it —
+// which is where a "back" row leads.
+func (g *Game) CurrentStage() string  { return g.currentStage }
+func (g *Game) PreviousStage() string { return g.previousStage }
+
+// Started reports whether a session exists: the world has been begun or
+// loaded. A "Resume" or "Save" row is off until it does.
+func (g *Game) Started() bool { return g.started }
+
+// OnWorldStage reports whether the screen showing is the game. Off it the
+// scene is not painted, characters do not walk and triggers do not fire.
+func (g *Game) OnWorldStage() bool {
+	s, ok := g.StageManager.Get(g.currentStage)
+	return ok && s.World
+}
+
+// GoToStage shows another screen, at the top of the next frame.
+func (g *Game) GoToStage(name string) { g.pending.stage = name }
+
+// Restart begins a new session, at the top of the next frame.
+func (g *Game) Restart() { g.pending.restart = true }
+
+// LoadLater restores a saved session, at the top of the next frame. Load
+// itself is immediate, and is what this ends up calling.
+func (g *Game) LoadLater(slot int) { g.pending.load = slot }
+
+// Quit closes the window at the end of the frame.
+func (g *Game) Quit() { g.quitting = true }
+
+// applyPending is the one place a screen changes. It runs before anything
+// else in a frame, so the world it tears down is not one anybody is standing
+// in the middle of.
+func (g *Game) applyPending() {
+	change := g.pending
+	if change == noChange {
+		return
+	}
+	g.pending = noChange
+
+	if change.restart || change.load >= 0 {
+		g.queue = nil
+		g.scriptRunner = nil
+		g.scriptCtx = nil
+	}
+	switch {
+	case change.load >= 0:
+		if err := g.Load(change.load); err != nil {
+			logf("load slot %d: %v", change.load, err)
+			break
+		}
+		g.started = true
+	case change.restart:
+		g.startWorld()
+	}
+	if change.stage != "" {
+		g.enterStage(change.stage)
+	}
+}
+
+// enterStage runs the outgoing screen's OnLeave and the incoming one's
+// OnEnter, both through the queue, so either may take as many frames as it
+// likes.
+func (g *Game) enterStage(name string) {
+	if name == g.currentStage {
+		return
+	}
+	if previous, ok := g.StageManager.Get(g.currentStage); ok && previous.OnLeave != nil {
+		g.queueAction(previous.OnLeave, "stage leave "+previous.Name)
+	}
+	g.previousStage = g.currentStage
+	g.currentStage = name
+	if next, ok := g.StageManager.Get(name); ok && next.OnEnter != nil {
+		g.queueAction(next.OnEnter, "stage enter "+name)
+	}
+}
+
+// startWorld begins a session: everything a save would have replaced, put
+// back the way a new game leaves it, and the start scene entered.
+func (g *Game) startWorld() {
+	g.State = NewState()
+	for _, flag := range g.Flags {
+		g.State.SetFlag(flag)
+	}
+	g.Inventory = NewInventory()
+	g.chars = make(map[string]*runtimeChar)
+	g.dialog = nil
+	g.activeDialog = ""
+	g.ClearSpeech()
+	g.endCard = ""
+	g.flash = ""
+	g.flashTimer = 0
+	g.selectedVerb = "look"
+	g.previousScene = ""
+	g.currentScene = g.StartScene
+	g.State.NoteVisit(g.StartScene)
+	g.placeActors(g.StartScene)
+	g.resetTriggers()
+	g.started = true
+
+	scene := g.SceneManager.MustGet(g.StartScene)
+	if scene.Music != "" {
+		g.Audio.PlayMusic(scene.Music)
+	}
+	var opening []Action
+	if scene.OnEnter != nil {
+		opening = append(opening, scene.OnEnter)
+	}
+	if g.StartScript != "" {
+		opening = append(opening, RunScript(g.StartScript))
+	}
+	if g.FinaleScript != "" {
+		opening = append(opening, RunScript(g.FinaleScript))
+	}
+	if len(opening) > 0 {
+		g.queueAction(Seq(opening...), "world start")
+	}
+}

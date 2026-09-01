@@ -6,6 +6,15 @@ func (g *Game) Validate() error {
 	if !g.SceneManager.Has(g.StartScene) {
 		return fmt.Errorf("%w: %q", ErrNoStartScene, g.StartScene)
 	}
+	if !g.StageManager.Has(g.StartStage) {
+		return fmt.Errorf("%w: %q", ErrNoStartStage, g.StartStage)
+	}
+	for _, name := range g.StageManager.Names() {
+		stage := g.StageManager.MustGet(name)
+		if stage.Background != "" && !g.AssetManager.Has(stage.Background) {
+			return fmt.Errorf("%w: stage %q background %q", ErrUnknownAsset, name, stage.Background)
+		}
+	}
 	for _, name := range g.SceneManager.Names() {
 		s := g.SceneManager.MustGet(name)
 		if bg := s.BackgroundAsset(); !g.AssetManager.Has(bg) {

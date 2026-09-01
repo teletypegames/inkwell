@@ -21,28 +21,19 @@ func Run(g *Game) error {
 		RegisterDefaultUI(g)
 	}
 
-	// Initial scene goes in directly (no transition) so OnEnter / OnStart
-	// run cleanly as one composed sequence on the first script tick.
-	s := g.SceneManager.MustGet(g.StartScene)
-	g.currentScene = g.StartScene
-	g.State.NoteVisit(g.StartScene)
-	g.placeActors(g.StartScene)
-	g.resetTriggers()
-	if s.Music != "" {
-		g.Audio.PlayMusic(s.Music)
-	}
-	var seq []Action
-	if s.OnEnter != nil {
-		seq = append(seq, s.OnEnter)
-	}
-	if g.StartScript != "" {
-		seq = append(seq, RunScript(g.StartScript))
-	}
-	if g.FinaleScript != "" {
-		seq = append(seq, RunScript(g.FinaleScript))
-	}
-	if len(seq) > 0 {
-		g.queueAction(Seq(seq...), "init")
+	// The opening screen goes in directly, and its OnEnter is queued with
+	// whatever the world start adds, so the first script tick sees one
+	// composed sequence.
+	g.currentStage = g.StartStage
+	if stage, ok := g.StageManager.Get(g.StartStage); ok {
+		if stage.World {
+			// A game that opens straight into the world starts a session
+			// now; one that opens on a menu starts it when the player says.
+			g.startWorld()
+		}
+		if stage.OnEnter != nil {
+			g.queueAction(stage.OnEnter, "stage enter "+g.StartStage)
+		}
 	}
 
 	scale := g.WindowScale

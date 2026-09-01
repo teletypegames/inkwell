@@ -64,4 +64,11 @@ var (
 		{Lang: "en", Text: "↑↓ move  ENTER open  BACKSPACE back  ESC close"},
 		{Lang: "hu", Text: "↑↓ mozgás  ENTER nyit  BACKSPACE vissza  ESC zár"},
 	}
+
+	// MenuKeysSticky is the same legend for a Menu that is the screen: it
+	// cannot be closed, so it does not offer to be.
+	MenuKeysSticky = Text{
+		{Lang: "en", Text: "↑↓ move  ENTER choose  BACKSPACE back"},
+		{Lang: "hu", Text: "↑↓ mozgás  ENTER választ  BACKSPACE vissza"},
+	}
 )

@@ -22,6 +22,13 @@ func (e *engine) Update() error {
 	g := e.g
 	dt := 1.0 / 60.0
 
+	// A screen change asked for last frame lands here, before anything is
+	// ticked, so nothing is torn down underneath a runner mid-Tick.
+	g.applyPending()
+	if g.quitting {
+		return ebiten.Termination
+	}
+
 	g.Input.poll()
 	g.transition.update(dt)
 	g.pumpQueue()
@@ -33,6 +40,8 @@ func (e *engine) Update() error {
 	// Active script consumes the frame — every widget but the awake ones,
 	// which tick first so that a click or a key of theirs is not also read
 	// as "skip this line".
+	world := g.OnWorldStage()
+
 	if g.scriptRunner != nil {
 		g.tickAwakeWidgets(dt)
 		ctx := g.scriptCtx
@@ -46,7 +55,9 @@ func (e *engine) Update() error {
 			g.scriptRunner = nil
 			g.scriptCtx = nil
 		}
-		g.tickCharacters(dt)
+		if world {
+			g.tickCharacters(dt)
+		}
 		return nil
 	}
 
@@ -58,8 +69,11 @@ func (e *engine) Update() error {
 	// Scene triggers run before widgets/input — a firing trigger queues
 	// an action that consumes the next frame's script slot, so this
 	// frame's UI work still happens, but the player's clicks won't
-	// race a cutscene that's about to start.
-	g.tickTriggers()
+	// race a cutscene that's about to start. Off the world Stage there
+	// is no scene to trigger anything.
+	if world {
+		g.tickTriggers()
+	}
 
 	// Top-down input: the widget on the highest layer gets the click
 	// first, then the one below it, etc. A widget signals "I took it"
@@ -72,9 +86,13 @@ func (e *engine) Update() error {
 		w.Tick(uictx)
 	}
 
-	// Anything still unconsumed is a scene-world interaction.
-	e.handleSceneInput()
-	g.tickCharacters(dt)
+	// Anything still unconsumed is a scene-world interaction — and only the
+	// world Stage has one, so a click that falls through a menu reaches
+	// nothing rather than the alley behind it.
+	if world {
+		e.handleSceneInput()
+		g.tickCharacters(dt)
+	}
 	return nil
 }
 
@@ -211,23 +229,29 @@ func (e *engine) Draw(screen *ebiten.Image) {
 		screen.Fill(th.SceneBackdrop)
 	}
 
-	// scene background
-	if g.currentScene != "" {
-		s := g.SceneManager.MustGet(g.currentScene)
-		img := g.loaded.image(g.AssetManager, s.BackgroundAsset())
-		bw, bh := img.Bounds().Dx(), img.Bounds().Dy()
-		if bw > 0 && bh > 0 {
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(float64(g.Width)/float64(bw), float64(g.Height)/float64(bh))
-			screen.DrawImage(img, op)
+	world := g.OnWorldStage()
+
+	// The picture: the current scene on the world Stage, and whatever the
+	// Stage itself carries anywhere else. A Stage with no Background of its
+	// own leaves the theme's backdrop showing.
+	switch {
+	case world && g.currentScene != "":
+		drawFullScreen(screen, g, g.SceneManager.MustGet(g.currentScene).BackgroundAsset())
+	case !world:
+		if stage, ok := g.StageManager.Get(g.currentStage); ok && stage.Background != "" {
+			drawFullScreen(screen, g, stage.Background)
+		} else if th.SceneBackdrop == nil {
+			screen.Fill(color.RGBA{0, 0, 0, 255})
 		}
-	} else {
+	default:
 		screen.Fill(color.RGBA{0, 0, 0, 255})
 	}
 
 	// characters (y-sorted)
-	for _, c := range sortedChars(g) {
-		drawCharacter(screen, g, c)
+	if world {
+		for _, c := range sortedChars(g) {
+			drawCharacter(screen, g, c)
+		}
 	}
 
 	// widgets from the bottom layer up
@@ -244,4 +268,17 @@ func (e *engine) Draw(screen *ebiten.Image) {
 	// last widget, so it has already drawn above the transition? no — the
 	// fade should cover the cursor too; draw it after the widgets).
 	g.transition.draw(screen, g.Width, g.Height)
+}
+
+// drawFullScreen paints a named image over the whole window, which is what
+// both a scene background and a Stage background are.
+func drawFullScreen(dst *ebiten.Image, g *Game, asset string) {
+	img := g.loaded.image(g.AssetManager, asset)
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	if w == 0 || h == 0 {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(float64(g.Width)/float64(w), float64(g.Height)/float64(h))
+	dst.DrawImage(img, op)
 }

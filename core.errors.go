@@ -8,4 +8,5 @@ var (
 	ErrUnknownCharacter = errors.New("inkwell: unknown character")
 	ErrUnknownScript    = errors.New("inkwell: unknown script")
 	ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
+	ErrNoStartStage     = errors.New("inkwell: StartStage not set or unknown stage")
 )

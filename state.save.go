@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // saveVersion is bumped when the on-disk schema changes. Load returns
 // ErrSaveVersion if the file is from a future version.
-const saveVersion = 1
+const saveVersion = 2
 
 // saveFile is the JSON-serialisable snapshot of a game session. Only the
 // runtime mutable state lands here — managers, themes and assets are
@@ -17,6 +18,7 @@ const saveVersion = 1
 type saveFile struct {
 	Version       int                  `json:"version"`
 	Title         string               `json:"title"`
+	SavedAt       time.Time            `json:"saved_at"`
 	CurrentScene  string               `json:"current_scene"`
 	PreviousScene string               `json:"previous_scene"`
 	SelectedVerb  string               `json:"selected_verb"`
@@ -98,6 +100,7 @@ func (g *Game) buildSave() saveFile {
 	sf := saveFile{
 		Version:       saveVersion,
 		Title:         g.Title,
+		SavedAt:       time.Now(),
 		CurrentScene:  g.currentScene,
 		PreviousScene: g.previousScene,
 		SelectedVerb:  g.selectedVerb,
@@ -227,4 +230,42 @@ func copyMap[K comparable, V any](m map[K]V) map[K]V {
 		out[k] = v
 	}
 	return out
+}
+
+// SlotInfo describes one slot on disk, for a load or save screen to list.
+// An empty slot answers too — a screen showing four slots wants four rows,
+// three of which say "empty".
+type SlotInfo struct {
+	Slot    int
+	Exists  bool
+	Scene   string
+	SavedAt time.Time
+}
+
+// Slots reads the header of every slot from 1 to count. A slot that is
+// missing or unreadable comes back as one that does not exist, because a
+// screen listing saves is not the place to report a parse error.
+func (g *Game) Slots(count int) []SlotInfo {
+	slots := make([]SlotInfo, 0, count)
+	for slot := 1; slot <= count; slot++ {
+		slots = append(slots, g.slotInfo(slot))
+	}
+	return slots
+}
+
+func (g *Game) slotInfo(slot int) SlotInfo {
+	data, err := os.ReadFile(g.slotPath(slot))
+	if err != nil {
+		return SlotInfo{Slot: slot}
+	}
+	var sf saveFile
+	if err := json.Unmarshal(data, &sf); err != nil {
+		return SlotInfo{Slot: slot}
+	}
+	return SlotInfo{
+		Slot:    slot,
+		Exists:  true,
+		Scene:   sf.CurrentScene,
+		SavedAt: sf.SavedAt,
+	}
 }
