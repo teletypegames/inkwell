@@ -1,8 +1,6 @@
 package inkwell
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -71,12 +69,7 @@ func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
 	th := g.Theme()
 	vector.DrawFilledRect(dst, float32(x), float32(y), float32(w), float32(h), th.SpeechBubbleBG, false)
 
-	textCol := th.SpeechDefaultText
-	if c, ok := g.CharacterManager.Get(sp.Speaker); ok {
-		if rgba, ok := c.SpeechColor.(color.RGBA); ok && rgba.A > 0 {
-			textCol = rgba
-		}
-	}
+	textCol := g.SpeechColor(sp.Speaker, th.SpeechDefaultText)
 	for i, ln := range lines {
 		g.DrawText(dst, ln, x+pad, y+pad+i*16-2, textCol)
 	}

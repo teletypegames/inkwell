@@ -193,6 +193,7 @@ Each entity kind has its own alias (generic type alias, Go 1.24+):
 type ItemManager       = Manager[Item]
 type SceneManager      = Manager[Scene]
 type CharacterManager  = Manager[Character]
+type SpeakerManager    = Manager[Speaker]
 type DialogManager     = Manager[Dialog]
 type ScriptManager     = Manager[Script]
 type AssetManager      = Manager[Asset]
@@ -278,6 +279,7 @@ type Game struct {
     ItemManager      *ItemManager
     SceneManager     *SceneManager
     CharacterManager *CharacterManager
+    SpeakerManager   *SpeakerManager
     DialogManager    *DialogManager
     ScriptManager    *ScriptManager
     AssetManager     *AssetManager
@@ -1202,7 +1204,9 @@ const (
 )
 
 func (c Character) DisplayName() Text    // Label, or Name
-func (g *Game) CharacterLabel(name string) Text
+func (g *Game) Speaker(name string) (Speaker, bool)  // a character's voice, or a bodiless one
+func (g *Game) SpeakerLabel(name string) Text
+func (g *Game) SpeechColor(name string, fallback color.Color) color.Color
 func (g *Game) ItemLabel(name string) Text      // Description, or Name
 func (g *Game) VoiceOf(name string) Voice
 
@@ -1214,9 +1218,30 @@ type AnimationClip struct {
 ```
 
 `Voice` is where a character reaches the player, and `Say` obeys it: a
-`VoiceLog` character — a radio, a tape, a narrator with no body to speak
-from — gets the log line without the bubble. A domain never needs a
-second spelling of `Say` for that.
+`VoiceLog` character gets the log line without the bubble. A domain never
+needs a second spelling of `Say` for that.
+
+A voice with no body at all is not a character. A radio, a cassette, a
+narrator — anything that speaks but never stands in a scene — is a
+`Speaker`, registered in `SpeakerManager`: a name, a `Label`, a `Voice`
+and a `Color`, and nothing about walking or being drawn.
+
+```go
+type Speaker struct {
+    Name  string
+    Label Text
+    Voice Voice
+    Color color.Color
+}
+```
+
+`Say`, the dialog box, the chat log and the bubble all resolve a
+speaker's name through `Game.Speaker(name)`, which looks in the
+characters first and the speakers second, so a line does not know or
+care which kind said it. `Game.VoiceOf`, `Game.SpeakerLabel` and
+`Game.SpeechColor` are the three answers a widget asks for, and a name
+found in neither registry speaks in a bubble under its own name, which
+is what a bare `Say` always did.
 
 `Label` is what a HUD prints: a code name, a title, a shout. `Start` is
 where `Game.Player` is placed in a scene that lists no actors of its own.
@@ -1460,6 +1485,7 @@ type Ctx struct {
 | `If(c Condition, then Action, els ...Action) Action` | Run `then` if `c` evaluates true; otherwise `Seq(els...)` (if any).|
 | `Wait(seconds float64) Action`           | Block the runner for `seconds`.                                            |
 | `Say(speaker string, text Text) Action`  | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with the resolved text's length, 1.2s floor. |
+| `Reply(speaker string, answer func(*State) Text) Action` | `Say` with the line decided when it is spoken: `answer` is handed the `State` and returns the `Text` for this moment, so a speaker can answer from what the player has done without a dialog node per case. |
 | `GoTo(scene string) Action`              | Switch the current scene via a fade transition.                            |
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character string, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
@@ -2860,6 +2886,9 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── character.animation.go      # AnimationClip + tickAnimation
 ├── character.runtime.go        # runtimeChar: placing, walking, ticking the cast
 ├── character.draw.go           # the cast on screen, placeholder shapes included
+│
+├── speaker.def.go              # Speaker: a voice with no body, and how a name resolves to one
+├── speaker.manager.go          # SpeakerManager alias
 │
 ├── dialog.def.go               # Dialog, DialogNode, DialogChoice
 ├── dialog.manager.go           # DialogManager alias

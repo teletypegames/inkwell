@@ -16,6 +16,7 @@ type Game struct {
 	ItemManager      *ItemManager
 	SceneManager     *SceneManager
 	CharacterManager *CharacterManager
+	SpeakerManager   *SpeakerManager
 	DialogManager    *DialogManager
 	ScriptManager    *ScriptManager
 	AssetManager     *AssetManager
@@ -175,6 +176,9 @@ func New(spec Game) *Game {
 	}
 	if g.CharacterManager == nil {
 		g.CharacterManager = NewManager[Character]()
+	}
+	if g.SpeakerManager == nil {
+		g.SpeakerManager = NewManager[Speaker]()
 	}
 	if g.DialogManager == nil {
 		g.DialogManager = NewManager[Dialog]()
@@ -339,24 +343,6 @@ func (g *Game) CharacterInScene(name string) bool {
 		}
 	}
 	return false
-}
-
-// VoiceOf reports how a character reaches the player. An unregistered
-// name speaks in a bubble, which is what a bare Say always did.
-func (g *Game) VoiceOf(name string) Voice {
-	if c, ok := g.CharacterManager.Get(name); ok {
-		return c.Voice
-	}
-	return VoiceBubble
-}
-
-// CharacterLabel is what the UI should print for a character: the Label
-// if the entity carries one, the name otherwise.
-func (g *Game) CharacterLabel(name string) Text {
-	if c, ok := g.CharacterManager.Get(name); ok {
-		return c.DisplayName()
-	}
-	return plain(name)
 }
 
 // ItemLabel is what the UI should print for an item: its Description if it

@@ -71,13 +71,10 @@ func (c *ChatLog) hears(g *Game, speaker string) bool {
 	return false
 }
 
-// speechColor is the speaker's own color where the character carries one,
+// speechColor is the speaker's own color where the speaker carries one,
 // so a log with several voices in it stays readable as several voices.
 func (c *ChatLog) speechColor(g *Game, speaker string, fallback color.Color) color.Color {
-	if ch, ok := g.CharacterManager.Get(speaker); ok && ch.SpeechColor != nil {
-		return ch.SpeechColor
-	}
-	return fallback
+	return g.SpeechColor(speaker, fallback)
 }
 
 // latest is the last speaker the log heard, for the header.
@@ -115,7 +112,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 	top := int(b.Y) + pad
 	if c.Speaker == SpeakerHeader {
 		if who := c.latest(g); who != "" {
-			g.DrawText(dst, g.CharacterLabel(who).String(), int(b.X)+pad, top,
+			g.DrawText(dst, g.SpeakerLabel(who).String(), int(b.X)+pad, top,
 				c.speechColor(g, who, th.ChatLogResponse))
 		}
 		ruleY := float32(top+lh) + 2
@@ -143,7 +140,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 			}
 			col = c.speechColor(g, m.Speaker, th.ChatLogResponse)
 			if c.Speaker == SpeakerInline && m.Speaker != "" {
-				txt = g.CharacterLabel(m.Speaker).String() + ": " + txt
+				txt = g.SpeakerLabel(m.Speaker).String() + ": " + txt
 			}
 		default:
 			col = th.ChatLogSystem

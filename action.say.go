@@ -3,6 +3,7 @@ package inkwell
 type sayAction struct {
 	speaker string
 	text    Text
+	answer  func(state *State) Text
 }
 type sayRunner struct {
 	spec     *sayAction
@@ -29,7 +30,11 @@ func (a *sayAction) Start() Runner { return &sayRunner{spec: a} }
 func (r *sayRunner) Tick(ctx *Ctx) Status {
 	if !r.started {
 		r.started = true
-		r.line = r.spec.text.String()
+		text := r.spec.text
+		if r.spec.answer != nil {
+			text = r.spec.answer(ctx.Game.State)
+		}
+		r.line = text.String()
 		// duration scales with text length, with a 1.2s floor
 		r.duration = 1.2 + float64(len([]rune(r.line)))*0.05
 		r.bubble = ctx.Game.VoiceOf(r.spec.speaker) == VoiceBubble
