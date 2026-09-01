@@ -23,10 +23,10 @@ func Run(g *Game) error {
 
 	// Initial scene goes in directly (no transition) so OnEnter / OnStart
 	// run cleanly as one composed sequence on the first script tick.
-	s := g.SceneManager.MustGet(g.startID)
-	g.currentScene = g.startID
-	g.State.NoteVisit(g.startID)
-	g.placeActors(g.startID)
+	s := g.SceneManager.MustGet(g.StartScene)
+	g.currentScene = g.StartScene
+	g.State.NoteVisit(g.StartScene)
+	g.placeActors(g.StartScene)
 	g.resetTriggers()
 	if s.Music != "" {
 		g.Audio.PlayMusic(s.Music)
@@ -35,11 +35,11 @@ func Run(g *Game) error {
 	if s.OnEnter != nil {
 		seq = append(seq, s.OnEnter)
 	}
-	if g.onStart != "" {
-		seq = append(seq, RunScript(g.onStart))
+	if g.StartScript != "" {
+		seq = append(seq, RunScript(g.StartScript))
 	}
-	if g.onFinale != "" {
-		seq = append(seq, RunScript(g.onFinale))
+	if g.FinaleScript != "" {
+		seq = append(seq, RunScript(g.FinaleScript))
 	}
 	if len(seq) > 0 {
 		g.queueAction(Seq(seq...), "init")

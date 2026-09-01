@@ -38,6 +38,28 @@ type Game struct {
 	// hotspot nobody paired it with. Nil falls back to a flash line.
 	UseWithFail func(item string, h *Hotspot) Action
 
+	// ----- what the game boots as -------------------------------------
+	//
+	// These four say where the game opens, not what it does afterwards.
+	// New reads them; StartAt, OnStart, OnFinale and UseTheme set the
+	// same values for a caller that would rather build a game in steps.
+
+	// StartScene is the scene the player opens in.
+	StartScene string
+	// StartScript is queued after that scene's OnEnter, once.
+	StartScript string
+	// FinaleScript is the closing script, queued straight after
+	// StartScript — which is what a "boot into the ending" flag wants.
+	// Empty for an ordinary run.
+	FinaleScript string
+	// StartTheme is the theme selected at boot. Empty takes
+	// "classic-scumm", so a game that never mentions a theme has one.
+	StartTheme string
+	// Flags are set in State before the first frame. A game whose debug
+	// build or command line switches something on says so here rather
+	// than reaching into State after construction.
+	Flags []string
+
 	// Player names the character a scene gets when it lists no actors of
 	// its own, placed at that character's Start. Empty leaves such a
 	// scene unpeopled.
@@ -56,9 +78,6 @@ type Game struct {
 	Audio     *AudioPlayer
 	Input     *Input
 
-	startID     string
-	onStart     string
-	onFinale    string
 	activeTheme string
 
 	// runtime
@@ -102,45 +121,100 @@ type speechState struct {
 	Text    string
 }
 
-// NewGame initializes a game with empty entity managers, the SCUMM-style
-// verb set, all preset themes, and "classic-scumm" selected. Widgets are
-// NOT auto-registered — call RegisterDefaultUI(g) explicitly.
+// New builds a game from a declared one. Everything a game is rather than
+// does — its size, its managers, where it opens, the responses it hands the
+// engine — is a field, so the whole of it can be one literal at the call
+// site instead of a page of assignments the reader has to hold in their
+// head:
 //
-// A domain is free to replace any of the entity managers with one of its
-// own before Run — the registries are ordinary *Manager values, and Run
-// wires the engine to whichever ones the Game holds by then.
-func NewGame(title string, w, h int) *Game {
-	g := &Game{
-		Title:            title,
-		Width:            w,
-		Height:           h,
-		ItemManager:      NewManager[Item](),
-		SceneManager:     NewManager[Scene](),
-		CharacterManager: NewManager[Character](),
-		DialogManager:    NewManager[Dialog](),
-		ScriptManager:    NewManager[Script](),
-		AssetManager:     NewManager[Asset](),
-		VerbManager:      NewManager[Verb](),
-		WidgetManager:    NewManager[Widget](),
-		ThemeManager:     NewManager[Theme](),
-		State:            NewState(),
-		Inventory:        NewInventory(),
-		Audio:            NewAudioPlayer(),
-		Input:            newInput(),
-		loaded:           newLoadedAssets(w, h),
-		chars:            make(map[string]*runtimeChar),
-		transition:       &transition{},
-		selectedVerb:     "look",
+//	game := inkwell.New(inkwell.Game{
+//		Title:        "Real World",
+//		Width:        640,
+//		Height:       380,
+//		StartScene:   "alley",
+//		StartScript:  "opening",
+//		Player:       "paul",
+//		SceneManager: scene.SceneManager,
+//		…
+//	})
+//
+// What the spec leaves out, New fills in: an empty manager for every
+// category the caller did not hand over, the runtime halves (State,
+// Inventory, Audio, Input), the SCUMM verb set when no verbs were
+// registered, and the preset themes — added to whatever the caller's
+// ThemeManager already holds rather than replacing them. Widgets are NOT
+// auto-registered; Run falls back to the SCUMM preset when none were.
+//
+// A manager handed over here is used in place, not copied, so the engine
+// and the domain share one registry per category instead of two to keep
+// in step.
+func New(spec Game) *Game {
+	g := &spec
+	if g.ItemManager == nil {
+		g.ItemManager = NewManager[Item]()
 	}
-	for _, v := range defaultVerbs() {
-		g.VerbManager.Register(v)
+	if g.SceneManager == nil {
+		g.SceneManager = NewManager[Scene]()
+	}
+	if g.CharacterManager == nil {
+		g.CharacterManager = NewManager[Character]()
+	}
+	if g.DialogManager == nil {
+		g.DialogManager = NewManager[Dialog]()
+	}
+	if g.ScriptManager == nil {
+		g.ScriptManager = NewManager[Script]()
+	}
+	if g.AssetManager == nil {
+		g.AssetManager = NewManager[Asset]()
+	}
+	if g.VerbManager == nil {
+		g.VerbManager = NewManager[Verb]()
+	}
+	if g.WidgetManager == nil {
+		g.WidgetManager = NewManager[Widget]()
+	}
+	if g.ThemeManager == nil {
+		g.ThemeManager = NewManager[Theme]()
+	}
+
+	g.State = NewState()
+	g.Inventory = NewInventory()
+	g.Audio = NewAudioPlayer()
+	g.Input = newInput()
+	g.loaded = newLoadedAssets(g.Width, g.Height)
+	g.chars = make(map[string]*runtimeChar)
+	g.transition = &transition{}
+	g.selectedVerb = "look"
+
+	if g.VerbManager.Len() == 0 {
+		for _, v := range defaultVerbs() {
+			g.VerbManager.Register(v)
+		}
 	}
 	RegisterPresetThemes(g)
-	g.UseTheme("classic-scumm")
+
+	g.activeTheme = g.StartTheme
+	if g.activeTheme == "" {
+		g.activeTheme = "classic-scumm"
+	}
+	for _, f := range g.Flags {
+		g.State.SetFlag(f)
+	}
 	return g
 }
 
-func (g *Game) StartAt(name string) *Game { g.startID = name; return g }
+// NewGame is New for a game that would rather be built in steps: it
+// declares nothing but the window, and the caller assigns the rest.
+func NewGame(title string, w, h int) *Game {
+	return New(Game{
+		Title:  title,
+		Width:  w,
+		Height: h,
+	})
+}
+
+func (g *Game) StartAt(name string) *Game { g.StartScene = name; return g }
 
 // CurrentScene is the scene the player is in, empty before the first one is
 // entered. PreviousScene is the one before it, which is where Back() leads.
@@ -183,12 +257,12 @@ func (g *Game) SceneHotspots(name string) []Hotspot {
 
 // OnStart names the script queued after the start scene's OnEnter, once,
 // when the game boots.
-func (g *Game) OnStart(script string) *Game { g.onStart = script; return g }
+func (g *Game) OnStart(script string) *Game { g.StartScript = script; return g }
 
 // OnFinale names the game's closing script, queued directly after the start
 // script — which is what a "boot straight into the ending" debug flag wants.
 // Leave it unset for an ordinary run.
-func (g *Game) OnFinale(script string) *Game { g.onFinale = script; return g }
+func (g *Game) OnFinale(script string) *Game { g.FinaleScript = script; return g }
 
 // ----- theme + UI conveniences ------------------------------------------
 

@@ -3,8 +3,8 @@ package inkwell
 import "fmt"
 
 func (g *Game) Validate() error {
-	if !g.SceneManager.Has(g.startID) {
-		return fmt.Errorf("%w: %q", ErrNoStartScene, g.startID)
+	if !g.SceneManager.Has(g.StartScene) {
+		return fmt.Errorf("%w: %q", ErrNoStartScene, g.StartScene)
 	}
 	for _, name := range g.SceneManager.Names() {
 		s := g.SceneManager.MustGet(name)
@@ -25,7 +25,7 @@ func (g *Game) Validate() error {
 			}
 		}
 	}
-	for _, name := range []string{g.onStart, g.onFinale} {
+	for _, name := range []string{g.StartScript, g.FinaleScript} {
 		if name != "" && !g.ScriptManager.Has(name) {
 			return fmt.Errorf("%w: %q", ErrUnknownScript, name)
 		}

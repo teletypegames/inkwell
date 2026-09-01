@@ -138,7 +138,12 @@ import (
 )
 
 func main() {
-    g := inkwell.NewGame("Sample", 320, 200)
+    g := inkwell.New(inkwell.Game{
+        Title:      "Sample",
+        Width:      320,
+        Height:     200,
+        StartScene: "room",
+    })
 
     g.AssetManager.Register(inkwell.Asset{
         Name: "bg/room", Path: "assets/bg/room.png", Kind: inkwell.AssetImage,
@@ -158,7 +163,6 @@ func main() {
         }},
     })
 
-    g.StartAt("room")
     inkwell.RegisterDefaultUI(g) // optional; auto-called by Run if no widgets registered
     if err := inkwell.Run(g); err != nil {
         log.Fatal(err)
@@ -266,6 +270,13 @@ type Game struct {
     Walkboxes   []Polygon                             // floor a scene with none walks
     WindowScale int                                   // window = resolution × this (0 = 4)
 
+    // what the game boots as
+    StartScene   string    // the scene the player opens in
+    StartScript  string    // queued after that scene's OnEnter, once
+    FinaleScript string    // closing script, queued straight after StartScript
+    StartTheme   string    // theme selected at boot ("" -> classic-scumm)
+    Flags        []string  // State flags set before the first frame
+
     // runtime services
     State     *State
     Inventory *Inventory
@@ -281,18 +292,54 @@ type Game struct {
 ### 4.1 Construction
 
 ```go
+func New(spec Game) *Game
 func NewGame(title string, w, h int) *Game
 ```
 
-Initialises every manager (empty), registers the default SCUMM verb set
-(`look`, `use`, `talk`, `take`), installs all four preset themes, and
-selects `classic-scumm` as the active theme. Widgets are **not**
+`New` builds a game from a declared one. Everything a game *is* rather than
+*does* is a field, so the whole of it is one literal at the call site instead
+of a page of assignments the reader has to hold in their head:
+
+```go
+game := inkwell.New(inkwell.Game{
+    Title:       "Real World",
+    Width:       640,
+    Height:      380,
+    WindowScale: 2,
+
+    StartScene:  "alley",
+    StartScript: "opening",
+    StartTheme:  "realworld-93",
+
+    Player:      "paul",
+    Walkboxes:   scene.Floor,
+    UseWithFail: script.UseWithFail,
+
+    SceneManager:  scene.SceneManager,
+    AssetManager:  background.BackgroundManager,
+    ScriptManager: script.ScriptManager,
+    WidgetManager: widget.WidgetManager,
+    ThemeManager:  theme.ThemeManager,
+})
+```
+
+What the spec leaves out, `New` fills in: an empty manager for every category
+the caller did not hand over, the runtime halves (`State`, `Inventory`,
+`Audio`, `Input`), the SCUMM verb set (`look`, `use`, `talk`, `take`) when no
+verbs were registered, and the four preset themes. Widgets are **not**
 auto-registered — call `RegisterDefaultUI(g)` (or one of its siblings)
 explicitly, or let `Run` install the default set if `WidgetManager` is empty.
 
-The manager fields are ordinary `*Manager` values, so a domain that keeps its
-own registries can **assign them onto the Game** instead of copying every entry
-across:
+A manager handed over here is used **in place, not copied**, so the engine and
+the domain share one registry per category instead of two to keep in step —
+and handing one over no longer costs anything. `ThemeManager` used to arrive
+holding the four presets, so replacing it threw them away; `New` now *adds*
+the presets to whichever `ThemeManager` it ends up with, leaving alone any name
+the domain has already taken. `VerbManager` works the same way: hand over a
+full one and the SCUMM four are not installed over it.
+
+`NewGame` is `New` for a game that would rather be built in steps — it declares
+nothing but the window, and the caller assigns the rest:
 
 ```go
 g := inkwell.NewGame("Real World", 640, 380)
@@ -302,10 +349,7 @@ g.AssetManager = myAssetManager
 
 Do it before `Run` — that is where the engine wires up the parts that hold a
 registry directly, so whichever managers the `*Game` carries by then are the
-ones that get used. Two of them are worth a second thought before replacing:
-`ThemeManager` arrives holding the four presets and `classic-scumm` selected,
-and `VerbManager` the four SCUMM verbs. Replacing either throws that away —
-register into them instead unless that is what you want.
+ones that get used.
 
 ### 4.2 Lifecycle hooks
 
@@ -322,18 +366,22 @@ so the opening a game plays is content like any other — a `Script` in the
 `ScriptManager`, reachable by name and editable without touching the wiring.
 `Validate` rejects a name that is not registered.
 
-`OnFinale` is queued directly after the start script, which is what a "boot
-straight into the ending" debug flag wants:
+The first three are setters for `StartScene`, `StartScript` and
+`FinaleScript`, for a caller building a game in steps rather than declaring
+one; they return `*Game` so they chain. A game that hands `New` a literal
+names the fields instead and needs none of them:
 
 ```go
-g.StartAt(start)
-g.OnStart(ScriptOpening)
-if finale {
-    g.OnFinale(ScriptFinale)
-}
+game := inkwell.New(inkwell.Game{
+    …
+    StartScene:   start,
+    StartScript:  ScriptOpening,
+    FinaleScript: finaleScript,   // "" for an ordinary run
+})
 ```
 
-All three return `*Game` so they chain at the end of `Build`.
+`FinaleScript` is queued directly after `StartScript`, which is what a "boot
+straight into the ending" debug flag wants.
 
 ### 4.3 Theme accessors
 
@@ -1224,7 +1272,7 @@ type Verb struct {
 }
 ```
 
-`NewGame` pre-registers the four SCUMM verbs (`look`, `use`, `talk`,
+`New` pre-registers the four SCUMM verbs (`look`, `use`, `talk`,
 `take`). Add your own:
 
 ```go
@@ -2162,8 +2210,11 @@ type Theme struct {
 
 ### 12.1 Preset themes
 
-`NewGame` automatically calls `RegisterPresetThemes(g)` and
-`UseTheme("classic-scumm")`. The four shipped presets:
+`New` automatically calls `RegisterPresetThemes(g)` and selects `StartTheme`,
+or `classic-scumm` when the game names none. `RegisterPresetThemes` adds
+rather than replaces — a domain that hands over its own `ThemeManager` keeps
+everything already in it, and a preset whose name the domain has taken is left
+alone. The four shipped presets:
 
 | Name              | Mood                                                        |
 |-------------------|-------------------------------------------------------------|
@@ -2413,7 +2464,7 @@ black overlay (`duration = 0.25s`). At the midpoint:
 The fade-from-black plays after the midpoint. During the fade-out half,
 `engine.Update` returns early — input is frozen briefly.
 
-The initial scene (from `StartAt`) is set **without** a transition so the
+The initial scene (`StartScene`) is set **without** a transition so the
 intro script runs immediately.
 
 ---
@@ -2428,7 +2479,7 @@ Run by `Run` before entering the Ebiten loop — after every
 [`Scene.Derived`](#72-scene) has been resolved, so a derived exit is checked
 like an authored one — and again from your tests. It cross-checks:
 
-- `StartAt` points to a registered scene.
+- `StartScene` points to a registered scene.
 - Every scene's `BackgroundAsset()` — its `Background`, or its own `Name`
   when it leaves that empty — references a registered `Asset`.
 - Optional `Scene.Music` (if non-empty) references a registered `Asset`.
@@ -2497,7 +2548,7 @@ var (
     ErrUnknownScene     = errors.New("inkwell: unknown scene")
     ErrUnknownCharacter = errors.New("inkwell: unknown character")
     ErrUnknownScript    = errors.New("inkwell: unknown script")
-    ErrNoStartScene     = errors.New("inkwell: StartAt not set or unknown scene")
+    ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
 )
 
 Every one of them is returned by `Game.Validate` — an error the library
