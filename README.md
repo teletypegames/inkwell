@@ -205,7 +205,7 @@ type ThemeManager      = Manager[Theme]
 
 | Method                 | Behaviour                                                  |
 |------------------------|------------------------------------------------------------|
-| `Register(v T)`        | Adds `v` to the registry. Panics on empty or duplicate `Name`. |
+| `Register(v T) T`      | Adds `v` to the registry and hands it back. Panics on empty or duplicate `Name`. |
 | `Set(v T)`             | Replaces an entry in place, keeping its position; registers it when the name is new. |
 | `Get(name) (T, bool)`  | Looks up by name. The boolean is `false` if absent.        |
 | `MustGet(name) T`      | Same as `Get`, but panics on missing names.                |
@@ -214,6 +214,31 @@ type ThemeManager      = Manager[Theme]
 | `Names() []string`     | Returns names in **insertion order** (used for widget Z-order). |
 | `All() []T`            | Returns every entry in **insertion order**.                |
 | `Each(fn func(T))`     | Iterates in insertion order.                               |
+
+`Register` returns what it registered so that a registration can be an
+**expression** rather than a statement, which is what lets an entity file be a
+declaration instead of a procedure:
+
+```go
+// scene.alley.go — the whole file
+package scene
+
+var _ = SceneManager.Register(Scene{
+	Name: "alley",
+	…
+})
+```
+
+That is not merely shorter than wrapping the call in an `init()`. A
+package-level variable is initialised in **dependency order**, so the manager
+is built before any file that writes into it, whichever one the compiler reads
+first; the `init()` form rests instead on the separate rule that every package
+variable is ready before any `init()` runs. Registration order is unchanged
+either way — the order the files are presented in.
+
+The result is safe to ignore, so the plain statement form still compiles, and
+a file that has to *build* something before registering it (a loop, or a value
+wired to itself) keeps its `init()` and should.
 
 ### 3.2 The `Named` contract
 

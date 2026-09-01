@@ -17,9 +17,26 @@ func NewManager[T Named]() *Manager[T] {
 	return &Manager[T]{items: make(map[string]T)}
 }
 
-// Register adds v to the registry. Panics on empty or duplicate name —
-// these are construction-time bugs, not runtime conditions.
-func (m *Manager[T]) Register(v T) {
+// Register adds v to the registry and hands it back. Panics on empty or
+// duplicate name — these are construction-time bugs, not runtime conditions.
+//
+// It returns what it registered so that a registration can be an expression
+// rather than a statement, which is what lets an entity file be a
+// declaration instead of a procedure:
+//
+//	var _ = SceneManager.Register(Scene{
+//		Name: "alley",
+//		…
+//	})
+//
+// That form is not merely shorter than an init(): a package-level variable
+// is initialised in dependency order, so the manager is built before the
+// file that writes into it no matter which one the compiler reads first.
+// The registration order stays the order the files are presented in, the
+// same as with init().
+//
+// The result is safe to ignore, so the plain statement form still compiles.
+func (m *Manager[T]) Register(v T) T {
 	name := v.GetName()
 	if name == "" {
 		panic("inkwell: Register: empty Name on " + typeName(v))
@@ -29,6 +46,7 @@ func (m *Manager[T]) Register(v T) {
 	}
 	m.items[name] = v
 	m.order = append(m.order, name)
+	return v
 }
 
 // Set replaces a registered entry in place, keeping its position in the
