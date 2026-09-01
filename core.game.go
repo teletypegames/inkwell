@@ -66,11 +66,16 @@ type Game struct {
 	// than reaching into State after construction.
 	Flags []string
 
-	// Player names the character the player controls: the one a click on
-	// empty floor walks, and the one a scene gets when it lists no actors
-	// of its own, placed at that character's Start. Empty means nobody
-	// walks on a click and such a scene stays unpeopled.
+	// Player names the character the player controls: the one a scene gets
+	// when it lists no actors of its own, placed at that character's Start,
+	// and the one WalkOnClick moves. Empty leaves such a scene unpeopled.
 	Player string
+
+	// WalkOnClick makes a left click on empty floor walk Player there,
+	// routed through the walkboxes. Off by default: a game whose hotspots
+	// answer from any distance has no reason for its character to move,
+	// and one that does says so here.
+	WalkOnClick bool
 
 	// Walkboxes is the floor a scene walks on when it declares none of
 	// its own. Nil means no routing in those scenes.

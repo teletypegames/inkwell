@@ -293,7 +293,8 @@ type Game struct {
 
     // domain defaults
     UseWithFail func(item string, h *Hotspot) Action  // unauthored use-with pair
-    Player      string                                // who a click walks; actor a scene with none gets
+    Player      string                                // actor a scene with none gets; who WalkOnClick moves
+    WalkOnClick bool                                  // a click on empty floor walks Player (default off)
     Walkboxes   []Polygon                             // floor a scene with none walks
     WindowScale int                                   // window = resolution × this (0 = 4)
 
@@ -1219,8 +1220,9 @@ second spelling of `Say` for that.
 
 `Label` is what a HUD prints: a code name, a title, a shout. `Start` is
 where `Game.Player` is placed in a scene that lists no actors of its own.
-`Game.Player` is also who walks: a left click on empty floor sends that
-character there, routed through the scene's walkboxes.
+With `Game.WalkOnClick`, `Game.Player` is also who walks: a left click on
+empty floor sends that character there, routed through the scene's
+walkboxes. It is off by default, so a game says so when it wants it.
 
 When no real sprite is on disk, `drawCharacter` falls back to a stylised
 placeholder: humanoid if `W < H`, quadruped otherwise. `SpeechColor` (if
@@ -1709,7 +1711,7 @@ clicked. Nothing else should need it.
 
 After all widgets ticked, the engine offers the (possibly consumed) click
 to `handleSceneInput`, which is where hotspot interactions live, and where
-a click on nothing walks `Game.Player`. If a widget already consumed the
+a click on nothing walks `Game.Player` when `Game.WalkOnClick` is set. If a widget already consumed the
 click, `handleSceneInput` becomes a no-op for that frame.
 
 ### 11.3 Built-in widgets
@@ -2592,7 +2594,8 @@ Runs only after every widget had a chance. The flow:
    - Otherwise look up `hotspot.handler(selectedVerb)`. Fall back to the
      verb's `Default` action. Fail with "Semmi említésre méltó."
    - If no hotspot is under the cursor and the click is inside
-     `SceneArea`, walk `Game.Player` to the click, through the walkboxes. This calls `walkCharacter` directly rather
+     `SceneArea`, and `Game.WalkOnClick` is set, walk `Game.Player` to the
+     click, through the walkboxes. This calls `walkCharacter` directly rather
      than queueing a `Walk` action: a queued walk would be a script, and
      a script owns the frame, so the next click could not redirect it.
 4. On every successful click, push a `LogAction` line so the `ChatLog`

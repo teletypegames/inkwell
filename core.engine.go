@@ -109,8 +109,9 @@ func (g *Game) tickAwakeWidgets(dt float64) {
 }
 
 // handleSceneInput is the "click on hotspot with active verb" flow, running
-// only when no widget has claimed the input. A click that lands on no
-// hotspot is a walk: Game.Player goes there, routed through the walkboxes.
+// only when no widget has claimed the input. With Game.WalkOnClick, a click
+// that lands on no hotspot is a walk: Game.Player goes there, routed
+// through the walkboxes.
 func (e *engine) handleSceneInput() {
 	g := e.g
 	mp := g.Input.Point()
@@ -134,11 +135,12 @@ func (e *engine) handleSceneInput() {
 	g.Input.ConsumeLeft()
 	h := e.hotspotAt(mp)
 	if h == nil {
-		// Empty floor: the player walks there. This goes straight to
-		// walkCharacter rather than through the queue as a Walk action,
-		// because a queued walk would be a script, and a script owns the
-		// frame — the next click could not redirect it until it arrived.
-		if g.Player != "" && g.SceneArea().Contains(mp) {
+		// Empty floor: with WalkOnClick, the player walks there. This
+		// goes straight to walkCharacter rather than through the queue as
+		// a Walk action, because a queued walk would be a script, and a
+		// script owns the frame — the next click could not redirect it
+		// until it arrived.
+		if g.WalkOnClick && g.Player != "" && g.SceneArea().Contains(mp) {
 			g.walkCharacter(g.Player, mp)
 		}
 		return
