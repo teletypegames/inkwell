@@ -40,13 +40,13 @@ const (
 	LayerSpeech Layer = 300
 	// LayerDialog is the dialog box.
 	LayerDialog Layer = 400
+	// LayerDebug is the developer's overlay: over the scene, the HUD and
+	// the dialog it annotates, under the menus a developer works from.
+	LayerDebug Layer = 450
 	// LayerMenu is what opens on top of the game: radial verbs, menus.
 	LayerMenu Layer = 500
 	// LayerCurtain is what covers the game: end cards, fades.
 	LayerCurtain Layer = 600
-	// LayerDebug is the developer's overlay, over everything the player
-	// sees and under nothing but the pointer.
-	LayerDebug Layer = 650
 	// LayerCursor is the pointer, and nothing else belongs above it.
 	LayerCursor Layer = 700
 )

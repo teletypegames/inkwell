@@ -1656,9 +1656,9 @@ const (
     LayerHUD     Layer = 200  // verbs, inventory, status line, top bar
     LayerSpeech  Layer = 300  // speech bubbles
     LayerDialog  Layer = 400  // the dialog box
+    LayerDebug   Layer = 450  // the developer's overlay
     LayerMenu    Layer = 500  // radial verbs, menus
     LayerCurtain Layer = 600  // end cards, fades
-    LayerDebug   Layer = 650  // the developer's overlay
     LayerCursor  Layer = 700  // the pointer
 )
 
@@ -1932,11 +1932,14 @@ type Cursor struct{ Name string }
 #### `HotspotDebug` (`widget.hotspot_debug.go`)
 
 Paints a translucent plate over everything on screen a player could point
-at, one colour per kind, with the element's **name** written across it: the
-scene's hotspots, its exits, the characters standing in it, the items in the
-inventory and the targets of every `HotspotPanel`. F1 toggles it at runtime
-(override via `ToggleKey`). It sits on `LayerDebug`, over everything but the
-pointer.
+at, one colour per kind: the scene's hotspots, its exits, the characters
+standing in it, the items in the inventory and the targets of every
+`HotspotPanel`. The scene's own targets get the element's **name** written
+across the plate, because the picture shows them unlabelled; a widget's
+targets get the plate alone, because the widget already prints its labels.
+F1 toggles it at runtime (override via `ToggleKey`). It sits on `LayerDebug`,
+over the scene, the HUD and the dialog, under the menus — so the debug menu
+opens on top of it.
 
 ```go
 type HotspotDebug struct {

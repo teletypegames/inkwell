@@ -41,11 +41,14 @@ type Targeted interface {
 }
 
 // HotspotDebug paints a translucent plate over everything on screen a
-// player could click or look at, one colour per kind, with the element's
-// name written across it: the current scene's hotspots and exits, the
-// characters standing in it, and whatever every visible Targeted widget
-// offers — the inventory's items, a panel's hotspots. F1 toggles it at
-// runtime; the default is off.
+// player could click or look at, one colour per kind: the current scene's
+// hotspots and exits, the characters standing in it, and whatever every
+// visible Targeted widget offers — the inventory's items, a panel's
+// hotspots. The scene's own targets get the element's name written across
+// the plate, because the picture shows them unlabelled; a widget's targets
+// get the plate alone, because the widget already prints its own labels
+// and a second copy would only cover them. F1 toggles it at runtime; the
+// default is off.
 type HotspotDebug struct {
 	Name    string
 	When    Condition
@@ -85,16 +88,20 @@ func (h *HotspotDebug) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !h.Enabled {
 		return
 	}
-	for _, t := range h.targets(ctx.Game) {
-		h.plate(dst, ctx.Game, t)
+	scene, widgets := h.targets(ctx.Game)
+	for _, t := range scene {
+		h.plate(dst, ctx.Game, t, true)
+	}
+	for _, t := range widgets {
+		h.plate(dst, ctx.Game, t, false)
 	}
 }
 
-// targets gathers everything the overlay marks this frame: the scene's own
-// hotspots (an exit is one whose generated name says so), the characters
-// placed in the scene, and the targets of every visible widget that offers
-// any.
-func (h *HotspotDebug) targets(g *Game) []DebugTarget {
+// targets gathers everything the overlay marks this frame, in two lists:
+// the scene's own — its hotspots (an exit is one whose generated name says
+// so) and the characters placed in it — and the targets of every visible
+// widget that offers any.
+func (h *HotspotDebug) targets(g *Game) (scene, widgets []DebugTarget) {
 	var out []DebugTarget
 	if g.currentScene != "" {
 		for _, hs := range g.SceneHotspots(g.currentScene) {
@@ -132,12 +139,12 @@ func (h *HotspotDebug) targets(g *Game) []DebugTarget {
 		if !ok || !WidgetVisible(ctx, w) {
 			continue
 		}
-		out = append(out, src.DebugTargets(g)...)
+		widgets = append(widgets, src.DebugTargets(g)...)
 	}
-	return out
+	return out, widgets
 }
 
-func (h *HotspotDebug) plate(dst *ebiten.Image, g *Game, t DebugTarget) {
+func (h *HotspotDebug) plate(dst *ebiten.Image, g *Game, t DebugTarget, named bool) {
 	col, ok := h.Colors[t.Kind]
 	if !ok || col == nil {
 		col = debugDefaultColors[t.Kind]
@@ -145,7 +152,7 @@ func (h *HotspotDebug) plate(dst *ebiten.Image, g *Game, t DebugTarget) {
 	b := t.Area
 	vector.DrawFilledRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), col, false)
 	vector.StrokeRect(dst, float32(b.X), float32(b.Y), float32(b.W), float32(b.H), 1, opaque(col), false)
-	if width := int(b.W) - 2; width >= GlyphW {
+	if width := int(b.W) - 2; named && width >= GlyphW {
 		g.DrawText(dst, ClipText(t.Name, width), int(b.X)+1, int(b.Y)+1, debugLabelColor)
 	}
 }
