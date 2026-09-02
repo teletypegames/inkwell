@@ -1658,6 +1658,7 @@ const (
     LayerDialog  Layer = 400  // the dialog box
     LayerMenu    Layer = 500  // radial verbs, menus
     LayerCurtain Layer = 600  // end cards, fades
+    LayerDebug   Layer = 650  // the developer's overlay
     LayerCursor  Layer = 700  // the pointer
 )
 
@@ -1930,16 +1931,30 @@ type Cursor struct{ Name string }
 
 #### `HotspotDebug` (`widget.hotspot_debug.go`)
 
-Stroke-outlines every hotspot in the current scene. F1 toggles it at
-runtime (override via `ToggleKey`).
+Paints a translucent plate over everything on screen a player could point
+at, one colour per kind, with the element's **name** written across it: the
+scene's hotspots, its exits, the characters standing in it, the items in the
+inventory and the targets of every `HotspotPanel`. F1 toggles it at runtime
+(override via `ToggleKey`). It sits on `LayerDebug`, over everything but the
+pointer.
 
 ```go
 type HotspotDebug struct {
     Name      string
+    When      Condition
     Enabled   bool
-    ToggleKey ebiten.Key       // 0 → ebiten.KeyF1
+    ToggleKey ebiten.Key                 // 0 → ebiten.KeyF1
+    Colors    map[DebugKind]color.Color  // per-kind override; alpha honoured
 }
+
+type DebugKind int   // DebugHotspot, DebugExit, DebugCharacter, DebugItem, DebugPanel
 ```
+
+A widget with clickable things of its own joins the overlay by implementing
+`Targeted`: `DebugTargets(g *Game) []DebugTarget`, one `{Kind, Name, Area}`
+per thing. `InventoryBar` and `HotspotPanel` do, and a game widget that
+embeds one of them inherits it, so the overlay finds a game's slots without
+being told about them.
 
 #### `TopBar` (`widget.top_bar.go`)
 

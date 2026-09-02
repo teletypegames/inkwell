@@ -37,6 +37,17 @@ func (b *InventoryBar) slotRect(idx int) Rectangle {
 	return Rect(x, y, float64(b.SlotSize), float64(b.SlotSize))
 }
 
+// DebugTargets is one target per filled slot, named after the item in it,
+// so the debug overlay can mark the inventory without knowing its layout.
+func (b *InventoryBar) DebugTargets(g *Game) []DebugTarget {
+	items := g.Inventory.Items()
+	out := make([]DebugTarget, 0, len(items))
+	for i := 0; i < min(b.Slots, len(items)); i++ {
+		out = append(out, DebugTarget{Kind: DebugItem, Name: items[i], Area: b.slotRect(i)})
+	}
+	return out
+}
+
 func (b *InventoryBar) Tick(ctx *UICtx) {
 	g := ctx.Game
 	mp := g.Input.Point()

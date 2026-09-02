@@ -43,6 +43,23 @@ func (p *HotspotPanel) GetName() string        { return p.Name }
 func (p *HotspotPanel) VisibleWhen() Condition { return p.When }
 func (p *HotspotPanel) Layer() Layer           { return LayerHUD }
 
+// DebugTargets is the panel's hotspots as the debug overlay sees them: one
+// plate per target, named as the hotspot is.
+func (p *HotspotPanel) DebugTargets(g *Game) []DebugTarget {
+	if p.Hotspots == nil {
+		return nil
+	}
+	hs := p.Hotspots(g)
+	out := make([]DebugTarget, 0, len(hs))
+	for _, h := range hs {
+		if h.Area == nil {
+			continue
+		}
+		out = append(out, DebugTarget{Kind: DebugPanel, Name: h.Name, Area: h.Area.Bounds()})
+	}
+	return out
+}
+
 func (p *HotspotPanel) Draw(dst *ebiten.Image, ctx *UICtx) {}
 
 func (p *HotspotPanel) BlocksClickAt(pt Point) bool { return p.Bounds.Contains(pt) }

@@ -44,6 +44,9 @@ const (
 	LayerMenu Layer = 500
 	// LayerCurtain is what covers the game: end cards, fades.
 	LayerCurtain Layer = 600
+	// LayerDebug is the developer's overlay, over everything the player
+	// sees and under nothing but the pointer.
+	LayerDebug Layer = 650
 	// LayerCursor is the pointer, and nothing else belongs above it.
 	LayerCursor Layer = 700
 )
