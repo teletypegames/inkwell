@@ -25,6 +25,8 @@ var Fallback string
 type Translation struct {
 	Lang string
 	Text string
+	// Voice is the recording of this line in this language, if there is one.
+	Voice *Voice
 }
 
 // Text is a string in as many languages as somebody has written it in:
@@ -57,6 +59,25 @@ func plain(s string) Text {
 // String resolves the Text against Lang: that language if it is there, then
 // Fallback, then whichever translation was written first.
 func (t Text) String() string { return t.In(Lang) }
+
+// resolved is the Translation String would read from: the one in Lang,
+// else Fallback, else the first — with its Voice.
+func (t Text) resolved() Translation {
+	for _, lang := range []string{Lang, Fallback} {
+		if lang == "" {
+			continue
+		}
+		for _, tr := range t {
+			if tr.Lang == lang {
+				return tr
+			}
+		}
+	}
+	if len(t) == 0 {
+		return Translation{}
+	}
+	return t[0]
+}
 
 // In is the Text's wording in one named language, falling back the same way
 // String does. Composing one Text around another needs it — the frame and
@@ -99,8 +120,9 @@ func (t Text) Map(fn func(string) string) Text {
 	out := make(Text, len(t))
 	for i, tr := range t {
 		out[i] = Translation{
-			Lang: tr.Lang,
-			Text: fn(tr.Text),
+			Lang:  tr.Lang,
+			Text:  fn(tr.Text),
+			Voice: tr.Voice,
 		}
 	}
 	return out

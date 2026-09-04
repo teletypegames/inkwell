@@ -10,9 +10,9 @@ type Speaker struct {
 	Name string
 	// Label is what a log or a dialog box calls the voice; empty falls back
 	// to Name.
-	Label Text
-	Voice Voice
-	Color color.Color
+	Label    Text
+	Delivery Delivery
+	Color    color.Color
 }
 
 func (s Speaker) GetName() string   { return s.Name }
@@ -52,10 +52,10 @@ func talkerName(t Talker) string {
 
 func (c Character) speaker() Speaker {
 	return Speaker{
-		Name:  c.Name,
-		Label: c.Label,
-		Voice: c.Voice,
-		Color: c.SpeechColor,
+		Name:     c.Name,
+		Label:    c.Label,
+		Delivery: c.Delivery,
+		Color:    c.SpeechColor,
 	}
 }
 
@@ -71,11 +71,11 @@ func (g *Game) Speaker(name string) (Speaker, bool) {
 	return Speaker{}, false
 }
 
-func (g *Game) VoiceOf(name string) Voice {
+func (g *Game) DeliveryOf(name string) Delivery {
 	if s, ok := g.Speaker(name); ok {
-		return s.Voice
+		return s.Delivery
 	}
-	return VoiceBubble
+	return DeliveryBubble
 }
 
 func (g *Game) SpeakerLabel(name string) Text {

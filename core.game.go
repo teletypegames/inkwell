@@ -216,6 +216,7 @@ func New(spec Game) *Game {
 	g.transition = &transition{}
 	g.selectedVerb = "look"
 	g.pending = noChange
+	g.settings.Voice = true
 
 	if g.VerbManager.Len() == 0 {
 		for _, v := range defaultVerbs() {
@@ -450,6 +451,7 @@ func (g *Game) applyPending() {
 		return
 	}
 	g.pending = noChange
+	g.settings.Voice = true
 
 	if spec := g.leavingTransition(change.stage); spec != nil {
 		g.transition.start(spec, func() { g.applyChange(change) })
@@ -510,6 +512,9 @@ func (g *Game) enterStage(stage *Stage) {
 func (g *Game) arriveStage(stage *Stage) {
 	if stage == nil {
 		return
+	}
+	if stage.Music != nil {
+		g.Audio.PlayMusic(stage.Music)
 	}
 	if stage.OnEnter != nil {
 		g.queueAction(stage.OnEnter, "stage enter "+stage.Name)

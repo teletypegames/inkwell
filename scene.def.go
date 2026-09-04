@@ -11,8 +11,8 @@ type Scene struct {
 	// the theme's backdrop showing — a scene that is all widgets.
 	Background *Asset
 	// Music starts when the scene is entered and keeps playing until a
-	// scene with different music is. Nil changes nothing.
-	Music     *Asset
+	// scene or Stage with different music is. Nil changes nothing.
+	Music     *Music
 	Hotspots  []Hotspot
 	Exits     []Exit
 	Walkboxes []Polygon

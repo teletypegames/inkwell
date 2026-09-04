@@ -142,7 +142,7 @@ func main() {
     player := &inkwell.Character{Name: "player", W: 28, H: 62}
     room := &inkwell.Scene{
         Name:       "room",
-        Background: &inkwell.Asset{Name: "bg/room", Path: "assets/bg/room.png", Kind: inkwell.AssetImage},
+        Background: &inkwell.Asset{Name: "bg/room", Path: "assets/bg/room.png"},
         Actors:     []inkwell.SceneActor{{Character: player, At: inkwell.Point{X: 160, Y: 140}}},
         Hotspots: []inkwell.Hotspot{{
             Name:   "door",
@@ -579,8 +579,9 @@ languages as somebody has written it in.
 // inkwell/i18n.text.go
 
 type Translation struct {
-    Lang string
-    Text string
+    Lang  string
+    Text  string
+    Voice *Voice   // the recording of this line in this language, if any
 }
 
 type Text []Translation
@@ -883,29 +884,30 @@ each frame.
 ```go
 // inkwell/asset.def.go
 
-type AssetKind int
-const (
-    AssetImage AssetKind = iota
-    AssetAudio
-)
-
 type Asset struct {
     Name string  // logical id used everywhere ("bg/kitchen")
     Path string  // disk path ("assets/bg/kitchen.png")
-    Kind AssetKind
 }
+
+// inkwell/audio.def.go — sound is not an Asset
+
+type Audible interface{ Source() string }   // Voice, Music and Sound
+
+type Voice struct{ Path string }              // a recorded line, on a Translation
+type Music struct{ Name, Path string; Loop bool } // a track a Scene or Stage plays
+type Sound struct{ Name, Path string }        // a noise, played once by PlaySound
 ```
 
 Assets are **lazy**: `Register` only stores the spec. The file is opened on
 the first `loadedAssets.image(...)` request. Missing files fall back to a
 deterministic colored placeholder so the game runs without any art —
-useful for prototyping or CI.
+useful for prototyping or CI. An `Asset` is a picture; what is heard is a
+`Voice`, a `Music` or a `Sound` — see [§14](#14-audio).
 
 ```go
 kitchen := g.AssetManager.Register(&inkwell.Asset{
     Name: "bg/kitchen",
     Path: "assets/bg/kitchen.png",
-    Kind: inkwell.AssetImage,
 })
 ```
 
@@ -918,7 +920,7 @@ type Scene struct {
     Name       string
     Title      Text           // optional human-readable name (TopBar widget reads this)
     Background *Asset         // the picture; nil leaves the theme's backdrop
-    Music      *Asset         // starts on enter; nil changes nothing
+    Music      *Music         // starts on enter; nil changes nothing
     Hotspots   []Hotspot
     Exits      []Exit         // connections to other scenes
     Walkboxes  []Polygon
@@ -1232,15 +1234,15 @@ type Character struct {
     Animations  map[string]AnimationClip
     Speed       float64
     SpeechColor color.Color
-    Voice       Voice                        // VoiceBubble (default) or VoiceLog
+    Delivery    Delivery                     // DeliveryBubble (default) or DeliveryLog
     Start       Point                        // where Game.Player stands by default
     W, H        float64                      // size hint for placeholder
 }
 
-type Voice int
+type Delivery int
 const (
-    VoiceBubble Voice = iota  // speech bubble over the scene, plus the log
-    VoiceLog                  // the log alone
+    DeliveryBubble Delivery = iota  // speech bubble over the scene, plus the log
+    DeliveryLog                     // the log alone
 )
 
 func (c Character) DisplayName() Text    // Label, or Name
@@ -1255,7 +1257,7 @@ func (g *Game) Speaker(name string) (Speaker, bool)  // a character's voice, or 
 func (g *Game) SpeakerLabel(name string) Text
 func (g *Game) SpeechColor(name string, fallback color.Color) color.Color
 func (g *Game) ItemLabel(name string) Text      // Description, or Name
-func (g *Game) VoiceOf(name string) Voice
+func (g *Game) DeliveryOf(name string) Delivery
 
 type AnimationClip struct {
     Frames    []Rectangle
@@ -1264,28 +1266,29 @@ type AnimationClip struct {
 }
 ```
 
-`Voice` is where a character reaches the player, and `Say` obeys it: a
-`VoiceLog` character gets the log line without the bubble. A domain never
-needs a second spelling of `Say` for that.
+`Delivery` is where a character reaches the player, and `Say` obeys it: a
+`DeliveryLog` character gets the log line without the bubble. A domain never
+needs a second spelling of `Say` for that. (It was called `Voice` until a
+voice became a recording; see [§14](#14-audio).)
 
 A voice with no body at all is not a character. A radio, a cassette, a
 narrator — anything that speaks but never stands in a scene — is a
-`Speaker`, registered in `SpeakerManager`: a name, a `Label`, a `Voice`
+`Speaker`, registered in `SpeakerManager`: a name, a `Label`, a `Delivery`
 and a `Color`, and nothing about walking or being drawn.
 
 ```go
 type Speaker struct {
     Name  string
     Label Text
-    Voice Voice
-    Color color.Color
+    Delivery Delivery
+    Color    color.Color
 }
 ```
 
 `Say`, the dialog box, the chat log and the bubble all resolve a
 speaker's name through `Game.Speaker(name)`, which looks in the
 characters first and the speakers second, so a line does not know or
-care which kind said it. `Game.VoiceOf`, `Game.SpeakerLabel` and
+care which kind said it. `Game.DeliveryOf`, `Game.SpeakerLabel` and
 `Game.SpeechColor` are the three answers a widget asks for, and a name
 found in neither registry speaks in a bubble under its own name, which
 is what a bare `Say` always did.
@@ -1417,6 +1420,7 @@ type Stage struct {
     Title      Text
     World      bool     // this Stage is the game itself
     Background *Asset   // full-screen image for a Stage that is not the world
+    Music      *Music   // a track for this Stage; nil keeps what is playing
     Transition Transition // how this Stage gives way to the next; nil cuts
     Hold       float64  // seconds to show, then move on to Next
     Next       string
@@ -1583,9 +1587,10 @@ type Ctx struct {
 | `SaveSlot(slot int) Action`              | Write the session to a slot, where it is called.                           |
 | `Quit() Action`                          | Close the window at the end of the frame.                                  |
 | `Flash(text Text) Action`                | Put a line in the status strip for ~2s — `Game.FlashLine` as an action.    |
-| `PlayMusic(asset *Asset) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
+| `PlayMusic(music *Music) Action`         | Start a track, looping when `Music.Loop`; the same track again is a no-op. |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
-| `PlaySound(asset *Asset) Action`         | `AudioPlayer.PlaySound`.                                                   |
+| `PlaySound(sound *Sound) Action`         | Play a noise once, over whatever else plays.                               |
+| `SetVoice(on bool) Action`               | Switch recorded lines on or off, and save the settings.                    |
 | `RunDialog(dialog *Dialog) Action`        | Start a registered `Dialog`; runner blocks until the dialog closes.       |
 | `EndDialog() Action`                   | Close the active dialog.                                                   |
 | `GotoNode(node string) Action`           | Jump to a node within the active dialog.                                   |
@@ -2130,7 +2135,7 @@ type ChatLog struct {
     ShowBorder bool                // draws a 1px border in CharacterPanelBorder
 
     Speaker    SpeakerStyle        // how a reply names who said it
-    Voices     []Voice             // keep only replies in these voices; nil = all
+    Deliveries []Delivery          // keep only replies delivered these ways; nil = all
     Resting    Talker              // who the header carries before anybody speaks
 }
 
@@ -2143,11 +2148,11 @@ const (
 ```
 
 A log can be given over to part of the conversation rather than all of it.
-`Voices` keeps only the replies spoken in one of the voices it lists, which
+`Deliveries` keeps only the replies delivered one of the ways it lists, which
 is how a game with a radio, a tape or a narrator hands that voice a panel of
 its own — without the widget having to know what the thing is. The engine
 already knows how a character reaches the player
-([`Character.Voice`](#78-character)), so the filter is that fact and not a
+([`Character.Delivery`](#78-character)), so the filter is that fact and not a
 second one to keep in step with it:
 
 ```go
@@ -2155,14 +2160,14 @@ second one to keep in step with it:
     Name:    "channel",
     Bounds:  inkwell.Rect(396, 262, 244, 118),
     Speaker: inkwell.SpeakerHeader,
-    Voices:  []inkwell.Voice{inkwell.VoiceLog},
+    Deliveries: []inkwell.Delivery{inkwell.DeliveryLog},
     Resting: "dex",
 }
 ```
 
 `SpeakerHeader` suits a panel given over to one voice at a time: the name
 reads as a heading rather than as a word repeated down the margin. Player
-commands and system lines are nobody's, so `Voices` keeps them either way.
+commands and system lines are nobody's, so `Deliveries` keeps them either way.
 
 Set `Game.MaxLogLines` to bound the buffer (recommended ~64 for a small
 ChatLog).
@@ -2570,8 +2575,8 @@ func (la *loadedAssets) isPlaceholder(asset *Asset) bool
 character placeholder (humanoid / quadruped) or the real sprite.
 
 Supported image formats: PNG and JPEG (registered via blank imports in
-`asset.manager.go`). Audio assets (`AssetAudio`) are decoded on demand
-by `AudioPlayer` — see [§14](#14-audio). The engine's own font is not an
+`asset.manager.go`). Sound is not an `Asset` at all: a `Voice`, a `Music`
+or a `Sound` is decoded on demand by `AudioPlayer` — see [§14](#14-audio). The engine's own font is not an
 asset at all: it is the atlas baked into `font.png` — see [§5.6](#56-the-font).
 
 ---
@@ -2579,37 +2584,58 @@ asset at all: it is the atlas baked into `font.png` — see [§5.6](#56-the-font
 ## 14. Audio
 
 ```go
+// inkwell/audio.def.go
+
+type Audible interface{ Source() string }
+
+type Voice struct{ Path string }                    // a recorded line
+type Music struct{ Name, Path string; Loop bool }   // a track
+type Sound struct{ Name, Path string }              // a noise
+
 // inkwell/asset.audio.go
 
 type AudioPlayer struct{ /* unexported */ }
 
 func NewAudioPlayer() *AudioPlayer
-func (a *AudioPlayer) PlayMusic(asset *Asset)
+func (a *AudioPlayer) PlayMusic(music *Music)
 func (a *AudioPlayer) StopMusic()
-func (a *AudioPlayer) PlaySound(asset *Asset)
+func (a *AudioPlayer) PlayVoice(voice *Voice) float64   // seconds it lasts; 0 if nothing played
+func (a *AudioPlayer) StopVoice()
+func (a *AudioPlayer) PlaySound(sound *Sound)
 ```
 
-Backed by Ebiten's `audio` package. The shared `*audio.Context` is
-created lazily on the first `PlayMusic` / `PlaySound`, at a sample rate
-of 48 kHz; existing audio contexts (e.g. created by a host process) are
-detected via `audio.CurrentContext` and reused. The `Asset.Kind` must
-be `AssetAudio` for the player to consider it.
+Three things are heard, and they are three types because they are played
+three ways:
 
-- **Music** streams from disk and loops infinitely. `PlayMusic(name)`
-  on the currently-playing track no-ops, so it's safe to call from a
-  scene's `OnEnter` on every visit.
-- **Sound effects** are decoded once, cached as raw PCM, and replayed
-  via `NewPlayerFromBytes` for near-zero-latency triggering. Finished
-  players are pruned on the next `PlaySound` call.
+- **`Voice`** is a recorded line. It sits on a `Translation`, because the
+  English and the Hungarian recording are two files, and `Say` plays the one
+  the resolved language carries — for exactly as long as the recording lasts,
+  in place of the text-length timer. A skipped line stops talking. A `Voice`
+  is owned by one line, so it needs no name and no registration:
+  `{Lang: "hu", Text: "Katt.", Voice: &Voice{Path: "assets/voice/alley/click.hu.ogg"}}`.
+  The player switches voices off in the settings (`Settings.Voice`,
+  `SetVoice`), and `Say` falls back to the timer.
+- **`Music`** is a track a `Scene` or a `Stage` plays while it shows, looping
+  when `Loop` says so. Entering a Scene or Stage whose `Music` is the one
+  already playing changes nothing; a Scene or Stage with nil `Music` keeps
+  whatever plays. `PlayMusic` is the same thing as an action.
+- **`Sound`** is a noise — a door, a latch, a cassette clicking home —
+  played once by `PlaySound`, over the music and over another `Sound`.
+
+Backed by Ebiten's `audio` package. The shared `*audio.Context` is
+created lazily on the first play, at a sample rate of 48 kHz; existing
+audio contexts (e.g. created by a host process) are detected via
+`audio.CurrentContext` and reused. Music streams from disk; voices and
+sounds are decoded once into PCM, cached by `Source`, and replayed via
+`NewPlayerFromBytes`. Finished sound players are pruned on the next
+`PlaySound`.
 
 Supported formats: **WAV** (`.wav`), **OGG Vorbis** (`.ogg`), and
 **MP3** (`.mp3`), picked by file extension. Anything else fails to
-decode and the asset is flagged so subsequent plays no-op.
+decode and the source is flagged so subsequent plays no-op.
 
 Failure modes (missing file, unsupported codec, no audio device) all
-degrade to a debug-log line; the game keeps running with no sound. The
-`PlayMusic` / `PlaySound` / `StopMusic` actions route through the same
-methods, so a domain authored against the original stub still works.
+degrade to a debug-log line; the game keeps running with no sound.
 
 ---
 
@@ -2871,6 +2897,7 @@ type Settings struct {
     Lang        string
     Theme       string
     WindowScale int
+    Voice       bool             // recorded lines on or off; on until switched
     Extra       map[string]any   // the game's own, kept untouched
 }
 
@@ -2899,7 +2926,7 @@ game's: read and write it through `Settings()`, call `SaveSettings`, and it
 round-trips beside the engine's fields.
 
 ```json
-{"version": 1, "lang": "hu", "theme": "realworld-93", "window_scale": 2}
+{"version": 1, "lang": "hu", "theme": "realworld-93", "window_scale": 2, "voice": true}
 ```
 
 **Slots.** Every save slot lives in the one `slots` document, keyed
@@ -3051,9 +3078,10 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── util.geometry.go            # Point, Rectangle, Polygon, Shape
 ├── util.log.go                 # DebugLog + logf
 │
-├── asset.def.go                # Asset, AssetKind
+├── asset.def.go                # Asset: a picture
+├── audio.def.go                # Audible: Voice, Music, Sound
 ├── asset.manager.go            # AssetManager alias + lazy loader
-├── asset.audio.go              # AudioPlayer (WAV/OGG/MP3, looping music)
+├── asset.audio.go              # AudioPlayer (WAV/OGG/MP3): music, voices, sounds
 ├── asset.text.go               # drawText / wrapText helpers
 ├── asset.fs.go                 # AssetFS: an embed.FS or the OS filesystem
 │

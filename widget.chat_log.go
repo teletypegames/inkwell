@@ -27,7 +27,7 @@ const (
 // messages scroll up out of view as the buffer fills.
 //
 // A log can be given over to part of the conversation rather than all of
-// it: Voices keeps only the replies spoken in one of the voices it lists,
+// it: Deliveries keeps only the replies spoken in one of the voices it lists,
 // which is how a game with a radio, a tape or a narrator hands that voice
 // a panel of its own without the widget having to know what the thing is.
 type ChatLog struct {
@@ -42,10 +42,10 @@ type ChatLog struct {
 	// Speaker says how a reply names who said it.
 	Speaker SpeakerStyle
 
-	// Voices, when set, keeps only the replies spoken in one of these
+	// Deliveries, when set, keeps only the replies spoken in one of these
 	// voices. Player commands and system lines are not a character's, so
 	// they are kept either way. Nil keeps everything.
-	Voices []Voice
+	Deliveries []Delivery
 
 	// Resting names the character the header carries before anybody this
 	// log listens to has spoken. Only SpeakerHeader reads it.
@@ -59,12 +59,12 @@ func (c *ChatLog) Tick(ctx *UICtx)        {}
 
 // hears reports whether a reply from this speaker belongs in the log.
 func (c *ChatLog) hears(g *Game, speaker string) bool {
-	if len(c.Voices) == 0 {
+	if len(c.Deliveries) == 0 {
 		return true
 	}
-	voice := g.VoiceOf(speaker)
-	for _, v := range c.Voices {
-		if v == voice {
+	delivery := g.DeliveryOf(speaker)
+	for _, d := range c.Deliveries {
+		if d == delivery {
 			return true
 		}
 	}

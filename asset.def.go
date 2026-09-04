@@ -1,16 +1,11 @@
 package inkwell
 
-type AssetKind int
-
-const (
-	AssetImage AssetKind = iota
-	AssetAudio
-)
-
+// Asset is a picture on the asset filesystem: a scene's background, a
+// Stage's, a sprite. Sound has its own three types — Voice, Music, Sound —
+// under Audible.
 type Asset struct {
 	Name string
 	Path string
-	Kind AssetKind
 }
 
 func (a Asset) GetName() string   { return a.Name }

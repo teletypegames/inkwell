@@ -17,31 +17,36 @@ import (
 // OGG and MP3 streams are resampled to this rate on decode.
 const audioSampleRate = 48000
 
-// AudioPlayer plays music and one-shot sound effects through Ebiten's
-// audio subsystem. Music is streamed and looped infinitely; sound effects
-// are decoded once, cached as raw PCM, and replayed via
-// NewPlayerFromBytes for low-latency triggering.
+// audioFrameBytes is one frame of Ebiten's PCM: 16-bit stereo.
+const audioFrameBytes = 4
+
+// AudioPlayer plays music, recorded lines and one-shot sound effects
+// through Ebiten's audio subsystem. Music is streamed, looping when its
+// Music says so; a Voice is decoded and played once, and can be stopped
+// when the line is skipped; sound effects are decoded once, cached as raw
+// PCM, and replayed via NewPlayerFromBytes for low-latency triggering.
 //
-// AudioPlayer is fail-soft by design: missing asset files, decode errors
-// and a missing audio device all degrade to no-ops with a debug log
-// message — the game keeps running. The action constructors
-// (PlayMusic/PlaySound/StopMusic) call through here unchanged.
+// AudioPlayer is fail-soft by design: missing files, decode errors and a
+// missing audio device all degrade to no-ops with a debug log message — the
+// game keeps running.
 type AudioPlayer struct {
 	ctx *audio.Context // lazy — created on first real play
 
-	music       *Asset
+	music       *Music
 	musicPlayer *audio.Player
 
-	sfxCache  map[*Asset][]byte // resampled PCM, one per asset
+	voicePlayer *audio.Player
+
+	sfxCache  map[string][]byte // resampled PCM, keyed by Source
 	sfxActive []*audio.Player   // in-flight one-shots; pruned each PlaySound
 
-	failed map[*Asset]bool // assets that errored once — don't retry every frame
+	failed map[string]bool // sources that errored once — don't retry every frame
 }
 
 func NewAudioPlayer() *AudioPlayer {
 	return &AudioPlayer{
-		sfxCache: make(map[*Asset][]byte),
-		failed:   make(map[*Asset]bool),
+		sfxCache: make(map[string][]byte),
+		failed:   make(map[string]bool),
 	}
 }
 
@@ -59,42 +64,49 @@ func (a *AudioPlayer) ensureContext() *audio.Context {
 	return a.ctx
 }
 
-// playable reports whether an asset is something the player can start:
-// present, audio, with a path, and not already on the failure list.
-func (a *AudioPlayer) playable(asset *Asset) bool {
-	return asset != nil && !a.failed[asset] && asset.Kind == AssetAudio && asset.Path != ""
+// playable reports whether something can be started: present, with a
+// source, and not already on the failure list.
+func (a *AudioPlayer) playable(audible Audible) bool {
+	if audible == nil {
+		return false
+	}
+	source := audible.Source()
+	return source != "" && !a.failed[source]
 }
 
-func assetName(asset *Asset) string {
-	if asset == nil {
+func sourceName(audible Audible) string {
+	if audible == nil {
 		return "<nil>"
 	}
-	return asset.Name
+	return audible.Source()
 }
 
-func (a *AudioPlayer) PlayMusic(asset *Asset) {
-	if a.music == asset && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
+func (a *AudioPlayer) PlayMusic(music *Music) {
+	if a.music == music && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
 		return
 	}
 	a.stopMusic()
-	a.music = asset
+	a.music = music
 
-	if !a.playable(asset) {
-		logf("audio.PlayMusic %s: no asset", assetName(asset))
+	if music == nil || !a.playable(music) {
+		logf("audio.PlayMusic %s: no source", sourceName(music))
 		return
 	}
 	ctx := a.ensureContext()
-	stream, length, err := decodeAudioStream(asset.Path, audioSampleRate)
+	stream, length, err := decodeAudioStream(music.Path, audioSampleRate)
 	if err != nil {
-		logf("audio.PlayMusic %q: %v", asset.Name, err)
-		a.failed[asset] = true
+		logf("audio.PlayMusic %q: %v", music.Path, err)
+		a.failed[music.Path] = true
 		return
 	}
-	loop := audio.NewInfiniteLoop(stream, length)
-	p, err := audio.NewPlayer(ctx, loop)
+	var source io.Reader = stream
+	if music.Loop {
+		source = audio.NewInfiniteLoop(stream, length)
+	}
+	p, err := audio.NewPlayer(ctx, source)
 	if err != nil {
-		logf("audio.PlayMusic %q: player: %v", asset.Name, err)
-		a.failed[asset] = true
+		logf("audio.PlayMusic %q: player: %v", music.Path, err)
+		a.failed[music.Path] = true
 		return
 	}
 	a.musicPlayer = p
@@ -105,7 +117,7 @@ func (a *AudioPlayer) StopMusic() {
 	if a.music == nil && a.musicPlayer == nil {
 		return
 	}
-	logf("audio.StopMusic (was %s)", assetName(a.music))
+	logf("audio.StopMusic (was %s)", sourceName(a.music))
 	a.stopMusic()
 	a.music = nil
 }
@@ -118,28 +130,64 @@ func (a *AudioPlayer) stopMusic() {
 	a.musicPlayer = nil
 }
 
-func (a *AudioPlayer) PlaySound(asset *Asset) {
-	if !a.playable(asset) {
-		logf("audio.PlaySound %s: no asset", assetName(asset))
+// PlayVoice plays a recorded line once and reports how long it lasts, in
+// seconds, so the line can stay up exactly that long; 0 means nothing
+// played. A Voice already playing is stopped first: one line at a time.
+func (a *AudioPlayer) PlayVoice(voice *Voice) float64 {
+	a.StopVoice()
+	if voice == nil || !a.playable(voice) {
+		logf("audio.PlayVoice %s: no source", sourceName(voice))
+		return 0
+	}
+	pcm, ok := a.pcm(voice)
+	if !ok {
+		return 0
+	}
+	p := audio.NewPlayerFromBytes(a.ensureContext(), pcm)
+	p.Play()
+	a.voicePlayer = p
+	return float64(len(pcm)) / float64(audioSampleRate*audioFrameBytes)
+}
+
+// StopVoice cuts the recorded line short — a skipped line stops talking.
+func (a *AudioPlayer) StopVoice() {
+	if a.voicePlayer == nil {
 		return
 	}
-	ctx := a.ensureContext()
+	_ = a.voicePlayer.Close()
+	a.voicePlayer = nil
+}
 
-	pcm, ok := a.sfxCache[asset]
-	if !ok {
-		data, err := decodeAudioBytes(asset.Path, audioSampleRate)
-		if err != nil {
-			logf("audio.PlaySound %q: %v", asset.Name, err)
-			a.failed[asset] = true
-			return
-		}
-		a.sfxCache[asset] = data
-		pcm = data
+func (a *AudioPlayer) PlaySound(sound *Sound) {
+	if sound == nil || !a.playable(sound) {
+		logf("audio.PlaySound %s: no source", sourceName(sound))
+		return
 	}
-	p := audio.NewPlayerFromBytes(ctx, pcm)
+	pcm, ok := a.pcm(sound)
+	if !ok {
+		return
+	}
+	p := audio.NewPlayerFromBytes(a.ensureContext(), pcm)
 	p.Play()
 	a.sfxActive = append(a.sfxActive, p)
 	a.pruneSfx()
+}
+
+// pcm decodes an Audible once into resampled 16-bit stereo PCM and caches
+// it by Source.
+func (a *AudioPlayer) pcm(audible Audible) ([]byte, bool) {
+	source := audible.Source()
+	if data, ok := a.sfxCache[source]; ok {
+		return data, true
+	}
+	data, err := decodeAudioBytes(source, audioSampleRate)
+	if err != nil {
+		logf("audio.decode %q: %v", source, err)
+		a.failed[source] = true
+		return nil, false
+	}
+	a.sfxCache[source] = data
+	return data, true
 }
 
 func (a *AudioPlayer) pruneSfx() {

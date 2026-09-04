@@ -1,11 +1,12 @@
 package inkwell
 
-type playMusicAction struct{ asset *Asset }
+type playMusicAction struct{ music *Music }
 
-// PlayMusic starts an audio asset looping; the same asset again is a no-op.
-func PlayMusic(asset *Asset) Action      { return &playMusicAction{asset: asset} }
+// PlayMusic starts a track, looping if it says so; the same track again is
+// a no-op.
+func PlayMusic(music *Music) Action      { return &playMusicAction{music: music} }
 func (a *playMusicAction) Start() Runner { return a }
 func (a *playMusicAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Audio.PlayMusic(a.asset)
+	ctx.Game.Audio.PlayMusic(a.music)
 	return StatusDone
 }

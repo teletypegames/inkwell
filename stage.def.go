@@ -31,6 +31,10 @@ type Stage struct {
 	// Empty leaves the theme's SceneBackdrop showing.
 	Background *Asset
 
+	// Music plays while this Stage shows — a title theme. Nil changes
+	// nothing, so a menu over the world keeps the world's track.
+	Music *Music
+
 	// Transition is how this Stage gives way to the next one: a change out
 	// of it — GoToStage, or Hold running out — goes through it, and the
 	// swap lands on the frame the picture is fully covered. Nil cuts, which

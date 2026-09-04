@@ -34,10 +34,17 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 		if r.spec.answer != nil {
 			text = r.spec.answer(ctx.Game.State)
 		}
-		r.line = text.String()
-		// duration scales with text length, with a 1.2s floor
+		line := text.resolved()
+		r.line = line.Text
+		// duration scales with text length, with a 1.2s floor — unless the
+		// line is recorded and voices are on, when the recording sets it
 		r.duration = 1.2 + float64(len([]rune(r.line)))*0.05
-		r.bubble = ctx.Game.VoiceOf(r.spec.speaker) == VoiceBubble
+		if line.Voice != nil && ctx.Game.VoiceOn() {
+			if seconds := ctx.Game.Audio.PlayVoice(line.Voice); seconds > 0 {
+				r.duration = seconds
+			}
+		}
+		r.bubble = ctx.Game.DeliveryOf(r.spec.speaker) == DeliveryBubble
 		if r.bubble {
 			ctx.Game.SetSpeech(r.spec.speaker, r.line)
 		}
@@ -49,6 +56,7 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 		r.elapsed = r.duration
 	}
 	if r.elapsed >= r.duration {
+		ctx.Game.Audio.StopVoice()
 		if r.bubble {
 			ctx.Game.ClearSpeech()
 		}

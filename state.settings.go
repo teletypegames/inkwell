@@ -13,11 +13,13 @@ const settingsVersion = 1
 // a game wants kept beside these without the engine having to know it —
 // and it round-trips untouched.
 type Settings struct {
-	Version     int            `json:"version"`
-	Lang        string         `json:"lang,omitempty"`
-	Theme       string         `json:"theme,omitempty"`
-	WindowScale int            `json:"window_scale,omitempty"`
-	Extra       map[string]any `json:"extra,omitempty"`
+	Version     int    `json:"version"`
+	Lang        string `json:"lang,omitempty"`
+	Theme       string `json:"theme,omitempty"`
+	WindowScale int    `json:"window_scale,omitempty"`
+	// Voice is whether recorded lines are played. On until switched off.
+	Voice bool           `json:"voice"`
+	Extra map[string]any `json:"extra,omitempty"`
 }
 
 const settingsKey = "settings"
@@ -25,6 +27,10 @@ const settingsKey = "settings"
 // Settings is the document as it stands: what was loaded at boot, updated
 // by every SaveSettings since. A game reads and writes its Extra here.
 func (g *Game) Settings() *Settings { return &g.settings }
+
+// VoiceOn reports whether recorded lines play. SetVoice is the action that
+// flips it and saves the settings.
+func (g *Game) VoiceOn() bool { return g.settings.Voice }
 
 // loadSettings reads the stored document and applies it: the language when
 // none has been chosen for this run, the theme when the stored one is
@@ -38,7 +44,7 @@ func (g *Game) loadSettings() error {
 	if err != nil {
 		return err
 	}
-	var stored Settings
+	stored := g.settings
 	if err := json.Unmarshal(data, &stored); err != nil {
 		return fmt.Errorf("inkwell: settings unmarshal: %w", err)
 	}
