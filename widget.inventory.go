@@ -139,27 +139,16 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 			if !ok {
 				continue
 			}
-			img := g.loaded.image(it.Sprite)
-			sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
-			if sw == 0 || sh == 0 {
-				continue
-			}
-			if g.loaded.isPlaceholder(it.Sprite) {
-				// draw a small colored square as a stand-in
-				inset := float32(2)
-				vector.DrawFilledRect(dst,
-					float32(r.X)+inset, float32(r.Y)+inset,
-					float32(r.W)-2*inset, float32(r.H)-2*inset,
-					th.VerbButtonSelectedBG, false)
-				continue
-			}
-			op := &ebiten.DrawImageOptions{}
 			inset := 1.0
-			tgtW := r.W - 2*inset
-			tgtH := r.H - 2*inset
-			op.GeoM.Scale(tgtW/float64(sw), tgtH/float64(sh))
-			op.GeoM.Translate(r.X+inset, r.Y+inset)
-			dst.DrawImage(img, op)
+			if it.Sprite != nil && it.Sprite.Sheet != nil && g.loaded.isPlaceholder(it.Sprite.Sheet) {
+				_ = g.loaded.image(it.Sprite.Sheet)
+			}
+			if !drawSprite(dst, g, it.Sprite, itemFrame(g, it.Sprite), FacingRight, r.X+inset, r.Y+inset, r.W-2*inset, r.H-2*inset) {
+				vector.DrawFilledRect(dst,
+					float32(r.X)+2, float32(r.Y)+2,
+					float32(r.W)-4, float32(r.H)-4,
+					th.VerbButtonSelectedBG, false)
+			}
 		}
 	}
 }

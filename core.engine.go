@@ -29,6 +29,7 @@ func (e *engine) Update() error {
 		return ebiten.Termination
 	}
 
+	g.clock += dt
 	g.Input.poll()
 	g.transition.update(dt)
 	g.pumpQueue()

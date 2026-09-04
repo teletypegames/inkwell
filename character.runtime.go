@@ -13,9 +13,11 @@ type runtimeChar struct {
 
 	// animation playback state — see character.animation.go for the rules
 	// that drive currentClip selection.
-	currentClip string
-	clipElapsed float64
-	clipFrame   int
+	pose        Pose
+	posed       bool
+	poseElapsed float64
+	still       float64
+	facing      Facing
 }
 
 // sceneActors is the cast a scene actually shows: its own list, or the
@@ -72,6 +74,7 @@ func (g *Game) walkCharacter(name string, to Point) {
 	c.path = path
 	c.target = path[len(path)-1]
 	c.moving = true
+	c.posed = false
 }
 
 func (g *Game) characterMoving(name string) bool {
@@ -81,7 +84,7 @@ func (g *Game) characterMoving(name string) bool {
 
 func (g *Game) tickCharacters(dt float64) {
 	for _, c := range g.chars {
-		g.tickAnimation(c, dt)
+		g.tickPose(c, dt)
 		if !c.moving {
 			continue
 		}
@@ -98,6 +101,11 @@ func (g *Game) tickCharacters(dt float64) {
 		next := c.path[0]
 		dx := next.X - c.pos.X
 		dy := next.Y - c.pos.Y
+		if dx < 0 {
+			c.facing = FacingLeft
+		} else if dx > 0 {
+			c.facing = FacingRight
+		}
 		d := c.pos.Dist(next)
 		speed := c.def.Speed
 		if speed <= 0 {

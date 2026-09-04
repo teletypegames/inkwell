@@ -2,7 +2,7 @@ package inkwell
 
 type Item struct {
 	Name        string
-	Sprite      *Asset
+	Sprite      *Sprite
 	Description Text
 
 	OnUseSelf Action

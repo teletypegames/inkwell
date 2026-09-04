@@ -44,6 +44,7 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 				r.duration = seconds
 			}
 		}
+		ctx.Game.talking = r.spec.speaker
 		r.bubble = ctx.Game.DeliveryOf(r.spec.speaker) == DeliveryBubble
 		if r.bubble {
 			ctx.Game.SetSpeech(r.spec.speaker, r.line)
@@ -57,6 +58,9 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 	}
 	if r.elapsed >= r.duration {
 		ctx.Game.Audio.StopVoice()
+		if ctx.Game.talking == r.spec.speaker {
+			ctx.Game.talking = ""
+		}
 		if r.bubble {
 			ctx.Game.ClearSpeech()
 		}

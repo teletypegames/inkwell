@@ -29,9 +29,10 @@ type saveFile struct {
 }
 
 type savedChar struct {
-	Pos    Point `json:"pos"`
-	Target Point `json:"target"`
-	Moving bool  `json:"moving"`
+	Pos    Point  `json:"pos"`
+	Target Point  `json:"target"`
+	Moving bool   `json:"moving"`
+	Facing Facing `json:"facing"`
 }
 
 type savedInventory struct {
@@ -172,6 +173,7 @@ func (g *Game) buildSave() saveFile {
 			Pos:    c.pos,
 			Target: c.target,
 			Moving: c.moving,
+			Facing: c.facing,
 		}
 	}
 	return sf
@@ -241,6 +243,7 @@ func (g *Game) applySave(sf *saveFile) error {
 			pos:    ch.Pos,
 			target: ch.Target,
 			moving: ch.Moving,
+			facing: ch.Facing,
 		}
 	}
 	// Backfill any actors required by the current scene that the save

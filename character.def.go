@@ -6,9 +6,11 @@ type Character struct {
 	Name string
 	// Label is what the UI shows instead of Name — a code name, a title,
 	// a shout. Empty means the Name is presentable as it stands.
-	Label       Text
-	Sprite      *Asset
-	Animations  map[string]AnimationClip
+	Label Text
+	// Poses are the sprites the character is drawn with, one per Pose the
+	// artwork covers. Nil, or a Pose with no entry, falls back to Idle; no
+	// Idle draws the placeholder figure sized W by H.
+	Poses       map[Pose]*Sprite
 	Speed       float64
 	SpeechColor color.Color
 	// Delivery decides where Say puts this character's lines.

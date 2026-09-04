@@ -1179,7 +1179,7 @@ re-entry.
 
 type Item struct {
     Name        string
-    Sprite      *Asset
+    Sprite      *Sprite                  // a picture, or frames on a sheet; see Character
     Description Text
 
     OnUseSelf Action
@@ -1230,8 +1230,7 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 type Character struct {
     Name        string
     Label       Text                         // what the UI shows; empty = Name
-    Sprite      *Asset                       // nil draws the placeholder
-    Animations  map[string]AnimationClip
+    Poses       map[Pose]*Sprite             // one Sprite per Pose the art covers; none draws the placeholder
     Speed       float64
     SpeechColor color.Color
     Delivery    Delivery                     // DeliveryBubble (default) or DeliveryLog
@@ -1259,11 +1258,27 @@ func (g *Game) SpeechColor(name string, fallback color.Color) color.Color
 func (g *Game) ItemLabel(name string) Text      // Description, or Name
 func (g *Game) DeliveryOf(name string) Delivery
 
-type AnimationClip struct {
-    Frames    []Rectangle
-    FrameTime float64
+type Sprite struct {                     // a picture, or a sequence of them
+    Sheet     *Asset
+    Frames    []Rectangle                // cut from the sheet, in order; empty = the whole sheet
+    FrameTime float64                    // seconds per frame
     Loop      bool
+    Faces     Facing                     // the way the artwork looks; mirrored for the other
 }
+
+type Pose int
+const (
+    PoseIdle Pose = iota
+    PoseWalk
+    PoseTalk
+    PoseWait
+)
+
+type Facing int
+const (
+    FacingRight Facing = iota
+    FacingLeft
+)
 ```
 
 `Delivery` is where a character reaches the player, and `Say` obeys it: a
@@ -1303,16 +1318,22 @@ When no real sprite is on disk, `drawCharacter` falls back to a stylised
 placeholder: humanoid if `W < H`, quadruped otherwise. `SpeechColor` (if
 an `RGBA`) colours both the speech-bubble text and the placeholder body.
 
-`Animations` maps a clip name to an `AnimationClip`. The engine
-auto-selects clips by name: `"walk"` while the character has an active
-path, `"idle"` otherwise. If only one of the two is registered, it
-plays in both states. `FrameTime ≤ 0` or `Frames` empty disables the
-clip; missing clips fall back to the whole-sprite (or placeholder) draw.
+**Sprites and poses.** A `Sprite` is a picture or a sequence of them: a
+`Sheet` and the `Frames` cut from it, in order, at `FrameTime` seconds each,
+looping or holding the last. No `Frames` means the sheet is the one frame, so
+a still item and a walking character are the same type. `Poses` gives a
+character one `Sprite` per thing it can be seen doing, and the engine picks
+the pose: `PoseWalk` while it moves, `PoseTalk` while its line is up,
+`PoseWait` once it has stood still for eight seconds, `PoseIdle` otherwise —
+or whatever `SetPose` holds, until the character next walks or speaks. A
+pose the art does not cover falls back to `PoseIdle`; no `PoseIdle` draws
+the placeholder figure. Each frame is blitted with `SubImage` and scaled to
+the character's `W×H`.
 
-Each `Frames` entry is a source rectangle into the character's `Sprite`
-image, blitted via `SubImage` and scaled to the character's `W×H`
-footprint. `Loop: true` rewinds to frame 0 after the last frame;
-`Loop: false` freezes on the final frame.
+Direction is not a second sheet. A `Sprite` says which way it `Faces`, the
+character remembers the way it last moved, and the frame is mirrored when
+the two differ — so one walk cycle serves both directions, and the facing
+survives a save.
 
 Movement is driven by the `Walk` action and `Game.tickCharacters` —
 stepping at `Speed` pixels/sec (default 60) along the waypoint list
@@ -1571,6 +1592,7 @@ type Ctx struct {
 | `GoTo(scene *Scene) Action`                | Switch the current scene via a fade transition.                            |
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character *Character, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
+| `SetPose(character *Character, pose Pose) Action` | Hold a character in a pose until it next walks or speaks.            |
 | `Give(item *Item) Action`               | Add `item` to inventory.                                                   |
 | `TakeAway(item *Item) Action`           | Remove `item` from inventory.                                              |
 | `RequireItem(item *Item) Action`        | If the item is not in inventory, flash `MsgNeedItem` and fail.             |
@@ -2781,11 +2803,11 @@ The waypoint queue is built when `Walk(name, to)` runs — see
 walkbox routing. The `Walk` runner returns `StatusRunning` until
 `characterMoving(name)` reports false.
 
-Each frame also advances the character's animation clock via
-`tickAnimation`, which auto-selects `"walk"` (when `moving == true`)
-or `"idle"` from `Character.Animations`. The renderer uses the active
-clip's source rectangle to blit a sprite-sheet frame, or falls back to
-the whole-sprite / placeholder draw when no clip applies.
+Each frame also runs `tickPose`, which picks the character's `Pose` —
+walking, talking, waiting, idle, or the one `SetPose` holds — and advances
+its frame clock. The renderer blits the current frame of the pose's
+`Sprite`, mirrored when the character faces the other way, or falls back to
+the placeholder when the character has no sprite for it.
 
 ---
 
@@ -2966,8 +2988,8 @@ What is **not** saved:
 
 - The in-flight script `Runner` or any active dialog. `Load` cancels
   both, so saves are effectively taken at an idle/ready boundary.
-- The animation playback state. After load, characters are placed at
-  the saved position; the next idle frame re-derives the clip.
+- The pose and its frame clock. After load, characters are placed at the
+  saved position facing the saved way; the next frame re-derives the pose.
 - Walkbox path queues. If a character is still `moving`, `tickCharacters`
   rebuilds a one-step straight-line path from `pos` to `target` so the
   walk finishes.
@@ -3106,7 +3128,8 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 │
 ├── character.def.go            # Character
 ├── character.manager.go        # CharacterManager alias
-├── character.animation.go      # AnimationClip + tickAnimation
+├── character.pose.go           # tickPose: which Pose, which frame
+├── sprite.def.go               # Sprite, Pose, Facing, drawSprite
 ├── character.runtime.go        # runtimeChar: placing, walking, ticking the cast
 ├── character.draw.go           # the cast on screen, placeholder shapes included
 │

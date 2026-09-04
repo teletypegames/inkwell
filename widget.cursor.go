@@ -23,13 +23,7 @@ func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {
 	x, y := g.Input.Pos()
 	if sel := g.Inventory.Selected(); sel != "" {
 		if it, ok := g.ItemManager.Get(sel); ok {
-			img := g.loaded.image(it.Sprite)
-			sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
-			if sw > 0 && sh > 0 && !g.loaded.isPlaceholder(it.Sprite) {
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Scale(16/float64(sw), 16/float64(sh))
-				op.GeoM.Translate(float64(x-8), float64(y-8))
-				dst.DrawImage(img, op)
+			if drawSprite(dst, g, it.Sprite, itemFrame(g, it.Sprite), FacingRight, float64(x-8), float64(y-8), 16, 16) {
 				return
 			}
 		}

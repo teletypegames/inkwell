@@ -79,16 +79,8 @@ func (c *CharacterPanel) BlocksClickAt(p Point) bool {
 // drawCharacterPortrait renders a tiny version of the character's
 // placeholder shape (or sprite if available) inside the panel.
 func drawCharacterPortrait(dst *ebiten.Image, g *Game, c *Character, x, y, w, h float64) {
-	if c.Sprite != nil && !g.loaded.isPlaceholder(c.Sprite) {
-		img := g.loaded.image(c.Sprite)
-		sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
-		if sw > 0 && sh > 0 {
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(w/float64(sw), h/float64(sh))
-			op.GeoM.Translate(x, y)
-			dst.DrawImage(img, op)
-			return
-		}
+	if drawSprite(dst, g, c.Poses[PoseIdle], 0, FacingRight, x, y, w, h) {
+		return
 	}
 	bodyCol := color.RGBA{200, 200, 200, 255}
 	if rgba, ok := c.SpeechColor.(color.RGBA); ok {

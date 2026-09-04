@@ -116,6 +116,8 @@ type Game struct {
 	flashTimer float64
 	endCard    string
 	speech     speechState
+	talking    string
+	clock      float64
 	dialog     *runtimeDialog
 
 	// in-game message log for ChatLog widgets; ring buffer behavior.
@@ -310,6 +312,15 @@ func (g *Game) SetSpeech(speaker, text string) {
 	g.speech = speechState{Active: true, Speaker: speaker, Text: text}
 }
 func (g *Game) ClearSpeech() { g.speech = speechState{} }
+
+// itemFrame is the frame an item's sprite shows now: items animate on the
+// game clock, because an inventory slot keeps no state of its own.
+func itemFrame(g *Game, s *Sprite) int {
+	if s == nil {
+		return 0
+	}
+	return s.frameAt(g.clock)
+}
 
 // FlashLine shows a status-line message for ~2 seconds.
 func (g *Game) FlashLine(text Text) {

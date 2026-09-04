@@ -34,37 +34,11 @@ func drawCharacter(dst *ebiten.Image, g *Game, c *runtimeChar) {
 	if h == 0 {
 		h = 56
 	}
-	if c.def.Sprite != nil && !g.loaded.isPlaceholder(c.def.Sprite) {
-		img := g.loaded.image(c.def.Sprite)
-		// Active animation clip → blit only the current frame's sub-rect
-		// from the sprite sheet, scaled into the character's W×H box.
-		if r, ok := c.currentFrameRect(); ok {
-			ib := img.Bounds()
-			clamped := r.Intersect(ib)
-			fw, fh := clamped.Dx(), clamped.Dy()
-			if fw > 0 && fh > 0 {
-				sub := img.SubImage(clamped).(*ebiten.Image)
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Scale(w/float64(fw), h/float64(fh))
-				op.GeoM.Translate(c.pos.X-w/2, c.pos.Y-h)
-				dst.DrawImage(sub, op)
-				return
-			}
-		}
-		sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
-		if sw > 0 && sh > 0 {
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(w/float64(sw), h/float64(sh))
-			op.GeoM.Translate(c.pos.X-w/2, c.pos.Y-h)
-			dst.DrawImage(img, op)
-			return
-		}
-	}
-	if c.def.Sprite != nil {
-		_ = g.loaded.image(c.def.Sprite)
-	}
 	x := c.pos.X - w/2
 	y := c.pos.Y - h
+	if s := c.sprite(); s != nil && drawSprite(dst, g, s, s.frameAt(c.poseElapsed), c.facing, x, y, w, h) {
+		return
+	}
 	bodyCol := color.RGBA{200, 200, 200, 255}
 	if rgba, ok := c.def.SpeechColor.(color.RGBA); ok {
 		bodyCol = rgba
