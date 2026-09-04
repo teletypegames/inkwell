@@ -35,6 +35,14 @@ type Talker interface {
 func (s *Speaker) talkerName() string   { return s.Name }
 func (c *Character) talkerName() string { return c.Name }
 
+// Say and Reply on the talker itself read the way a script does — who, then
+// what: paul.Say(line). They are the package-level Say and Reply with the
+// speaker filled in.
+func (s *Speaker) Say(text Text) Action                          { return Say(s, text) }
+func (c *Character) Say(text Text) Action                        { return Say(c, text) }
+func (s *Speaker) Reply(answer func(state *State) Text) Action   { return Reply(s, answer) }
+func (c *Character) Reply(answer func(state *State) Text) Action { return Reply(c, answer) }
+
 func talkerName(t Talker) string {
 	if t == nil {
 		return ""

@@ -1246,6 +1246,11 @@ const (
 func (c Character) DisplayName() Text    // Label, or Name
 
 type Talker interface{ /* *Character or *Speaker — what Say and a DialogLine take */ }
+
+func (c *Character) Say(text Text) Action                     // Say(c, text): who, then what
+func (c *Character) Reply(answer func(*State) Text) Action
+func (s *Speaker) Say(text Text) Action
+func (s *Speaker) Reply(answer func(*State) Text) Action
 func (g *Game) Speaker(name string) (Speaker, bool)  // a character's voice, or a bodiless one
 func (g *Game) SpeakerLabel(name string) Text
 func (g *Game) SpeechColor(name string, fallback color.Color) color.Color
