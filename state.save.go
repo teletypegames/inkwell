@@ -1,10 +1,10 @@
 package inkwell
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -46,45 +46,95 @@ type savedState struct {
 	Talked  map[string]int  `json:"talked"`
 }
 
-// SaveDir overrides the on-disk directory used by Save/Load. When empty,
-// the library falls back to "saves" relative to the working directory.
-func (g *Game) saveDir() string {
-	if g.SaveDir != "" {
-		return g.SaveDir
+const slotsVersion = 1
+
+const slotsKey = "slots"
+
+// slotsFile is the one document every save slot lives in: a slot is a key,
+// "slot1", and its value carries what a load screen lists — when, where —
+// in the clear, beside the session itself as a base64 string of the
+// saveFile's JSON. The metadata is out here so that listing four slots
+// does not mean decoding four sessions, and the session is opaque so that
+// the document reads as a table of slots rather than as four games.
+type slotsFile struct {
+	Version int                  `json:"version"`
+	Slots   map[string]slotEntry `json:"slots"`
+}
+
+type slotEntry struct {
+	SavedAt time.Time `json:"saved_at"`
+	Scene   string    `json:"scene"`
+	Title   string    `json:"title,omitempty"`
+	State   string    `json:"state"`
+}
+
+func slotKey(slot int) string { return fmt.Sprintf("slot%d", slot) }
+
+func (g *Game) readSlots() (slotsFile, error) {
+	doc := slotsFile{Version: slotsVersion, Slots: make(map[string]slotEntry)}
+	data, err := g.store().Read(slotsKey)
+	if errors.Is(err, ErrNotStored) {
+		return doc, nil
 	}
-	return "saves"
+	if err != nil {
+		return doc, err
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return doc, fmt.Errorf("inkwell: slots unmarshal: %w", err)
+	}
+	if doc.Slots == nil {
+		doc.Slots = make(map[string]slotEntry)
+	}
+	return doc, nil
 }
 
-func (g *Game) slotPath(slot int) string {
-	return filepath.Join(g.saveDir(), fmt.Sprintf("slot%d.json", slot))
+func (g *Game) writeSlots(doc slotsFile) error {
+	doc.Version = slotsVersion
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("inkwell: slots marshal: %w", err)
+	}
+	return g.store().Write(slotsKey, data)
 }
 
-// Save serialises the current session into saves/slot<N>.json (or
-// SaveDir/slot<N>.json if set). The in-flight script and dialog are
-// dropped — saves capture state at idle/ready boundaries.
+// Save serialises the current session into slot N of the slots document.
+// The in-flight script and dialog are dropped — saves capture state at
+// idle/ready boundaries.
 func (g *Game) Save(slot int) error {
-	if err := os.MkdirAll(g.saveDir(), 0o755); err != nil {
-		return fmt.Errorf("inkwell: save mkdir: %w", err)
+	doc, err := g.readSlots()
+	if err != nil {
+		return err
 	}
 	sf := g.buildSave()
-	data, err := json.MarshalIndent(sf, "", "  ")
+	data, err := json.Marshal(sf)
 	if err != nil {
 		return fmt.Errorf("inkwell: save marshal: %w", err)
 	}
-	if err := os.WriteFile(g.slotPath(slot), data, 0o644); err != nil {
-		return fmt.Errorf("inkwell: save write: %w", err)
+	doc.Slots[slotKey(slot)] = slotEntry{
+		SavedAt: sf.SavedAt,
+		Scene:   sf.CurrentScene,
+		Title:   sf.Title,
+		State:   base64.StdEncoding.EncodeToString(data),
 	}
-	return nil
+	return g.writeSlots(doc)
 }
 
-// Load replaces the runtime state with the contents of saves/slot<N>.json.
-// Managers (items, scenes, characters, …) are left intact — Build() owns
-// those. References in the save (scene name, theme, character names) are
-// validated against the current managers before any state is touched.
+// Load replaces the runtime state with the session in slot N. Managers
+// (items, scenes, characters, …) are left intact. References in the save
+// (scene name, theme, character names) are validated against the current
+// managers before any state is touched.
 func (g *Game) Load(slot int) error {
-	data, err := os.ReadFile(g.slotPath(slot))
+	doc, err := g.readSlots()
 	if err != nil {
-		return fmt.Errorf("inkwell: load read: %w", err)
+		return err
+	}
+	entry, ok := doc.Slots[slotKey(slot)]
+	if !ok {
+		return fmt.Errorf("inkwell: load: slot %d is empty", slot)
+	}
+	data, err := base64.StdEncoding.DecodeString(entry.State)
+	if err != nil {
+		return fmt.Errorf("inkwell: load decode: %w", err)
 	}
 	var sf saveFile
 	if err := json.Unmarshal(data, &sf); err != nil {
@@ -237,30 +287,24 @@ type SlotInfo struct {
 	SavedAt time.Time
 }
 
-// Slots reads the header of every slot from 1 to count. A slot that is
-// missing or unreadable comes back as one that does not exist, because a
-// screen listing saves is not the place to report a parse error.
+// Slots lists slots 1 to count from the document's metadata, without
+// decoding a session. A slot nobody has written comes back as one that does
+// not exist, because a screen listing saves is not the place to report a
+// missing file.
 func (g *Game) Slots(count int) []SlotInfo {
+	doc, err := g.readSlots()
+	if err != nil {
+		logf("slots: %v", err)
+	}
 	slots := make([]SlotInfo, 0, count)
 	for slot := 1; slot <= count; slot++ {
-		slots = append(slots, g.slotInfo(slot))
+		info := SlotInfo{Slot: slot}
+		if entry, ok := doc.Slots[slotKey(slot)]; ok {
+			info.Exists = true
+			info.Scene = entry.Scene
+			info.SavedAt = entry.SavedAt
+		}
+		slots = append(slots, info)
 	}
 	return slots
-}
-
-func (g *Game) slotInfo(slot int) SlotInfo {
-	data, err := os.ReadFile(g.slotPath(slot))
-	if err != nil {
-		return SlotInfo{Slot: slot}
-	}
-	var sf saveFile
-	if err := json.Unmarshal(data, &sf); err != nil {
-		return SlotInfo{Slot: slot}
-	}
-	return SlotInfo{
-		Slot:    slot,
-		Exists:  true,
-		Scene:   sf.CurrentScene,
-		SavedAt: sf.SavedAt,
-	}
 }

@@ -10,7 +10,8 @@ func UseLang(lang string) Action { return &useLangAction{lang: lang} }
 
 func (a *useLangAction) Start() Runner { return a }
 
-func (a *useLangAction) Tick(*Ctx) Status {
+func (a *useLangAction) Tick(ctx *Ctx) Status {
 	Lang = a.lang
+	_ = ctx.Game.SaveSettings()
 	return StatusDone
 }

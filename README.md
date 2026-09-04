@@ -328,6 +328,10 @@ type Game struct {
 
     // log buffer
     MaxLogLines int
+
+    // where settings and saves live
+    App   string   // the game's name to the machine: its config directory, its localStorage prefix
+    Store Store    // nil takes the platform's default for App
     /* unexported runtime fields */
 }
 ```
@@ -1569,8 +1573,8 @@ type Ctx struct {
 | `SetVar(name string, v any) Action`      | `State.SetVar(name, v)`.                                                   |
 | `SetVarIfEmpty(name string, v any) Action` | `State.SetVar(name, v)` only while nothing has written it yet — what a scene's `OnEnter` wants for a first-arrival value. |
 | `Noting(name string, v any, inner Action) Action` | Write a var for exactly as long as `inner` runs, and clear it after. |
-| `UseTheme(theme *Theme) Action`           | Switch the active theme mid-script.                                        |
-| `UseLang(lang string) Action`            | Switch the language every `Text` resolves into; reaches the next frame.    |
+| `UseTheme(theme *Theme) Action`           | Switch the active theme mid-script, and save the settings.                 |
+| `UseLang(lang string) Action`            | Switch the language every `Text` resolves into, and save the settings; reaches the next frame. |
 | `GoToStage(stage *Stage) Action`          | Show another [Stage](#712-stage), at the top of the next frame.            |
 | `Restart() Action`                       | Begin a new session, at the top of the next frame.                         |
 | `LoadSlot(slot int) Action`              | Restore a saved session, at the top of the next frame.                     |
@@ -2847,9 +2851,73 @@ one that does not exist — a screen listing saves is not the place to report a
 parse error — so a game showing four slots gets four rows, three of which say
 "empty".
 
-Slots are written as JSON files under `g.SaveDir` (default `saves/`,
-relative to the working directory), one file per slot named
-`slot<N>.json`. The save captures the **mutable runtime state**:
+```go
+// inkwell/state.store.go
+
+type Store interface {
+    Read(key string) ([]byte, error)   // ErrNotStored for a key nothing has written
+    Write(key string, data []byte) error
+}
+
+func NewFileStore(app string) *FileStore   // native: os.UserConfigDir()/<app>/<key>.json
+func NewMemoryStore() *MemoryStore         // a map, for a test
+
+// inkwell/state.settings.go
+
+type Settings struct {
+    Version     int
+    Lang        string
+    Theme       string
+    WindowScale int
+    Extra       map[string]any   // the game's own, kept untouched
+}
+
+func (g *Game) Settings() *Settings
+func (g *Game) SaveSettings() error
+```
+
+**Where it all goes.** A `Game` keeps what has to outlive the process through
+its `Store`: two documents, `settings` and `slots`. `Game.App` names the game
+to the machine, and the platform picks the place. Natively that is a
+directory under the user's configuration directory — `~/Library/Application
+Support/<app>` on macOS, `~/.config/<app>` on Linux, `%AppData%\<app>` on
+Windows — with one JSON file per document, written to a temporary file and
+renamed into place so a crash mid-write leaves the previous document. In a
+browser (`GOOS=js`) it is `localStorage`, one entry per document, prefixed
+with the app name. A game that wants neither hands in its own `Store`; a
+test hands in a `MemoryStore`.
+
+**Settings.** `Run` reads the `settings` document before the first frame:
+the stored language is used when the run has not chosen one (`inkwell.Lang`
+left empty), the stored theme when it is registered, the stored window scale
+when the game named none — so a `-lang` flag wins for this run without
+being written back. `UseLang` and `UseTheme` call `SaveSettings`, so a
+choice on a settings screen is kept the moment it is made. `Extra` is the
+game's: read and write it through `Settings()`, call `SaveSettings`, and it
+round-trips beside the engine's fields.
+
+```json
+{"version": 1, "lang": "hu", "theme": "realworld-93", "window_scale": 2}
+```
+
+**Slots.** Every save slot lives in the one `slots` document, keyed
+`slot<N>`. What a load screen lists — when, where — sits in the clear beside
+the session, which is the save's JSON as a base64 string, so listing four
+slots decodes no session and the document reads as a table of slots rather
+than as four games. `Slots` reads that metadata; `Save` and `Load` encode
+and decode one entry.
+
+```json
+{
+  "version": 1,
+  "slots": {
+    "slot1": {"saved_at": "…", "scene": "alley", "title": "Real World", "state": "eyJ2ZXJzaW9uIjoy…"}
+  }
+}
+```
+
+The session inside keeps its own schema version (2) independent of the
+document's (1). The save captures the **mutable runtime state**:
 
 - `currentScene` and `previousScene`, the active verb, and the active theme.
 - Every character's position, target, and moving flag.
@@ -2897,6 +2965,7 @@ var (
     ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
     ErrUnknownStage     = errors.New("inkwell: unknown stage")
     ErrNoStartStage     = errors.New("inkwell: StartStage not set or unknown stage")
+    ErrNotStored        = errors.New("inkwell: nothing stored under this key")
 )
 
 Every one of them is returned by `Game.Validate` — an error the library
@@ -3030,7 +3099,11 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── script.manager.go           # ScriptManager alias
 │
 ├── state.def.go                # State (flags, vars, visited, talked)
-├── state.save.go               # Save/Load JSON persistence
+├── state.store.go              # Store, MemoryStore: where settings and saves live
+├── state.store_native.go       # FileStore under os.UserConfigDir (!js)
+├── state.store_js.go           # LocalStore over window.localStorage (js)
+├── state.settings.go           # Settings: lang, theme, window scale, the game's Extra
+├── state.save.go               # Save/Load: the slots document, one base64 session per slot
 │
 ├── input.def.go                # Input (consume-on-use)
 │

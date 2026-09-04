@@ -122,9 +122,15 @@ type Game struct {
 	messages    []LogMessage
 	MaxLogLines int // 0 = unlimited (memory grows); set per-game.
 
-	// SaveDir overrides the on-disk directory used by Save/Load.
-	// Empty falls back to "saves" relative to the working directory.
-	SaveDir string
+	// App names the game to the machine it runs on: the directory its
+	// settings and saves live in natively, the localStorage prefix in a
+	// browser. Empty is "inkwell".
+	App string
+	// Store is where settings and saves are kept. Nil takes the platform's
+	// default for App; a test hands in a MemoryStore.
+	Store Store
+
+	settings Settings
 
 	// triggerStates tracks per-trigger rising-edge / fired bookkeeping
 	// for the current scene. Cleared on scene change and on Load.

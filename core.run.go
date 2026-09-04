@@ -11,6 +11,12 @@ func Run(g *Game) error {
 	// that hold a registry directly are wired here, not at construction.
 	g.resolveDerived()
 
+	if err := g.loadSettings(); err != nil {
+		logf("settings: %v", err)
+	}
+	if Lang == "" {
+		Lang = Fallback
+	}
 	if err := g.Validate(); err != nil {
 		return err
 	}

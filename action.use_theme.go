@@ -9,5 +9,6 @@ func (a *useThemeAction) Start() Runner { return a }
 
 func (a *useThemeAction) Tick(ctx *Ctx) Status {
 	ctx.Game.UseTheme(a.theme)
+	_ = ctx.Game.SaveSettings()
 	return StatusDone
 }

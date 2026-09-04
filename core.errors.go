@@ -10,4 +10,5 @@ var (
 	ErrUnknownStage     = errors.New("inkwell: unknown stage")
 	ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
 	ErrNoStartStage     = errors.New("inkwell: StartStage not set or unknown stage")
+	ErrNotStored        = errors.New("inkwell: nothing stored under this key")
 )
