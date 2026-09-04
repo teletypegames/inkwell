@@ -2,8 +2,8 @@ package inkwell
 
 // defaultVerbs returns the built-in SCUMM-style verb set. NewGame
 // registers them so the demo works out of the box.
-func defaultVerbs() []Verb {
-	return []Verb{
+func defaultVerbs() []*Verb {
+	return []*Verb{
 		{
 			Name: "look",
 			Label: Text{

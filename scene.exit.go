@@ -1,10 +1,7 @@
 package inkwell
 
-// ExitSide is where on the picture an exit sits when it has no Area of its
-// own: off one edge, into the depth of the picture, or out towards the
-// camera. Until the doors are measured on the artwork, an edge strip is the
-// convention every 1990s point & click used, and re-aiming an exit at a real
-// door later is a one-field change.
+// ExitSide says which edge of the picture an Exit sits on when it declares
+// no Area of its own.
 type ExitSide int
 
 const (
@@ -14,52 +11,43 @@ const (
 	ExitNear                  // out towards the camera
 )
 
-// Exit is one way out of a scene. The engine turns it into a Hotspot, so a
-// connection can be declared as data — where it leads, what the status line
-// calls it, and what has to be true before it opens — instead of being spelled
-// out as another hand-built hotspot.
-//
-// A connection stays machine-readable: the generated hotspot is named
-// ExitName(To), so the location graph can be read straight back out of the
-// registered scenes.
+// Exit is a way out of a scene. It becomes a Hotspot with the exit cursor
+// whose use is the journey; look and take fall back to Game.ExitLook and
+// Game.ExitTake when the Exit says nothing of its own.
 type Exit struct {
-	// To is the scene the exit leads to. Empty means "back the way you came" —
-	// for a scene reachable from several others, where the way out is a
-	// direction rather than a place.
-	To string
+	// To is where the exit leads. Nil means back the way the player came.
+	// It is a SceneRef rather than a *Scene because two scenes that lead to
+	// each other cannot each hold the other's pointer in their own literal;
+	// see SceneRef.
+	To SceneRef
 
-	// Label is what the status line calls it.
 	Label Text
 
-	// Side places the exit when Area is nil.
+	// Side places the hotspot on an edge of the scene area when Area is nil.
 	Side ExitSide
 
-	// Area overrides the edge strip Side would give it.
 	Area Shape
 
-	// Needs is a flag that has to be set before the exit opens; Blocked is
-	// what happens while it is not. The exit is visible either way — a locked
-	// door still says it is a door.
+	// Needs is a flag the journey requires; Blocked is what happens without
+	// it. Nil Blocked simply does nothing.
 	Needs   string
 	Blocked Action
 
-	// OnLook and OnTake override Game.ExitLook and Game.ExitTake for this one
-	// exit.
 	OnLook Action
 	OnTake Action
 }
 
-// ExitName is the hotspot name generated for an exit to the named scene.
-func ExitName(to string) string {
-	if to == "" {
+// ExitName is the hotspot name an Exit gets: "exit:<scene>", or "exit:back".
+func ExitName(to SceneRef) string {
+	if to == nil {
 		return "exit:back"
 	}
-	return "exit:" + to
+	return "exit:" + to.Scene().Name
 }
 
 func (e Exit) hotspot(g *Game) Hotspot {
 	var travel Action = GoTo(e.To)
-	if e.To == "" {
+	if e.To == nil {
 		travel = Back()
 	}
 	if e.Needs != "" {
@@ -91,9 +79,6 @@ func (e Exit) hotspot(g *Game) Hotspot {
 	}
 }
 
-// The edge strips, as fractions of the scene area, so a game that hands over
-// only part of the window to the picture (a HUD along the foot, letterbox
-// bars) gets strips that sit inside the picture rather than under the HUD.
 const (
 	exitEdgeWidth  = 0.0875
 	exitEdgeInset  = 0.080
@@ -120,19 +105,15 @@ func (s ExitSide) area(r Rectangle) Shape {
 	}
 }
 
-// resolveDerived asks every scene that declares a Derived for its worked-out
-// exits and appends them to the ones written into the file. It runs once,
-// before Validate, so a derived exit is checked and drawn exactly like an
-// authored one.
+// resolveDerived asks every scene for its Derived exits once, before
+// Validate, and appends them in place.
 func (g *Game) resolveDerived() {
-	for _, name := range g.SceneManager.Names() {
-		s := g.SceneManager.MustGet(name)
+	for _, s := range g.SceneManager.All() {
 		if s.Derived == nil {
 			continue
 		}
 		if derived := s.Derived(g); len(derived) > 0 {
 			s.Exits = append(s.Exits, derived...)
-			g.SceneManager.Set(s)
 		}
 	}
 }

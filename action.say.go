@@ -18,9 +18,9 @@ type sayRunner struct {
 // call carries every language it has been written in; which one reaches the
 // player is decided when the runner starts, not when the content is
 // authored.
-func Say(speaker string, text Text) Action {
+func Say(speaker Talker, text Text) Action {
 	return &sayAction{
-		speaker: speaker,
+		speaker: talkerName(speaker),
 		text:    text,
 	}
 }

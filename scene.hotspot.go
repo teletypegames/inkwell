@@ -25,7 +25,7 @@ type Hotspot struct {
 
 	// OnUseWith: when the player has an item selected and clicks this hotspot,
 	// the engine looks up the item's Name here first.
-	OnUseWith map[string]Action
+	OnUseWith map[*Item]Action
 
 	// OnUseWithAny answers for an item OnUseWith does not name — a thing
 	// with one reply for whatever you put on it, which is what a slot, a

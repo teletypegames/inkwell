@@ -1,15 +1,14 @@
 package inkwell
 
-// RequireItem fails silently with a generic line if the player doesn't have
-// the named item selected or in inventory. Used at the top of Use handlers.
-type requireItemAction struct{ item string }
+type requireItemAction struct{ item *Item }
 
-func RequireItem(item string) Action       { return &requireItemAction{item: item} }
+// RequireItem fails the sequence, with a flash line, unless the item is held.
+func RequireItem(item *Item) Action        { return &requireItemAction{item: item} }
 func (a *requireItemAction) Start() Runner { return a }
 func (a *requireItemAction) Tick(ctx *Ctx) Status {
-	if ctx.Game.Inventory.Has(a.item) {
+	if ctx.Game.Inventory.Has(a.item.Name) {
 		return StatusDone
 	}
-	ctx.Game.FlashLine(Format(MsgNeedItem, ctx.Game.ItemLabel(a.item)))
+	ctx.Game.FlashLine(Format(MsgNeedItem, ctx.Game.ItemLabel(a.item.Name)))
 	return StatusFailed
 }

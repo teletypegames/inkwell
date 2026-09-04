@@ -133,7 +133,7 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	dlg := g.dialog
 	if dlg.LineIdx >= 0 && dlg.LineIdx < len(dlg.Node.Lines) {
 		ln := dlg.Node.Lines[dlg.LineIdx]
-		g.DrawText(dst, g.SpeakerLabel(ln.Speaker).String()+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
+		g.DrawText(dst, g.SpeakerLabel(talkerName(ln.Speaker)).String()+":", int(b.X)+pad, int(b.Y)+2, th.DialogSpeaker)
 		lines := WrapText(ln.Text.String(), int(b.W)-pad*2)
 		for i, l := range lines {
 			g.DrawText(dst, l, int(b.X)+pad, int(b.Y)+18+i*lh, th.DialogText)

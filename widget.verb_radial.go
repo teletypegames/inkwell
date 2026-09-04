@@ -162,7 +162,7 @@ func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
 		// current scene; treat the hidden panel as transparent so the
 		// coin can open over the empty space it would occupy.
 		if cp, isCP := w.(*CharacterPanel); isCP {
-			if cp.Character == "" || !ctx.Game.CharacterInScene(cp.Character) {
+			if cp.Character == nil || !ctx.Game.CharacterInScene(cp.Character) {
 				continue
 			}
 		}

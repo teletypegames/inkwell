@@ -1,7 +1,9 @@
 package inkwell
 
-type selectedItemCond struct{ name string }
+type selectedItemCond struct{ item *Item }
 
-// SelectedItem holds while the named item is the one in the player's hand.
-func SelectedItem(name string) Condition       { return &selectedItemCond{name: name} }
-func (s *selectedItemCond) Eval(ctx *Ctx) bool { return ctx.Game.Inventory.Selected() == s.name }
+// SelectedItem is true while the item is the one in hand.
+func SelectedItem(item *Item) Condition { return &selectedItemCond{item: item} }
+func (s *selectedItemCond) Eval(ctx *Ctx) bool {
+	return ctx.Game.Inventory.Selected() == s.item.Name
+}

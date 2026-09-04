@@ -1,12 +1,11 @@
 package inkwell
 
-type giveAction struct{ item string }
+type giveAction struct{ item *Item }
 
-// Give puts an item in the player's inventory. An item already held is
-// not added twice.
-func Give(item string) Action       { return &giveAction{item: item} }
+// Give puts an item in the inventory.
+func Give(item *Item) Action        { return &giveAction{item: item} }
 func (a *giveAction) Start() Runner { return a }
 func (a *giveAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Inventory.Add(a.item)
+	ctx.Game.Inventory.Add(a.item.Name)
 	return StatusDone
 }

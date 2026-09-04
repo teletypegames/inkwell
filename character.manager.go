@@ -1,3 +1,3 @@
 package inkwell
 
-type CharacterManager = Manager[Character]
+type CharacterManager = Manager[*Character]

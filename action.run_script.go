@@ -1,10 +1,10 @@
 package inkwell
 
-type runScriptAction struct{ name string }
+type runScriptAction struct{ script *Script }
 
-// RunScript runs a registered script as a single action. An unknown name,
-// or a script with nothing in it, fails the action rather than the game.
-func RunScript(name string) Action       { return &runScriptAction{name: name} }
+// RunScript runs a named action sequence in place, as if its Actions were
+// written here.
+func RunScript(script *Script) Action    { return &runScriptAction{script: script} }
 func (a *runScriptAction) Start() Runner { return &runScriptRunner{spec: a} }
 
 type runScriptRunner struct {
@@ -14,11 +14,10 @@ type runScriptRunner struct {
 
 func (r *runScriptRunner) Tick(ctx *Ctx) Status {
 	if r.inner == nil {
-		s, ok := ctx.Game.ScriptManager.Get(r.spec.name)
-		if !ok || s.Actions == nil {
+		if r.spec.script == nil || r.spec.script.Actions == nil {
 			return StatusFailed
 		}
-		r.inner = s.Actions.Start()
+		r.inner = r.spec.script.Actions.Start()
 	}
 	return r.inner.Tick(ctx)
 }

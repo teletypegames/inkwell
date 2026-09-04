@@ -8,28 +8,7 @@ import (
 // DebugMenuRoot is the page tree of the built-in debug menu: what the game is
 // made of, and what is clickable in the scene the player is standing in. It is
 // data rather than a widget — the menu system is the widget, and this is one
-// use of it:
-//
-//	WidgetManager.Register(&inkwell.Menu{
-//		Name:      "debug_menu",
-//		Root:      inkwell.DebugMenuRoot,
-//		When:      whenDebug,
-//		ToggleKey: ebiten.KeyD,
-//	})
-//
-// Its rows name registry keys, not the prose a player reads: a debug menu is
-// read by whoever writes the content, and `noodle_house` says more there than
-// "NOODLE'S HOUSE — KITCHEN" does, in any language.
-//
-// Nothing registers it, RegisterDefaultUI included. A game that wants it says
-// so, and gates it on whatever its debug builds set.
-//
-// A game can add sections of its own by building a Root around it:
-//
-//	Root: inkwell.MenuItem{
-//		Label: inkwell.DebugMenuRoot.Label,
-//		Items: append(inkwell.DebugMenuRoot.Items, mySection),
-//	}
+// root a game can hand it.
 var DebugMenuRoot = MenuItem{
 	Label: debugTitle,
 	Items: []MenuItem{
@@ -56,18 +35,15 @@ var DebugMenuRoot = MenuItem{
 	},
 }
 
-// ----- scenes -----------------------------------------------------------
+// ----- scenes ------------------------------------------------------------
 
-// debugSceneRows is every registered scene, in registration order, and
-// entering one teleports there. The value column marks the scene the player
-// is in and counts the visits to the others.
 func debugSceneRows(ctx *Ctx) []MenuItem {
 	rows := make([]MenuItem, 0, ctx.Game.SceneManager.Len())
-	for _, name := range ctx.Game.SceneManager.Names() {
-		scene := name
+	for _, scene := range ctx.Game.SceneManager.All() {
+		scene := scene
 		rows = append(rows, MenuItem{
-			Label: plain(scene),
-			Value: func(ctx *Ctx) Text { return debugVisits(ctx, scene) },
+			Label: plain(scene.Name),
+			Value: func(ctx *Ctx) Text { return debugVisits(ctx, scene.Name) },
 			Do:    GoTo(scene),
 		})
 	}
@@ -84,46 +60,40 @@ func debugVisits(ctx *Ctx, scene string) Text {
 	return Text{}
 }
 
-// ----- items ------------------------------------------------------------
+// ----- items -------------------------------------------------------------
 
-// debugItemRows is every registered item, and each one opens the handful of
-// things that can be done to it from outside the fiction.
 func debugItemRows(ctx *Ctx) []MenuItem {
 	rows := make([]MenuItem, 0, ctx.Game.ItemManager.Len())
 	for _, item := range ctx.Game.ItemManager.All() {
 		rows = append(rows, MenuItem{
 			Label:  plain(item.Name),
-			Value:  debugHeldMark(item.Name),
-			Expand: debugItemPage(item.Name),
+			Value:  debugHeldMark(item),
+			Expand: debugItemPage(item),
 		})
 	}
 	return rows
 }
 
-func debugItemPage(name string) func(*Ctx) []MenuItem {
+func debugItemPage(item *Item) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
 		rows := []MenuItem{
 			{
 				Label:    debugGive,
-				Do:       Give(name),
-				Enabled:  Not(HasItem(name)),
+				Do:       Give(item),
+				Enabled:  Not(HasItem(item)),
 				KeepOpen: true,
 			},
 			{
 				Label:    debugTakeAway,
-				Do:       TakeAway(name),
-				Enabled:  HasItem(name),
+				Do:       TakeAway(item),
+				Enabled:  HasItem(item),
 				KeepOpen: true,
 			},
 			{
 				Label:   debugSelect,
-				Do:      debugSelectItem(name),
-				Enabled: HasItem(name),
+				Do:      debugSelectItem(item),
+				Enabled: HasItem(item),
 			},
-		}
-		item, ok := ctx.Game.ItemManager.Get(name)
-		if !ok {
-			return rows
 		}
 		if item.OnUseSelf != nil {
 			rows = append(rows, MenuItem{
@@ -135,26 +105,19 @@ func debugItemPage(name string) func(*Ctx) []MenuItem {
 			rows = append(rows, MenuItem{
 				Label:  debugUseWith,
 				Value:  debugTally(func(*Ctx) int { return len(item.OnUseWith) }),
-				Expand: debugItemPairRows(name),
+				Expand: debugItemPairRows(item),
 			})
 		}
 		return rows
 	}
 }
 
-// debugItemPairRows is the targets an item is paired with, straight out of its
-// own OnUseWith. Entering one runs the pairing without walking anybody up to
-// anything.
-func debugItemPairRows(name string) func(*Ctx) []MenuItem {
+func debugItemPairRows(item *Item) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
-		item, ok := ctx.Game.ItemManager.Get(name)
-		if !ok {
-			return nil
-		}
 		rows := make([]MenuItem, 0, len(item.OnUseWith))
-		for _, target := range debugSortedKeys(item.OnUseWith) {
+		for _, target := range debugSortedItems(item.OnUseWith) {
 			rows = append(rows, MenuItem{
-				Label: plain(target),
+				Label: plain(target.Name),
 				Do:    item.OnUseWith[target],
 			})
 		}
@@ -162,31 +125,27 @@ func debugItemPairRows(name string) func(*Ctx) []MenuItem {
 	}
 }
 
-func debugSelectItem(name string) Action {
+func debugSelectItem(item *Item) Action {
 	return Custom(func(ctx *Ctx) Status {
-		ctx.Game.Inventory.Select(name)
+		ctx.Game.Inventory.Select(item.Name)
 		return StatusDone
 	})
 }
 
-func debugHeldMark(name string) func(*Ctx) Text {
+func debugHeldMark(item *Item) func(*Ctx) Text {
 	return func(ctx *Ctx) Text {
-		if !ctx.Game.Inventory.Has(name) {
+		if !ctx.Game.Inventory.Has(item.Name) {
 			return Text{}
 		}
-		if ctx.Game.Inventory.Selected() == name {
+		if ctx.Game.Inventory.Selected() == item.Name {
 			return debugSelected
 		}
 		return debugHeld
 	}
 }
 
-// ----- action points ----------------------------------------------------
+// ----- action points -----------------------------------------------------
 
-// debugActionPointRows is everything clickable in the scene the player is
-// standing in — the authored hotspots and the ones generated from the exits,
-// in the order the engine hit-tests them. Each one opens the verbs it actually
-// has an answer for.
 func debugActionPointRows(ctx *Ctx) []MenuItem {
 	scene := ctx.Game.CurrentScene()
 	hotspots := ctx.Game.SceneHotspots(scene)
@@ -206,10 +165,6 @@ func debugActionPointCount(ctx *Ctx) int {
 	return len(ctx.Game.SceneHotspots(ctx.Game.CurrentScene()))
 }
 
-// debugVerbRows is the verbs bound on one hotspot, plus the items it is paired
-// with. Every one of them goes through InvokeVerb, the same path a
-// click takes, so the chat log and the status line read as if the player had
-// done it.
 func debugVerbRows(scene, hotspot string) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
 		spot := debugHotspot(ctx.Game, scene, hotspot)
@@ -237,9 +192,6 @@ func debugVerbRows(scene, hotspot string) func(*Ctx) []MenuItem {
 	}
 }
 
-// debugPairRows is the items a hotspot is paired with. Entering one hands the
-// item over first — the point is to see the pairing run, not to be reminded
-// that the player never picked the thing up.
 func debugPairRows(scene, hotspot string) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
 		spot := debugHotspot(ctx.Game, scene, hotspot)
@@ -247,9 +199,9 @@ func debugPairRows(scene, hotspot string) func(*Ctx) []MenuItem {
 			return nil
 		}
 		rows := make([]MenuItem, 0, len(spot.OnUseWith))
-		for _, item := range debugSortedKeys(spot.OnUseWith) {
+		for _, item := range debugSortedItems(spot.OnUseWith) {
 			rows = append(rows, MenuItem{
-				Label: plain(item),
+				Label: plain(item.Name),
 				Value: debugHeldMark(item),
 				Do:    debugInvokeWith(scene, hotspot, item),
 			})
@@ -267,11 +219,11 @@ func debugInvoke(scene, hotspot, verb string) Action {
 	})
 }
 
-func debugInvokeWith(scene, hotspot, item string) Action {
+func debugInvokeWith(scene, hotspot string, item *Item) Action {
 	return Custom(func(ctx *Ctx) Status {
 		g := ctx.Game
-		g.Inventory.Add(item)
-		g.Inventory.Select(item)
+		g.Inventory.Add(item.Name)
+		g.Inventory.Select(item.Name)
 		if spot := debugHotspot(g, scene, hotspot); spot != nil {
 			g.InvokeVerb(spot, "use")
 		}
@@ -279,9 +231,6 @@ func debugInvokeWith(scene, hotspot, item string) Action {
 	})
 }
 
-// debugHotspot finds a hotspot by name in a scene's expanded list. The rows
-// hold names rather than pointers, so a page that outlived a scene change
-// answers nil instead of poking at a stale hotspot.
 func debugHotspot(g *Game, scene, name string) *Hotspot {
 	hotspots := g.SceneHotspots(scene)
 	for i := range hotspots {
@@ -309,11 +258,8 @@ func debugCursorName(kind CursorKind) string {
 	}
 }
 
-// ----- exits ------------------------------------------------------------
+// ----- exits -------------------------------------------------------------
 
-// debugExitRows is the current scene's exits as the graph sees them: where each
-// one leads, which edge it sits on, and — when it is locked — the flag that
-// opens it, with the two rows that set and clear it.
 func debugExitRows(ctx *Ctx) []MenuItem {
 	scene, ok := ctx.Game.SceneManager.Get(ctx.Game.CurrentScene())
 	if !ok {
@@ -333,7 +279,7 @@ func debugExitRows(ctx *Ctx) []MenuItem {
 func debugExitPage(exit Exit) func(*Ctx) []MenuItem {
 	return func(*Ctx) []MenuItem {
 		travel := GoTo(exit.To)
-		if exit.To == "" {
+		if exit.To == nil {
 			travel = Back()
 		}
 		rows := []MenuItem{{
@@ -393,28 +339,21 @@ func debugSideName(side ExitSide) string {
 	}
 }
 
-// ----- shared -----------------------------------------------------------
+// ----- helpers -----------------------------------------------------------
 
-// debugTally is a value column that is just a number.
 func debugTally(count func(*Ctx) int) func(*Ctx) Text {
 	return func(ctx *Ctx) Text { return plain(strconv.Itoa(count(ctx))) }
 }
 
-// debugSortedKeys keeps a map-backed page in the same order from one frame to
-// the next, which a Go map on its own does not.
-func debugSortedKeys(m map[string]Action) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
+func debugSortedItems(m map[*Item]Action) []*Item {
+	items := make([]*Item, 0, len(m))
+	for item := range m {
+		items = append(items, item)
 	}
-	sort.Strings(keys)
-	return keys
+	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
+	return items
 }
 
-// The debug menu's own wording. It stays here rather than in i18n.strings.go
-// with the rest of the engine's voice: this is a tool for whoever builds the
-// game, not a line the player is ever shown, so it is not part of what a
-// translator is handed.
 var (
 	debugTitle = Text{
 		{Lang: "en", Text: "DEBUG"},

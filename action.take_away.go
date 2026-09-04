@@ -1,12 +1,11 @@
 package inkwell
 
-type takeAwayAction struct{ item string }
+type takeAwayAction struct{ item *Item }
 
-// TakeAway drops an item from the player's inventory, and empties the hand
-// when that item was the one in it.
-func TakeAway(item string) Action       { return &takeAwayAction{item: item} }
+// TakeAway removes an item from the inventory.
+func TakeAway(item *Item) Action        { return &takeAwayAction{item: item} }
 func (a *takeAwayAction) Start() Runner { return a }
 func (a *takeAwayAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Inventory.Remove(a.item)
+	ctx.Game.Inventory.Remove(a.item.Name)
 	return StatusDone
 }

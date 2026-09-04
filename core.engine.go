@@ -47,8 +47,7 @@ func (e *engine) Update() error {
 		ctx := g.scriptCtx
 		ctx.DT = dt
 		if g.currentScene != "" {
-			s := g.SceneManager.MustGet(g.currentScene)
-			ctx.Scene = &s
+			ctx.Scene = g.SceneManager.MustGet(g.currentScene)
 		}
 		st := g.scriptRunner.Tick(ctx)
 		if st != StatusRunning {
@@ -140,8 +139,8 @@ func (e *engine) handleSceneInput() {
 		// a Walk action, because a queued walk would be a script, and a
 		// script owns the frame — the next click could not redirect it
 		// until it arrived.
-		if g.WalkOnClick && g.Player != "" && g.SceneArea().Contains(mp) {
-			g.walkCharacter(g.Player, mp)
+		if g.WalkOnClick && g.Player != nil && g.SceneArea().Contains(mp) {
+			g.walkCharacter(g.Player.Name, mp)
 		}
 		return
 	}
@@ -163,22 +162,14 @@ func (g *Game) InvokeVerb(h *Hotspot, verb string) {
 	if h == nil {
 		return
 	}
-	sel := g.Inventory.Selected()
+	sel, held := g.ItemManager.Get(g.Inventory.Selected())
 	target := hotspotLabel(h)
-	if sel != "" {
-		logged := "> " + Format(HintVerbOn, verbLabel(g, "use"), g.ItemLabel(sel), target).String()
+	if held {
+		logged := "> " + Format(HintVerbOn, verbLabel(g, "use"), g.ItemLabel(sel.Name), target).String()
 		if h.OnUseWith != nil {
 			if a, ok := h.OnUseWith[sel]; ok && a != nil {
 				g.LogAction(logged)
 				g.queueAction(a, "useWith hotspot")
-				g.Inventory.Select("")
-				return
-			}
-		}
-		if it, ok := g.ItemManager.Get(sel); ok && it.OnUseWith != nil {
-			if a, ok := it.OnUseWith[h.Name]; ok && a != nil {
-				g.LogAction(logged)
-				g.queueAction(a, "useWith item")
 				g.Inventory.Select("")
 				return
 			}
@@ -245,11 +236,11 @@ func (e *engine) Draw(screen *ebiten.Image) {
 	// Stage itself carries anywhere else. A Stage with no Background of its
 	// own leaves the theme's backdrop showing.
 	switch {
-	case world && g.currentScene != "":
-		drawFullScreen(screen, g, g.SceneManager.MustGet(g.currentScene).BackgroundAsset())
+	case world && g.currentScene != "" && g.SceneManager.MustGet(g.currentScene).Background != nil:
+		drawFullScreen(screen, g, g.SceneManager.MustGet(g.currentScene).Background)
 	case !world:
-		if stage, ok := g.StageManager.Get(g.currentStage); ok && stage.Background != "" {
-			drawFullScreen(screen, g, stage.Background)
+		if g.currentStage != nil && g.currentStage.Background != nil {
+			drawFullScreen(screen, g, g.currentStage.Background)
 		} else if th.SceneBackdrop == nil {
 			screen.Fill(color.RGBA{0, 0, 0, 255})
 		}
@@ -282,8 +273,11 @@ func (e *engine) Draw(screen *ebiten.Image) {
 
 // drawFullScreen paints a named image over the whole window, which is what
 // both a scene background and a Stage background are.
-func drawFullScreen(dst *ebiten.Image, g *Game, asset string) {
-	img := g.loaded.image(g.AssetManager, asset)
+func drawFullScreen(dst *ebiten.Image, g *Game, asset *Asset) {
+	if asset == nil {
+		return
+	}
+	img := g.loaded.image(asset)
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
 	if w == 0 || h == 0 {
 		return

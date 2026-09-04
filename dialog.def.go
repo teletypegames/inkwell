@@ -25,7 +25,7 @@ type DialogNode struct {
 }
 
 type DialogLine struct {
-	Speaker string
+	Speaker Talker
 	Text    Text
 }
 

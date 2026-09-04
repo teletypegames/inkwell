@@ -2,12 +2,12 @@ package inkwell
 
 type Item struct {
 	Name        string
-	Sprite      string // Asset.Name
+	Sprite      *Asset
 	Description Text
 
 	OnUseSelf Action
 	// OnUseWith: targetName -> action. Target may be a hotspot Name or another item Name.
-	OnUseWith map[string]Action
+	OnUseWith map[*Item]Action
 }
 
 func (i Item) GetName() string   { return i.Name }

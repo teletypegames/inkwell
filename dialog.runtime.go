@@ -10,10 +10,9 @@ type runtimeDialog struct {
 	ChoiceHits []Rectangle
 }
 
-func (g *Game) startDialog(name string) {
-	d, ok := g.DialogManager.Get(name)
-	if !ok {
-		logf("startDialog: unknown %q", name)
+func (g *Game) startDialog(d *Dialog) {
+	if d == nil {
+		logf("startDialog: nil dialog")
 		return
 	}
 	startNode := d.Start
@@ -24,23 +23,20 @@ func (g *Game) startDialog(name string) {
 	if !ok {
 		return
 	}
-	g.activeDialog = name
-	g.dialog = &runtimeDialog{Dialog: &d, Node: &node, LineIdx: 0}
+	g.dialog = &runtimeDialog{Dialog: d, Node: &node, LineIdx: 0}
 }
 
 func (g *Game) endDialog() {
-	g.activeDialog = ""
 	g.dialog = nil
 }
 
 func (g *Game) gotoDialogNode(name string) {
-	if g.dialog == nil || g.activeDialog == "" {
+	if g.dialog == nil {
 		return
 	}
-	d := g.DialogManager.MustGet(g.activeDialog)
-	node, ok := d.Node(name)
+	node, ok := g.dialog.Dialog.Node(name)
 	if !ok {
-		logf("gotoNode: unknown %q in %q", name, g.activeDialog)
+		logf("gotoNode: unknown %q in %q", name, g.dialog.Dialog.Name)
 		return
 	}
 	g.dialog.Node = &node

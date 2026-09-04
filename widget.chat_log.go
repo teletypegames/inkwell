@@ -49,7 +49,7 @@ type ChatLog struct {
 
 	// Resting names the character the header carries before anybody this
 	// log listens to has spoken. Only SpeakerHeader reads it.
-	Resting string
+	Resting Talker
 }
 
 func (c *ChatLog) GetName() string        { return c.Name }
@@ -85,7 +85,7 @@ func (c *ChatLog) latest(g *Game) string {
 			return msgs[i].Speaker
 		}
 	}
-	return c.Resting
+	return talkerName(c.Resting)
 }
 
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {

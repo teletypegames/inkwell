@@ -6,7 +6,7 @@ package inkwell
 // own ThemeManager keeps everything already in it, and a preset whose name
 // the domain has taken is left alone.
 func RegisterPresetThemes(g *Game) {
-	for _, t := range []Theme{
+	for _, t := range []*Theme{
 		classicScummTheme(),
 		sierraCoinTheme(),
 		paperNotebookTheme(),

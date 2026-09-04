@@ -1,3 +1,3 @@
 package inkwell
 
-type VerbManager = Manager[Verb]
+type VerbManager = Manager[*Verb]

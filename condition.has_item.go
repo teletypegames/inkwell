@@ -1,8 +1,7 @@
 package inkwell
 
-type hasItemCond struct{ name string }
+type hasItemCond struct{ item *Item }
 
-// HasItem holds while the named item is in the player's inventory, whether
-// or not it is the one in hand.
-func HasItem(name string) Condition       { return &hasItemCond{name: name} }
-func (h *hasItemCond) Eval(ctx *Ctx) bool { return ctx.Game.Inventory.Has(h.name) }
+// HasItem is true while the item is in the inventory.
+func HasItem(item *Item) Condition        { return &hasItemCond{item: item} }
+func (h *hasItemCond) Eval(ctx *Ctx) bool { return ctx.Game.Inventory.Has(h.item.Name) }

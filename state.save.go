@@ -140,7 +140,6 @@ func (g *Game) applySave(sf *saveFile) error {
 	g.scriptRunner = nil
 	g.scriptCtx = nil
 	g.dialog = nil
-	g.activeDialog = ""
 	g.ClearSpeech()
 	g.endCard = ""
 	g.flash = ""
@@ -199,17 +198,13 @@ func (g *Game) applySave(sf *saveFile) error {
 	if g.currentScene != "" {
 		s := g.SceneManager.MustGet(g.currentScene)
 		for _, a := range s.Actors {
-			if _, ok := g.chars[a.CharacterName]; ok {
+			if _, ok := g.chars[a.Character.Name]; ok {
 				continue
 			}
-			if !g.CharacterManager.Has(a.CharacterName) {
-				continue
-			}
-			def := g.CharacterManager.MustGet(a.CharacterName)
-			g.chars[a.CharacterName] = &runtimeChar{def: def, pos: a.At}
+			g.chars[a.Character.Name] = &runtimeChar{def: a.Character, pos: a.At}
 		}
 		// Resume the scene's music; PlayMusic no-ops on the same track.
-		if s.Music != "" {
+		if s.Music != nil {
 			g.Audio.PlayMusic(s.Music)
 		}
 	}

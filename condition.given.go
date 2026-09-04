@@ -11,8 +11,8 @@ type Given struct {
 	Flag    string
 	NotFlag string
 	// Item must be in the inventory; NotItem must not be.
-	Item    string
-	NotItem string
+	Item    *Item
+	NotItem *Item
 	// Var must compare equal to Is, by Go's own ==. Is alone means
 	// nothing; Var alone compares the variable to nil.
 	Var string
@@ -27,10 +27,10 @@ func (given Given) Eval(ctx *Ctx) bool {
 	if given.NotFlag != "" && state.Flag(given.NotFlag) {
 		return false
 	}
-	if given.Item != "" && !inventory.Has(given.Item) {
+	if given.Item != nil && !inventory.Has(given.Item.Name) {
 		return false
 	}
-	if given.NotItem != "" && inventory.Has(given.NotItem) {
+	if given.NotItem != nil && inventory.Has(given.NotItem.Name) {
 		return false
 	}
 	if given.Var != "" && state.Var(given.Var) != given.Is {

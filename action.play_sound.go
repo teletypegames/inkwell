@@ -1,12 +1,11 @@
 package inkwell
 
-type playSoundAction struct{ name string }
+type playSoundAction struct{ asset *Asset }
 
-// PlaySound plays the named audio asset once, over whatever music is
-// running.
-func PlaySound(name string) Action       { return &playSoundAction{name: name} }
+// PlaySound plays an audio asset once, over whatever else is playing.
+func PlaySound(asset *Asset) Action      { return &playSoundAction{asset: asset} }
 func (a *playSoundAction) Start() Runner { return a }
 func (a *playSoundAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Audio.PlaySound(a.name)
+	ctx.Game.Audio.PlaySound(a.asset)
 	return StatusDone
 }

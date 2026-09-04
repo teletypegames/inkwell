@@ -1,7 +1,7 @@
 package inkwell
 
 type runtimeChar struct {
-	def Character
+	def *Character
 	pos Point
 	// path is the queue of remaining waypoints, head-first. Empty when
 	// idle. The last entry equals target.
@@ -20,24 +20,20 @@ type runtimeChar struct {
 
 // sceneActors is the cast a scene actually shows: its own list, or the
 // player alone when the scene names nobody.
-func (g *Game) sceneActors(s Scene) []SceneActor {
-	if s.Actors != nil || g.Player == "" {
+func (g *Game) sceneActors(s *Scene) []SceneActor {
+	if s.Actors != nil || g.Player == nil {
 		return s.Actors
 	}
-	def, ok := g.CharacterManager.Get(g.Player)
-	if !ok {
-		return nil
-	}
 	return []SceneActor{{
-		CharacterName: def.Name,
-		At:            def.Start,
+		Character: g.Player,
+		At:        g.Player.Start,
 	}}
 }
 
 func (g *Game) placeActors(sceneName string) {
 	s := g.SceneManager.MustGet(sceneName)
 	for _, a := range g.sceneActors(s) {
-		def := g.CharacterManager.MustGet(a.CharacterName)
+		def := a.Character
 		rc, ok := g.chars[def.Name]
 		if !ok {
 			rc = &runtimeChar{def: def, pos: a.At}

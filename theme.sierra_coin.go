@@ -4,8 +4,8 @@ import "image/color"
 
 // sierra-coin is the same HUD in violet and copper.
 
-func sierraCoinTheme() Theme {
-	return Theme{
+func sierraCoinTheme() *Theme {
+	return &Theme{
 		Name:                    "sierra-coin",
 		PanelBG:                 color.RGBA{15, 10, 25, 255},
 		StatusText:              color.RGBA{220, 220, 240, 255},

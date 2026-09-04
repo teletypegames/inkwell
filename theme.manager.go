@@ -1,3 +1,3 @@
 package inkwell
 
-type ThemeManager = Manager[Theme]
+type ThemeManager = Manager[*Theme]

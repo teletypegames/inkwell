@@ -23,7 +23,7 @@ func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {
 	x, y := g.Input.Pos()
 	if sel := g.Inventory.Selected(); sel != "" {
 		if it, ok := g.ItemManager.Get(sel); ok {
-			img := g.loaded.image(g.AssetManager, it.Sprite)
+			img := g.loaded.image(it.Sprite)
 			sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
 			if sw > 0 && sh > 0 && !g.loaded.isPlaceholder(it.Sprite) {
 				op := &ebiten.DrawImageOptions{}

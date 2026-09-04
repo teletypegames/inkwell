@@ -139,30 +139,33 @@ import (
 )
 
 func main() {
-    g := inkwell.New(inkwell.Game{
-        Title:      "Sample",
-        Width:      320,
-        Height:     200,
-        StartScene: "room",
-    })
-
-    g.AssetManager.Register(inkwell.Asset{
-        Name: "bg/room", Path: "assets/bg/room.png", Kind: inkwell.AssetImage,
-    })
-    g.CharacterManager.Register(inkwell.Character{Name: "player", W: 28, H: 62})
-    g.SceneManager.Register(inkwell.Scene{
+    player := &inkwell.Character{Name: "player", W: 28, H: 62}
+    room := &inkwell.Scene{
         Name:       "room",
-        Background: "bg/room",
-        Actors:     []inkwell.SceneActor{{CharacterName: "player", At: inkwell.Point{X: 160, Y: 140}}},
+        Background: &inkwell.Asset{Name: "bg/room", Path: "assets/bg/room.png", Kind: inkwell.AssetImage},
+        Actors:     []inkwell.SceneActor{{Character: player, At: inkwell.Point{X: 160, Y: 140}}},
         Hotspots: []inkwell.Hotspot{{
             Name:   "door",
             Area:   inkwell.Rect(260, 50, 40, 90),
             Label:  inkwell.Text{{Lang: "en", Text: "door"}},
-            OnLook: inkwell.Say("player", inkwell.Text{
+            OnLook: inkwell.Say(player, inkwell.Text{
                 {Lang: "en", Text: "A wooden door."},
             }),
         }},
+    }
+    world := &inkwell.Stage{Name: "game", World: true}
+
+    g := inkwell.New(inkwell.Game{
+        Title:      "Sample",
+        Width:      320,
+        Height:     200,
+        StartStage: world,
+        StartScene: room,
+        Player:     player,
     })
+    g.CharacterManager.Register(player)
+    g.SceneManager.Register(room)
+    g.StageManager.Register(world)
 
     inkwell.RegisterDefaultUI(g) // optional; auto-called by Run if no widgets registered
     if err := inkwell.Run(g); err != nil {
@@ -190,16 +193,16 @@ type Manager[T Named] struct { /* ... */ }
 Each entity kind has its own alias (generic type alias, Go 1.24+):
 
 ```go
-type ItemManager       = Manager[Item]
-type SceneManager      = Manager[Scene]
-type CharacterManager  = Manager[Character]
-type SpeakerManager    = Manager[Speaker]
-type DialogManager     = Manager[Dialog]
-type ScriptManager     = Manager[Script]
-type AssetManager      = Manager[Asset]
-type VerbManager       = Manager[Verb]
+type ItemManager       = Manager[*Item]
+type SceneManager      = Manager[*Scene]
+type CharacterManager  = Manager[*Character]
+type SpeakerManager    = Manager[*Speaker]
+type DialogManager     = Manager[*Dialog]
+type ScriptManager     = Manager[*Script]
+type AssetManager      = Manager[*Asset]
+type VerbManager       = Manager[*Verb]
 type WidgetManager     = Manager[Widget]
-type ThemeManager      = Manager[Theme]
+type ThemeManager      = Manager[*Theme]
 ```
 
 ### 3.1 Public API
@@ -224,7 +227,7 @@ declaration instead of a procedure:
 // scene.alley.go — the whole file
 package scene
 
-var _ = SceneManager.Register(Scene{
+var Alley = SceneManager.Register(&Scene{
 	Name: "alley",
 	…
 })
@@ -237,9 +240,18 @@ first; the `init()` form rests instead on the separate rule that every package
 variable is ready before any `init()` runs. Registration order is unchanged
 either way — the order the files are presented in.
 
-The result is safe to ignore, so the plain statement form still compiles, and
-a file that has to *build* something before registering it (a loop, or a value
-wired to itself) keeps its `init()` and should.
+The result is the handle. Every manager holds **pointers** — `Manager[*Scene]`,
+not `Manager[Scene]` — so the variable a file binds and the entry the engine
+looks up are one instance, and every field that refers to another entity is a
+pointer to it: `Stage.Background *Asset`, `Exit.To SceneRef`,
+`SceneActor.Character *Character`, `Say(speaker Talker, …)`. A reference is
+therefore an identifier, checked by the compiler and followed by an editor, and
+`Name` is left with the one job only a string can do: it is the key a save
+file, a `State` var and a command-line flag use to find the entity again.
+
+The result is also safe to ignore, so the plain statement form still compiles,
+and a file that has to *build* something before registering it (a loop, or a
+value wired to itself) keeps its `init()` and should.
 
 ### 3.2 The `Named` contract
 
@@ -294,18 +306,18 @@ type Game struct {
     ExitTake  func(Exit) Action  // default take response for generated exits
 
     // domain defaults
-    UseWithFail func(item string, h *Hotspot) Action  // unauthored use-with pair
-    Player      string                                // actor a scene with none gets; who WalkOnClick moves
+    UseWithFail func(item *Item, h *Hotspot) Action   // unauthored use-with pair
+    Player      *Character                            // actor a scene with none gets; who WalkOnClick moves
     WalkOnClick bool                                  // a click on empty floor walks Player (default off)
     Walkboxes   []Polygon                             // floor a scene with none walks
     WindowScale int                                   // window = resolution × this (0 = 4)
 
     // what the game boots as
-    StartStage   string    // the screen the game opens on
-    StartScene   string    // the scene a session opens in
-    StartScript  string    // queued after that scene's OnEnter, once
-    FinaleScript string    // closing script, queued straight after StartScript
-    StartTheme   string    // theme selected at boot ("" -> classic-scumm)
+    StartStage   *Stage    // the screen the game opens on
+    StartScene   *Scene    // the scene a session opens in
+    StartScript  *Script   // queued after that scene's OnEnter, once
+    FinaleScript *Script   // closing script, queued straight after StartScript
+    StartTheme   *Theme    // theme selected at boot (nil -> classic-scumm)
     Flags        []string  // State flags set before the first frame
 
     // runtime services
@@ -385,17 +397,17 @@ ones that get used.
 ### 4.2 Lifecycle hooks
 
 ```go
-func (g *Game) StartAt(name string) *Game     // entry scene
-func (g *Game) OnStart(script string) *Game   // script run after the scene's OnEnter
-func (g *Game) OnFinale(script string) *Game  // closing script, queued after OnStart
-func (g *Game) Validate() error               // cross-check name references
+func (g *Game) StartAt(scene *Scene) *Game    // entry scene
+func (g *Game) OnStart(script *Script) *Game  // script run after the scene's OnEnter
+func (g *Game) OnFinale(script *Script) *Game // closing script, queued after OnStart
+func (g *Game) Validate() error               // cross-check what the types cannot
 func (g *Game) Run() error                    // same as inkwell.Run(g)
 ```
 
 `OnStart` and `OnFinale` name registered scripts rather than taking an action,
 so the opening a game plays is content like any other — a `Script` in the
-`ScriptManager`, reachable by name and editable without touching the wiring.
-`Validate` rejects a name that is not registered.
+`ScriptManager`, editable without touching the wiring. Both are pointers, so a
+script that does not exist cannot be named.
 
 The first three are setters for `StartScene`, `StartScript` and
 `FinaleScript`, for a caller building a game in steps rather than declaring
@@ -417,12 +429,13 @@ straight into the ending" debug flag wants.
 ### 4.3 Theme accessors
 
 ```go
-func (g *Game) Theme() Theme                  // active theme value
-func (g *Game) UseTheme(name string)          // switch theme (runtime ok)
+func (g *Game) Theme() *Theme                 // the active theme
+func (g *Game) UseTheme(theme *Theme)         // switch theme (runtime ok)
 ```
 
-The active theme is addressed by name, not by pointer — switching is just
-`g.UseTheme("paper-notebook")` and the next frame uses the new colors.
+Switching is `g.UseTheme(paperNotebook)` with the registered `*Theme`, and the
+next frame uses the new colors; the active theme is remembered by its `Name`,
+which is what a save file stores.
 
 ### 4.4 UI runtime helpers
 
@@ -477,13 +490,13 @@ func (g *Game) SceneArea() Rectangle
 func (g *Game) SceneHotspots(name string) []Hotspot
 func (g *Game) HotspotAt(p Point) *Hotspot
 func (g *Game) InvokeVerb(h *Hotspot, verb string)
-func (g *Game) CharacterInScene(name string) bool
+func (g *Game) CharacterInScene(character *Character) bool
 
-func (g *Game) CurrentStage() string      // the screen showing
-func (g *Game) PreviousStage() string     // the one before it
+func (g *Game) CurrentStage() *Stage      // the screen showing
+func (g *Game) PreviousStage() *Stage     // the one before it
 func (g *Game) OnWorldStage() bool        // is the game itself showing?
 func (g *Game) Started() bool             // does a session exist?
-func (g *Game) GoToStage(name string)     // show another screen, next frame
+func (g *Game) GoToStage(stage *Stage)    // show another screen, next frame
 func (g *Game) Restart()                  // begin a new session, next frame
 func (g *Game) LoadLater(slot int)        // restore a session, next frame
 func (g *Game) Quit()                     // close the window
@@ -805,7 +818,7 @@ var refuse = inkwell.Ladder{
     },
 }
 
-inkwell.Say("paul", refuse.At(state.Talked(key)))
+inkwell.Say(paul, refuse.At(state.Talked(key)))
 ```
 
 `At` counts the first attempt as 1. Past the last rung a `Ladder` picks one
@@ -885,7 +898,7 @@ deterministic colored placeholder so the game runs without any art —
 useful for prototyping or CI.
 
 ```go
-g.AssetManager.Register(inkwell.Asset{
+kitchen := g.AssetManager.Register(&inkwell.Asset{
     Name: "bg/kitchen",
     Path: "assets/bg/kitchen.png",
     Kind: inkwell.AssetImage,
@@ -900,8 +913,8 @@ g.AssetManager.Register(inkwell.Asset{
 type Scene struct {
     Name       string
     Title      Text           // optional human-readable name (TopBar widget reads this)
-    Background string         // Asset.Name; empty means the scene's own Name
-    Music      string         // Asset.Name (optional)
+    Background *Asset         // the picture; nil leaves the theme's backdrop
+    Music      *Asset         // starts on enter; nil changes nothing
     Hotspots   []Hotspot
     Exits      []Exit         // connections to other scenes
     Walkboxes  []Polygon
@@ -912,11 +925,15 @@ type Scene struct {
     Derived    func(g *Game) []Exit  // exits worked out from the rest of the game
 }
 
-func (s Scene) BackgroundAsset() string
+func (s *Scene) Scene() *Scene            // *Scene is its own SceneRef
+
+type SceneRef interface {
+    Scene() *Scene
+}
 
 type SceneActor struct {
-    CharacterName string
-    At            Point
+    Character *Character
+    At        Point
 }
 ```
 
@@ -939,11 +956,30 @@ straight line — see [§7.8](#78-character) and [§16.4](#164-character-movemen
 `Triggers` fire on the rising edge of their `When` condition. The
 engine samples each trigger once per idle frame; see [§7.5](#75-trigger).
 
-`Background` is an `Asset.Name`, and leaving it empty means the scene's own
-`Name` — `BackgroundAsset()` is the one accessor the engine reads. A game
-whose backgrounds are named after the scenes they belong to therefore writes
-the pairing down once, in the scene's name, instead of in a second constant,
-a second entity file and a field that repeats both.
+`Background` is the picture itself, an `*Asset`, and it need not be registered
+anywhere: a scene may nest the literal, or a game may derive one per scene
+after registration, the way a game whose backgrounds are named after their
+scenes does. Nil leaves the theme's backdrop showing.
+
+**Naming another scene.** A scene refers to another through a `SceneRef`, not
+a `*Scene`, and the reason is Go's initialisation rule: two package-level
+variables may not refer to each other in their initialisers, and two scenes
+that lead to each other do exactly that. `*Scene` is a `SceneRef`, so a scene
+that is safe to name directly can be; for the round trips, a game declares an
+empty type per scene file and gives it the method:
+
+```go
+type street struct{}
+
+func (street) Scene() *inkwell.Scene { return Street }
+
+// in scene.alley.go
+Exits: []inkwell.Exit{{To: street{}, Side: inkwell.ExitLeft}},
+```
+
+A type is not a dependency, so the cycle is gone, and the reference still
+lands on the right file. `Exit.To`, `GoTo` and `InScene` all take a
+`SceneRef`; the engine asks it at run time, after every variable exists.
 
 `Exits` are the scene's connections to other scenes, declared as data. The
 engine turns each one into a hotspot — see [§7.3](#73-exit).
@@ -953,7 +989,7 @@ written into this scene — the pins on a map screen, which are every location
 that says it leads there:
 
 ```go
-SceneManager.Register(Scene{
+SceneManager.Register(&Scene{
     Name:    "selector",
     Derived: pins.fromGraph,
 })
@@ -962,7 +998,7 @@ func (selector) fromGraph(g *inkwell.Game) []inkwell.Exit {
     var exits []inkwell.Exit
     for _, s := range g.SceneManager.All() {
         if leadsToSelector(s) {
-            exits = append(exits, inkwell.Exit{To: s.Name, …})
+            exits = append(exits, inkwell.Exit{To: s, …})
         }
     }
     return exits
@@ -980,7 +1016,7 @@ instead of being patched from the wiring after registration.
 // inkwell/scene.exit.go
 
 type Exit struct {
-    To      string      // target scene; empty means "back the way you came"
+    To      SceneRef    // where it leads; nil means "back the way you came"
     Label   Text        // what the status line calls it
     Side    ExitSide    // where it sits when Area is nil
     Area    Shape       // overrides the edge strip Side would give it
@@ -998,7 +1034,7 @@ const (
     ExitNear                  // out towards the camera
 )
 
-func ExitName(to string) string
+func ExitName(to SceneRef) string
 ```
 
 A connection belongs to the scene it leads out of, so it is written in that
@@ -1009,16 +1045,16 @@ Scene{
     Name: "alley",
     Exits: []Exit{
         {
-            To:    "noodle_house",
+            To:    noodleHouse{},
             Label: Text{{Lang: "en", Text: "back out to the street"}},
             Side:  ExitLeft,
         },
         {
-            To:      "",
+            To:      nil,
             Label:   Text{{Lang: "en", Text: "the fire escape"}},
             Side:    ExitBack,
             Needs:   "has_ladder",
-            Blocked: Say("paul", Text{{Lang: "en", Text: "Can't reach it."}}),
+            Blocked: Say(paul, Text{{Lang: "en", Text: "Can't reach it."}}),
         },
     },
 }
@@ -1026,7 +1062,7 @@ Scene{
 
 The engine expands each exit into a `Hotspot` with `Cursor: CursorExit`, the
 exit's `Label`, `OnUse` bound to `GoTo(To)` — or [`Back()`](#83-built-in-actions)
-when `To` is empty — and, when `Needs` is set, the whole travel wrapped in
+when `To` is nil — and, when `Needs` is set, the whole travel wrapped in
 `If(Flag(Needs), travel, Blocked)`. The exit is visible either way: a locked
 door still says it is a door.
 
@@ -1035,8 +1071,8 @@ door still says it is a door.
 in one place:
 
 ```go
-g.ExitLook = func(e Exit) Action { return Say("paul", Format(exitLook, e.Label)) }
-g.ExitTake = func(e Exit) Action { return Say("paul", exitTake) }
+g.ExitLook = func(e Exit) Action { return Say(paul, Format(exitLook, e.Label)) }
+g.ExitTake = func(e Exit) Action { return Say(paul, exitTake) }
 ```
 
 **Placement.** With no `Area`, an exit is a strip along one edge of the
@@ -1140,22 +1176,25 @@ re-entry.
 
 type Item struct {
     Name        string
-    Sprite      string                  // Asset.Name
+    Sprite      *Asset
     Description Text
 
     OnUseSelf Action
-    // targetName → action. Target can be a hotspot Name or another item Name.
-    OnUseWith map[string]Action
+    OnUseWith map[*Item]Action          // this item used on that item
 }
 ```
 
 Items live in the `ItemManager`. When the player picks one up
-(`Give("key")`) the item is appended to the `Inventory`. Clicking a
-hotspot with an item selected resolves the action via, in order:
-1. `hotspot.OnUseWith[item.Name]`
-2. `item.OnUseWith[hotspot.Name]`
+(`Give(key)`) the item is appended to the `Inventory`, which remembers it by
+`Name`. Clicking a hotspot with an item selected resolves the action via, in
+order:
+1. `hotspot.OnUseWith[item]`
+2. `hotspot.OnUseWithAny`
 3. Otherwise `Game.UseWithFail(item, hotspot)` is asked for a response and
    the item is deselected; with no hook set the engine flashes "Nem ehhez."
+
+`Item.OnUseWith` is an item used on an *item*: with one in hand, clicking
+another in the `InventoryBar` runs whichever of the two pairs them.
 
 `UseWithFail` is the same shape as `ExitLook` and `ExitTake`: the pair the
 author never wrote is still content, and the domain is the only one that
@@ -1188,7 +1227,7 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 type Character struct {
     Name        string
     Label       Text                         // what the UI shows; empty = Name
-    Sprite      string                       // Asset.Name (placeholder if missing)
+    Sprite      *Asset                       // nil draws the placeholder
     Animations  map[string]AnimationClip
     Speed       float64
     SpeechColor color.Color
@@ -1204,6 +1243,8 @@ const (
 )
 
 func (c Character) DisplayName() Text    // Label, or Name
+
+type Talker interface{ /* *Character or *Speaker — what Say and a DialogLine take */ }
 func (g *Game) Speaker(name string) (Speaker, bool)  // a character's voice, or a bodiless one
 func (g *Game) SpeakerLabel(name string) Text
 func (g *Game) SpeechColor(name string, fallback color.Color) color.Color
@@ -1286,7 +1327,7 @@ type DialogNode struct {
 }
 
 type DialogLine struct {
-    Speaker string                      // Character.Name
+    Speaker Talker                      // a *Character or a *Speaker
     Text    Text
 }
 
@@ -1301,7 +1342,7 @@ func (d Dialog) Node(name string) (DialogNode, bool)
 ```
 
 The dialog flow:
-1. `RunDialog("name")` action starts the dialog; the runner keeps
+1. `RunDialog(dialog)` starts the dialog; the runner keeps
    returning `StatusRunning` until the dialog closes.
 2. The `DialogBox` widget renders lines one at a time; click advances.
 3. After the last line, visible `Choices` are shown.
@@ -1324,7 +1365,7 @@ type Script struct {
 
 A `Script` is just a named composite action — useful when you want to
 reuse a cutscene (intro, victory, transition) from multiple call sites.
-Fire one with `RunScript("name")`.
+Fire one with `RunScript(script)`.
 
 ### 7.11 Verb
 
@@ -1348,7 +1389,7 @@ g.VerbManager.Register(inkwell.Verb{
         {Lang: "en", Text: "Push"},
         {Lang: "hu", Text: "Lökd"},
     },
-    Default: inkwell.Say("player", inkwell.Text{
+    Default: inkwell.Say(player, inkwell.Text{
         {Lang: "en", Text: "It won't move."},
         {Lang: "hu", Text: "Nem mozdul."},
     }),
@@ -1369,7 +1410,10 @@ type Stage struct {
     Name       string
     Title      Text
     World      bool     // this Stage is the game itself
-    Background string   // full-screen image for a Stage that is not the world
+    Background *Asset   // full-screen image for a Stage that is not the world
+    Transition Transition // how this Stage gives way to the next; nil cuts
+    Hold       float64  // seconds to show, then move on to Next
+    Next       string
     OnEnter    Action
     OnLeave    Action
 }
@@ -1389,16 +1433,16 @@ do not fire and a click reaches no hotspot — which is what a game showing its
 main menu wants, and what it could not have while the only way to hold the
 world still was a script that never finished.
 
-Widgets need no new field to follow this, because `OnStage(name)` is a
+Widgets need no new field to follow this, because `OnStage(stage)` is a
 `Condition` like any other:
 
 ```go
-StageManager.Register(inkwell.Stage{Name: "game", World: true})
-StageManager.Register(inkwell.Stage{Name: "main_menu"})
+game := StageManager.Register(&inkwell.Stage{Name: "game", World: true})
+mainMenu := StageManager.Register(&inkwell.Stage{Name: "main_menu"})
 
 WidgetManager.Register(&inkwell.Menu{
     Name:   "main_menu",
-    When:   inkwell.OnStage("main_menu"),
+    When:   inkwell.OnStage(mainMenu),
     Sticky: true,
     Root:   inkwell.MenuItem{ … },
 })
@@ -1415,8 +1459,36 @@ means a menu row can say the whole of what it means in one `Seq` without
 having to know what order the engine would otherwise have applied it in:
 
 ```go
-Do: inkwell.Seq(inkwell.Restart(), inkwell.GoToStage("game")),
+Do: inkwell.Seq(inkwell.Restart(), inkwell.GoToStage(game)),
 ```
+
+**Leaving through a Transition.** A `Stage` may name how it gives way:
+`Transition` is an `inkwell.Transition`, and a change out of the Stage — a
+`GoToStage`, or its `Hold` running out — goes through it. `Fade(seconds)` is
+the one the engine ships (`FadeTo` for a colour other than black); nil is a
+cut, which is what a menu and its sub-screens want. The whole pending change
+lands on the covered frame, a `Restart` or `LoadSlot` asked for in the same
+breath included, so the screen still showing during the fade is over the
+world it was over. Scene changes go through the same machinery with their own
+quarter-second fade.
+
+**A card that moves on.** `Hold` shows a Stage for a number of seconds and
+then goes to `Next`, through the Stage's `Transition` — which is all a splash
+card or a title sequence is:
+
+```go
+StageManager.Register(&inkwell.Stage{
+    Name:       "splash_studio",
+    Transition: inkwell.Fade(0.5),
+    Hold:       2,
+    Next:       splashTitle,
+})
+```
+
+The clock starts once `OnEnter` is done: the hold is a `Wait` and a
+`GoToStage` on the same queue, so it lands like any other change, at the top
+of a frame. `Validate` rejects a `Next` nobody registered and a `Hold` with
+no `Next`.
 
 **Starting a session.** A game whose `StartStage` is the world starts one at
 boot: the start scene is entered and `StartScript` is queued. A game that
@@ -1484,34 +1556,34 @@ type Ctx struct {
 | `Par(a ...Action) Action`                | Run children simultaneously; completes when every child reports `Done`.   |
 | `If(c Condition, then Action, els ...Action) Action` | Run `then` if `c` evaluates true; otherwise `Seq(els...)` (if any).|
 | `Wait(seconds float64) Action`           | Block the runner for `seconds`.                                            |
-| `Say(speaker string, text Text) Action`  | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with the resolved text's length, 1.2s floor. |
-| `Reply(speaker string, answer func(*State) Text) Action` | `Say` with the line decided when it is spoken: `answer` is handed the `State` and returns the `Text` for this moment, so a speaker can answer from what the player has done without a dialog node per case. |
-| `GoTo(scene string) Action`              | Switch the current scene via a fade transition.                            |
+| `Say(speaker Talker, text Text) Action`  | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with the resolved text's length, 1.2s floor. |
+| `Reply(speaker Talker, answer func(*State) Text) Action` | `Say` with the line decided when it is spoken: `answer` is handed the `State` and returns the `Text` for this moment, so a speaker can answer from what the player has done without a dialog node per case. |
+| `GoTo(scene SceneRef) Action`              | Switch the current scene via a fade transition.                            |
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
-| `Walk(character string, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
-| `Give(item string) Action`               | Add `item` to inventory.                                                   |
-| `TakeAway(item string) Action`           | Remove `item` from inventory.                                              |
-| `RequireItem(item string) Action`        | If the item is not in inventory, flash `MsgNeedItem` and fail.             |
+| `Walk(character *Character, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
+| `Give(item *Item) Action`               | Add `item` to inventory.                                                   |
+| `TakeAway(item *Item) Action`           | Remove `item` from inventory.                                              |
+| `RequireItem(item *Item) Action`        | If the item is not in inventory, flash `MsgNeedItem` and fail.             |
 | `SetFlag(name string) Action`            | `State.SetFlag(name)`.                                                     |
 | `ClearFlag(name string) Action`          | `State.ClearFlag(name)`.                                                   |
 | `SetVar(name string, v any) Action`      | `State.SetVar(name, v)`.                                                   |
 | `SetVarIfEmpty(name string, v any) Action` | `State.SetVar(name, v)` only while nothing has written it yet — what a scene's `OnEnter` wants for a first-arrival value. |
 | `Noting(name string, v any, inner Action) Action` | Write a var for exactly as long as `inner` runs, and clear it after. |
-| `UseTheme(name string) Action`           | Switch the active theme mid-script.                                        |
+| `UseTheme(theme *Theme) Action`           | Switch the active theme mid-script.                                        |
 | `UseLang(lang string) Action`            | Switch the language every `Text` resolves into; reaches the next frame.    |
-| `GoToStage(name string) Action`          | Show another [Stage](#712-stage), at the top of the next frame.            |
+| `GoToStage(stage *Stage) Action`          | Show another [Stage](#712-stage), at the top of the next frame.            |
 | `Restart() Action`                       | Begin a new session, at the top of the next frame.                         |
 | `LoadSlot(slot int) Action`              | Restore a saved session, at the top of the next frame.                     |
 | `SaveSlot(slot int) Action`              | Write the session to a slot, where it is called.                           |
 | `Quit() Action`                          | Close the window at the end of the frame.                                  |
 | `Flash(text Text) Action`                | Put a line in the status strip for ~2s — `Game.FlashLine` as an action.    |
-| `PlayMusic(asset string) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
+| `PlayMusic(asset *Asset) Action`         | Hand off to `AudioPlayer.PlayMusic`. (Currently logged only.)              |
 | `StopMusic() Action`                     | `AudioPlayer.StopMusic`.                                                   |
-| `PlaySound(asset string) Action`         | `AudioPlayer.PlaySound`.                                                   |
-| `RunDialog(name string) Action`        | Start a registered `Dialog`; runner blocks until the dialog closes.       |
+| `PlaySound(asset *Asset) Action`         | `AudioPlayer.PlaySound`.                                                   |
+| `RunDialog(dialog *Dialog) Action`        | Start a registered `Dialog`; runner blocks until the dialog closes.       |
 | `EndDialog() Action`                   | Close the active dialog.                                                   |
 | `GotoNode(node string) Action`           | Jump to a node within the active dialog.                                   |
-| `RunScript(name string) Action`          | Run a registered `Script`'s `Actions`.                                     |
+| `RunScript(script *Script) Action`          | Run a registered `Script`'s `Actions`.                                     |
 | `ShowEnd(text Text) Action`              | Display the end-card overlay; runner never finishes.                       |
 | `Custom(fn func(*Ctx) Status) Action`    | Escape hatch — wrap an arbitrary callback as an action.                    |
 
@@ -1568,13 +1640,14 @@ type Condition interface {
 | `And(cs ...Condition) Condition`       | All must evaluate true.                          |
 | `Or(cs ...Condition) Condition`        | At least one true.                               |
 | `Flag(name string) Condition`          | `State.Flag(name)`                               |
-| `HasItem(name string) Condition`       | `Inventory.Has(name)`                            |
-| `SelectedItem(name string) Condition`  | `Inventory.Selected() == name`                   |
-| `InScene(name string) Condition`       | The current `Ctx.Scene` matches.                 |
-| `OnStage(name string) Condition`       | The named [Stage](#712-stage) is the one showing. |
+| `HasItem(item *Item) Condition`       | `Inventory.Has(name)`                            |
+| `SelectedItem(item *Item) Condition`  | `Inventory.Selected() == name`                   |
+| `InScene(scene SceneRef) Condition`       | The current `Ctx.Scene` matches.                 |
+| `OnStage(stage *Stage) Condition`       | The named [Stage](#712-stage) is the one showing. |
+| `OnWorld() Condition`                  | The Stage showing is the world, whichever that is. |
 | `Started() Condition`                  | A session exists — begun or loaded.              |
 | `VarEq(name string, v any) Condition`  | `State.Var(name) == v` (Go equality).            |
-| `Given{Flag, NotFlag, Item, NotItem, Var, Is}` | A literal: every set field must hold. `Given{}` holds always. |
+| `Given{Flag, NotFlag, Item, NotItem, Var, Is}` | A literal: every set field must hold; `Item` and `NotItem` are `*Item`. `Given{}` holds always. |
 
 Conditions are stateless — they are evaluated lazily, including inside
 `If` and `DialogChoice.Show`.
@@ -1586,7 +1659,7 @@ fields rather than a call tree.
 
 ```go
 Show: inkwell.Given{
-    Item:    "mystery_tape",
+    Item:    mysteryTape,
     NotFlag: "dex_told",
 },
 ```
@@ -2024,7 +2097,7 @@ type CharStat struct {
 type CharacterPanel struct {
     Name      string
     Bounds    Rectangle
-    Character string                // Character.Name
+    Character *Character
     Title     Text                  // role badge ("PLAYER", "NPC", "GUIDE", …)
     Stats     []CharStat
 }
@@ -2052,7 +2125,7 @@ type ChatLog struct {
 
     Speaker    SpeakerStyle        // how a reply names who said it
     Voices     []Voice             // keep only replies in these voices; nil = all
-    Resting    string              // character the header carries before anybody speaks
+    Resting    Talker              // who the header carries before anybody speaks
 }
 
 type SpeakerStyle int
@@ -2205,7 +2278,7 @@ zones for the radial menu.
 
 func RegisterDefaultUI(g *Game)                              // SCUMM-style verb bar + inventory
 func RegisterRadialVerbUI(g *Game)                            // verb-coin (right-click) + wider inventory
-func RegisterRichUI(g *Game, playerName, npcName string)      // top bar + character panels + chat log + verb wheel
+func RegisterRichUI(g *Game, player, npc *Character)         // top bar + character panels + chat log + verb wheel
 ```
 
 Pass `""` for any character name to skip its `CharacterPanel`. All three
@@ -2479,12 +2552,12 @@ first request for an image goes through `loadedAssets.image(name)`:
 ```go
 // internal:
 type loadedAssets struct {
-    images       map[string]*ebiten.Image
-    placeholders map[string]bool
+    images       map[*Asset]*ebiten.Image
+    placeholders map[*Asset]bool
 }
 
-func (la *loadedAssets) image(am *AssetManager, name string) *ebiten.Image
-func (la *loadedAssets) isPlaceholder(name string) bool
+func (la *loadedAssets) image(asset *Asset) *ebiten.Image
+func (la *loadedAssets) isPlaceholder(asset *Asset) bool
 ```
 
 `isPlaceholder` is used by widgets to decide whether to render a stylised
@@ -2505,9 +2578,9 @@ asset at all: it is the atlas baked into `font.png` — see [§5.6](#56-the-font
 type AudioPlayer struct{ /* unexported */ }
 
 func NewAudioPlayer() *AudioPlayer
-func (a *AudioPlayer) PlayMusic(name string)
+func (a *AudioPlayer) PlayMusic(asset *Asset)
 func (a *AudioPlayer) StopMusic()
-func (a *AudioPlayer) PlaySound(name string)
+func (a *AudioPlayer) PlaySound(asset *Asset)
 ```
 
 Backed by Ebiten's `audio` package. The shared `*audio.Context` is
@@ -2687,13 +2760,27 @@ the whole-sprite / placeholder draw when no clip applies.
 ## 17. Scene transitions
 
 ```go
-// inkwell/scene.transition.go (unexported)
+// inkwell/transition.def.go
 
-type transition struct{ /* unexported */ }
+type Transition interface {
+    Seconds() float64
+    Draw(dst *ebiten.Image, width, height int, cover float64)
+}
+
+func Fade(seconds float64) Transition
+func FadeTo(seconds float64, to color.Color) Transition
 ```
 
-A scene change calls `Game.changeScene(name)`, which starts a fade-to-
-black overlay (`duration = 0.25s`). At the midpoint:
+A `Transition` is how one picture gives way to another, in two halves: the
+old picture is covered, the swap lands on the frame it is fully hidden, and
+the new picture is uncovered. `Seconds` is one half; `Draw` paints the cover
+for `cover` running 0 → 1 and back. `Fade` is the one the engine ships, and
+a wipe or an iris is another implementation of the same two methods. A
+[Stage](#712-stage) names its own in `Stage.Transition`; a scene change uses
+`Fade(0.25)`.
+
+The one in flight is `core.transition.go`'s unexported `transition`. A scene
+change calls `Game.changeScene(name)`, which starts it. At the midpoint:
 
 1. `prevScene.OnLeave` (if any) is queued.
 2. `currentScene` is set to the new name.
@@ -2720,16 +2807,16 @@ Run by `Run` before entering the Ebiten loop — after every
 [`Scene.Derived`](#72-scene) has been resolved, so a derived exit is checked
 like an authored one — and again from your tests. It cross-checks:
 
-- `StartScene` points to a registered scene, and `StartStage` to a
-  registered [Stage](#712-stage).
-- Every `Stage.Background` (when set) references a registered `Asset`.
-- Every scene's `BackgroundAsset()` — its `Background`, or its own `Name`
-  when it leaves that empty — references a registered `Asset`.
-- Optional `Scene.Music` (if non-empty) references a registered `Asset`.
-- Every `SceneActor.CharacterName` is a registered character.
-- Every `Scene.Exit.To` names a registered scene (empty is allowed — it
-  means "back the way you came").
+- `StartScene` and `StartStage` are set, and registered.
+- A `Stage.Hold` has a `Next` to move on to, and that `Next` is registered.
+- Every `SceneActor.Character` and every `Exit.To` is registered (a nil `To`
+  is allowed — it means "back the way you came").
+- `Player`, when set, is a registered character.
 - An active theme is selected and registered.
+
+Most of what this used to check is now a type: a scene, an item or a dialog
+is referred to by pointer, so a name nobody registered is a compile error
+rather than one of these.
 
 Returns the first error wrapping one of the `Err...` sentinels (so callers
 can `errors.Is` against them). Duplicate-name registration is caught
@@ -2808,6 +2895,7 @@ var (
     ErrUnknownCharacter = errors.New("inkwell: unknown character")
     ErrUnknownScript    = errors.New("inkwell: unknown script")
     ErrNoStartScene     = errors.New("inkwell: StartScene not set or unknown scene")
+    ErrUnknownStage     = errors.New("inkwell: unknown stage")
     ErrNoStartStage     = errors.New("inkwell: StartStage not set or unknown stage")
 )
 
@@ -2882,6 +2970,7 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── core.doc.go                 # package docs
 ├── core.manager.go             # Manager[T Named], Named, TypeLabel
 ├── core.game.go                # Game aggregate, its managers and accessors
+├── core.transition.go          # the one Transition in flight, scene or Stage
 ├── core.validate.go            # Game.Validate
 ├── core.log.go                 # LogKind, LogMessage, the chat-log buffer
 ├── core.engine.go              # ebiten.Game adapter (Update/Draw/Layout)
@@ -2910,7 +2999,6 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── scene.exit.go               # Exit, ExitSide + edge-strip geometry
 ├── scene.trigger.go            # Trigger + rising-edge engine sweep
 ├── scene.path.go               # walkbox routing (BFS over polygon adjacency)
-├── scene.transition.go         # fade-to-black overlay (internal)
 ├── scene.change.go             # changeScene: the fade, and what happens mid-fade
 │
 ├── item.def.go                 # Item
@@ -2980,6 +3068,9 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── widget.text_card.go         # TextCard
 ├── stage.def.go                # Stage
 ├── stage.manager.go            # StageManager
+│
+├── transition.def.go           # Transition
+├── transition.fade.go          # Fade, FadeTo
 ├── widget.hotspot_panel.go     # HotspotPanel
 │
 ├── LICENSE.md                  # MIT

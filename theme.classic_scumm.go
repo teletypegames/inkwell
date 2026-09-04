@@ -5,8 +5,8 @@ import "image/color"
 // classic-scumm is the default: the dark blue-grey plate and amber
 // highlight of the verb-bar era.
 
-func classicScummTheme() Theme {
-	return Theme{
+func classicScummTheme() *Theme {
+	return &Theme{
 		Name:                    "classic-scumm",
 		PanelBG:                 color.RGBA{20, 20, 30, 255},
 		StatusText:              color.White,

@@ -27,28 +27,23 @@ const audioSampleRate = 48000
 // message — the game keeps running. The action constructors
 // (PlayMusic/PlaySound/StopMusic) call through here unchanged.
 type AudioPlayer struct {
-	am  *AssetManager
 	ctx *audio.Context // lazy — created on first real play
 
-	musicName   string
+	music       *Asset
 	musicPlayer *audio.Player
 
-	sfxCache  map[string][]byte // resampled PCM, keyed by Asset.Name
+	sfxCache  map[*Asset][]byte // resampled PCM, one per asset
 	sfxActive []*audio.Player   // in-flight one-shots; pruned each PlaySound
 
-	failed map[string]bool // assets that errored once — don't retry every frame
+	failed map[*Asset]bool // assets that errored once — don't retry every frame
 }
 
 func NewAudioPlayer() *AudioPlayer {
 	return &AudioPlayer{
-		sfxCache: make(map[string][]byte),
-		failed:   make(map[string]bool),
+		sfxCache: make(map[*Asset][]byte),
+		failed:   make(map[*Asset]bool),
 	}
 }
-
-// attach wires the audio player to the asset registry. Called from
-// NewGame after AssetManager is constructed.
-func (a *AudioPlayer) attach(am *AssetManager) { a.am = am }
 
 func (a *AudioPlayer) ensureContext() *audio.Context {
 	if a.ctx != nil {
@@ -64,43 +59,42 @@ func (a *AudioPlayer) ensureContext() *audio.Context {
 	return a.ctx
 }
 
-// resolveAsset returns the registered Asset for name, or false if it's
-// unknown, the wrong kind, or already on the failure list.
-func (a *AudioPlayer) resolveAsset(name string) (Asset, bool) {
-	if name == "" || a.am == nil || a.failed[name] {
-		return Asset{}, false
-	}
-	asset, ok := a.am.Get(name)
-	if !ok || asset.Kind != AssetAudio || asset.Path == "" {
-		return Asset{}, false
-	}
-	return asset, true
+// playable reports whether an asset is something the player can start:
+// present, audio, with a path, and not already on the failure list.
+func (a *AudioPlayer) playable(asset *Asset) bool {
+	return asset != nil && !a.failed[asset] && asset.Kind == AssetAudio && asset.Path != ""
 }
 
-func (a *AudioPlayer) PlayMusic(name string) {
-	if a.musicName == name && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
+func assetName(asset *Asset) string {
+	if asset == nil {
+		return "<nil>"
+	}
+	return asset.Name
+}
+
+func (a *AudioPlayer) PlayMusic(asset *Asset) {
+	if a.music == asset && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
 		return
 	}
 	a.stopMusic()
-	a.musicName = name
+	a.music = asset
 
-	asset, ok := a.resolveAsset(name)
-	if !ok {
-		logf("audio.PlayMusic %q: no asset", name)
+	if !a.playable(asset) {
+		logf("audio.PlayMusic %s: no asset", assetName(asset))
 		return
 	}
 	ctx := a.ensureContext()
 	stream, length, err := decodeAudioStream(asset.Path, audioSampleRate)
 	if err != nil {
-		logf("audio.PlayMusic %q: %v", name, err)
-		a.failed[name] = true
+		logf("audio.PlayMusic %q: %v", asset.Name, err)
+		a.failed[asset] = true
 		return
 	}
 	loop := audio.NewInfiniteLoop(stream, length)
 	p, err := audio.NewPlayer(ctx, loop)
 	if err != nil {
-		logf("audio.PlayMusic %q: player: %v", name, err)
-		a.failed[name] = true
+		logf("audio.PlayMusic %q: player: %v", asset.Name, err)
+		a.failed[asset] = true
 		return
 	}
 	a.musicPlayer = p
@@ -108,12 +102,12 @@ func (a *AudioPlayer) PlayMusic(name string) {
 }
 
 func (a *AudioPlayer) StopMusic() {
-	if a.musicName == "" && a.musicPlayer == nil {
+	if a.music == nil && a.musicPlayer == nil {
 		return
 	}
-	logf("audio.StopMusic (was %q)", a.musicName)
+	logf("audio.StopMusic (was %s)", assetName(a.music))
 	a.stopMusic()
-	a.musicName = ""
+	a.music = nil
 }
 
 func (a *AudioPlayer) stopMusic() {
@@ -124,23 +118,22 @@ func (a *AudioPlayer) stopMusic() {
 	a.musicPlayer = nil
 }
 
-func (a *AudioPlayer) PlaySound(name string) {
-	asset, ok := a.resolveAsset(name)
-	if !ok {
-		logf("audio.PlaySound %q: no asset", name)
+func (a *AudioPlayer) PlaySound(asset *Asset) {
+	if !a.playable(asset) {
+		logf("audio.PlaySound %s: no asset", assetName(asset))
 		return
 	}
 	ctx := a.ensureContext()
 
-	pcm, ok := a.sfxCache[name]
+	pcm, ok := a.sfxCache[asset]
 	if !ok {
 		data, err := decodeAudioBytes(asset.Path, audioSampleRate)
 		if err != nil {
-			logf("audio.PlaySound %q: %v", name, err)
-			a.failed[name] = true
+			logf("audio.PlaySound %q: %v", asset.Name, err)
+			a.failed[asset] = true
 			return
 		}
-		a.sfxCache[name] = data
+		a.sfxCache[asset] = data
 		pcm = data
 	}
 	p := audio.NewPlayerFromBytes(ctx, pcm)

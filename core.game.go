@@ -38,7 +38,7 @@ type Game struct {
 
 	// UseWithFail supplies the response when the player uses an item on a
 	// hotspot nobody paired it with. Nil falls back to a flash line.
-	UseWithFail func(item string, h *Hotspot) Action
+	UseWithFail func(item *Item, h *Hotspot) Action
 
 	// ----- what the game boots as -------------------------------------
 	//
@@ -48,20 +48,20 @@ type Game struct {
 
 	// StartStage is the screen the game opens on — its main menu, or the
 	// world itself for a run that goes straight in.
-	StartStage string
+	StartStage *Stage
 	// StartScene is the scene a session opens in. It is entered when the
 	// world starts, which is at boot for a game whose StartStage is the
 	// world, and on Restart for one that opens on a menu.
-	StartScene string
+	StartScene *Scene
 	// StartScript is queued after that scene's OnEnter, once.
-	StartScript string
+	StartScript *Script
 	// FinaleScript is the closing script, queued straight after
 	// StartScript — which is what a "boot into the ending" flag wants.
 	// Empty for an ordinary run.
-	FinaleScript string
+	FinaleScript *Script
 	// StartTheme is the theme selected at boot. Empty takes
 	// "classic-scumm", so a game that never mentions a theme has one.
-	StartTheme string
+	StartTheme *Theme
 	// Flags are set in State before the first frame. A game whose debug
 	// build or command line switches something on says so here rather
 	// than reaching into State after construction.
@@ -70,7 +70,7 @@ type Game struct {
 	// Player names the character the player controls: the one a scene gets
 	// when it lists no actors of its own, placed at that character's Start,
 	// and the one WalkOnClick moves. Empty leaves such a scene unpeopled.
-	Player string
+	Player *Character
 
 	// WalkOnClick makes a left click on empty floor walk Player there,
 	// routed through the walkboxes. Off by default: a game whose hotspots
@@ -92,8 +92,8 @@ type Game struct {
 	Input     *Input
 
 	activeTheme   string
-	currentStage  string
-	previousStage string
+	currentStage  *Stage
+	previousStage *Stage
 	started       bool
 	quitting      bool
 	pending       pendingChange
@@ -111,13 +111,12 @@ type Game struct {
 	selectedVerb  string
 
 	// UI runtime state (read by widgets, written by actions / engine)
-	hoverLabel   string
-	flash        string
-	flashTimer   float64
-	endCard      string
-	speech       speechState
-	dialog       *runtimeDialog
-	activeDialog string
+	hoverLabel string
+	flash      string
+	flashTimer float64
+	endCard    string
+	speech     speechState
+	dialog     *runtimeDialog
 
 	// in-game message log for ChatLog widgets; ring buffer behavior.
 	messages    []LogMessage
@@ -169,37 +168,37 @@ type speechState struct {
 func New(spec Game) *Game {
 	g := &spec
 	if g.ItemManager == nil {
-		g.ItemManager = NewManager[Item]()
+		g.ItemManager = NewManager[*Item]()
 	}
 	if g.SceneManager == nil {
-		g.SceneManager = NewManager[Scene]()
+		g.SceneManager = NewManager[*Scene]()
 	}
 	if g.CharacterManager == nil {
-		g.CharacterManager = NewManager[Character]()
+		g.CharacterManager = NewManager[*Character]()
 	}
 	if g.SpeakerManager == nil {
-		g.SpeakerManager = NewManager[Speaker]()
+		g.SpeakerManager = NewManager[*Speaker]()
 	}
 	if g.DialogManager == nil {
-		g.DialogManager = NewManager[Dialog]()
+		g.DialogManager = NewManager[*Dialog]()
 	}
 	if g.ScriptManager == nil {
-		g.ScriptManager = NewManager[Script]()
+		g.ScriptManager = NewManager[*Script]()
 	}
 	if g.AssetManager == nil {
-		g.AssetManager = NewManager[Asset]()
+		g.AssetManager = NewManager[*Asset]()
 	}
 	if g.VerbManager == nil {
-		g.VerbManager = NewManager[Verb]()
+		g.VerbManager = NewManager[*Verb]()
 	}
 	if g.WidgetManager == nil {
 		g.WidgetManager = NewManager[Widget]()
 	}
 	if g.ThemeManager == nil {
-		g.ThemeManager = NewManager[Theme]()
+		g.ThemeManager = NewManager[*Theme]()
 	}
 	if g.StageManager == nil {
-		g.StageManager = NewManager[Stage]()
+		g.StageManager = NewManager[*Stage]()
 	}
 
 	g.State = NewState()
@@ -219,9 +218,9 @@ func New(spec Game) *Game {
 	}
 	RegisterPresetThemes(g)
 
-	g.activeTheme = g.StartTheme
-	if g.activeTheme == "" {
-		g.activeTheme = "classic-scumm"
+	g.activeTheme = "classic-scumm"
+	if g.StartTheme != nil {
+		g.activeTheme = g.StartTheme.Name
 	}
 	for _, f := range g.Flags {
 		g.State.SetFlag(f)
@@ -239,7 +238,7 @@ func NewGame(title string, w, h int) *Game {
 	})
 }
 
-func (g *Game) StartAt(name string) *Game { g.StartScene = name; return g }
+func (g *Game) StartAt(scene *Scene) *Game { g.StartScene = scene; return g }
 
 // CurrentScene is the scene the player is in, empty before the first one is
 // entered. PreviousScene is the one before it, which is where Back() leads.
@@ -282,17 +281,17 @@ func (g *Game) SceneHotspots(name string) []Hotspot {
 
 // OnStart names the script queued after the start scene's OnEnter, once,
 // when the game boots.
-func (g *Game) OnStart(script string) *Game { g.StartScript = script; return g }
+func (g *Game) OnStart(script *Script) *Game { g.StartScript = script; return g }
 
 // OnFinale names the game's closing script, queued directly after the start
 // script — which is what a "boot straight into the ending" debug flag wants.
 // Leave it unset for an ordinary run.
-func (g *Game) OnFinale(script string) *Game { g.FinaleScript = script; return g }
+func (g *Game) OnFinale(script *Script) *Game { g.FinaleScript = script; return g }
 
 // ----- theme + UI conveniences ------------------------------------------
 
-func (g *Game) Theme() Theme             { return g.ThemeManager.MustGet(g.activeTheme) }
-func (g *Game) UseTheme(name string)     { g.activeTheme = name }
+func (g *Game) Theme() *Theme            { return g.ThemeManager.MustGet(g.activeTheme) }
+func (g *Game) UseTheme(theme *Theme)    { g.activeTheme = theme.Name }
 func (g *Game) SelectedVerb() string     { return g.selectedVerb }
 func (g *Game) SetSelectedVerb(s string) { g.selectedVerb = s }
 func (g *Game) HoverLabel() string       { return g.hoverLabel }
@@ -333,12 +332,12 @@ func (g *Game) HotspotAt(p Point) *Hotspot {
 // CharacterInScene reports whether a registered character is listed as
 // an actor in the current scene. Used by the CharacterPanel widget so
 // it auto-hides when the character isn't in view.
-func (g *Game) CharacterInScene(name string) bool {
-	if g.currentScene == "" {
+func (g *Game) CharacterInScene(character *Character) bool {
+	if g.currentScene == "" || character == nil {
 		return false
 	}
 	for _, a := range g.sceneActors(g.SceneManager.MustGet(g.currentScene)) {
-		if a.CharacterName == name {
+		if a.Character == character {
 			return true
 		}
 	}
@@ -384,8 +383,7 @@ func (g *Game) HoverHint() string {
 func (g *Game) makeCtx() *Ctx {
 	c := &Ctx{Game: g, DT: 1.0 / 60.0}
 	if g.currentScene != "" {
-		s := g.SceneManager.MustGet(g.currentScene)
-		c.Scene = &s
+		c.Scene = g.SceneManager.MustGet(g.currentScene)
 	}
 	return c
 }
@@ -399,7 +397,7 @@ func (g *Game) showEndCard(text string) { g.endCard = text }
 // underneath the action that asked for it is not something that action should
 // have to survive, so nothing here happens where it is called.
 type pendingChange struct {
-	stage   string
+	stage   *Stage
 	restart bool
 	load    int
 }
@@ -408,8 +406,8 @@ var noChange = pendingChange{load: -1}
 
 // CurrentStage is the screen showing, PreviousStage the one before it —
 // which is where a "back" row leads.
-func (g *Game) CurrentStage() string  { return g.currentStage }
-func (g *Game) PreviousStage() string { return g.previousStage }
+func (g *Game) CurrentStage() *Stage  { return g.currentStage }
+func (g *Game) PreviousStage() *Stage { return g.previousStage }
 
 // Started reports whether a session exists: the world has been begun or
 // loaded. A "Resume" or "Save" row is off until it does.
@@ -418,12 +416,11 @@ func (g *Game) Started() bool { return g.started }
 // OnWorldStage reports whether the screen showing is the game. Off it the
 // scene is not painted, characters do not walk and triggers do not fire.
 func (g *Game) OnWorldStage() bool {
-	s, ok := g.StageManager.Get(g.currentStage)
-	return ok && s.World
+	return g.currentStage != nil && g.currentStage.World
 }
 
 // GoToStage shows another screen, at the top of the next frame.
-func (g *Game) GoToStage(name string) { g.pending.stage = name }
+func (g *Game) GoToStage(stage *Stage) { g.pending.stage = stage }
 
 // Restart begins a new session, at the top of the next frame.
 func (g *Game) Restart() { g.pending.restart = true }
@@ -437,7 +434,10 @@ func (g *Game) Quit() { g.quitting = true }
 
 // applyPending is the one place a screen changes. It runs before anything
 // else in a frame, so the world it tears down is not one anybody is standing
-// in the middle of.
+// in the middle of. A Stage that leaves through a Transition defers the
+// whole change to the covered frame — the restart or load asked for in the
+// same breath included, so the menu still showing during the fade is a menu
+// over the world it was over.
 func (g *Game) applyPending() {
 	change := g.pending
 	if change == noChange {
@@ -445,6 +445,23 @@ func (g *Game) applyPending() {
 	}
 	g.pending = noChange
 
+	if spec := g.leavingTransition(change.stage); spec != nil {
+		g.transition.start(spec, func() { g.applyChange(change) })
+		return
+	}
+	g.applyChange(change)
+}
+
+// leavingTransition is the Transition the current Stage goes out through,
+// when the change is to another Stage and the Stage names one.
+func (g *Game) leavingTransition(to *Stage) Transition {
+	if to == nil || to == g.currentStage || g.currentStage == nil {
+		return nil
+	}
+	return g.currentStage.Transition
+}
+
+func (g *Game) applyChange(change pendingChange) {
 	if change.restart || change.load >= 0 {
 		g.queue = nil
 		g.scriptRunner = nil
@@ -460,7 +477,7 @@ func (g *Game) applyPending() {
 	case change.restart:
 		g.startWorld()
 	}
-	if change.stage != "" {
+	if change.stage != nil {
 		g.enterStage(change.stage)
 	}
 }
@@ -468,17 +485,31 @@ func (g *Game) applyPending() {
 // enterStage runs the outgoing screen's OnLeave and the incoming one's
 // OnEnter, both through the queue, so either may take as many frames as it
 // likes.
-func (g *Game) enterStage(name string) {
-	if name == g.currentStage {
+func (g *Game) enterStage(stage *Stage) {
+	if stage == g.currentStage {
 		return
 	}
-	if previous, ok := g.StageManager.Get(g.currentStage); ok && previous.OnLeave != nil {
+	if previous := g.currentStage; previous != nil && previous.OnLeave != nil {
 		g.queueAction(previous.OnLeave, "stage leave "+previous.Name)
 	}
 	g.previousStage = g.currentStage
-	g.currentStage = name
-	if next, ok := g.StageManager.Get(name); ok && next.OnEnter != nil {
-		g.queueAction(next.OnEnter, "stage enter "+name)
+	g.currentStage = stage
+	g.arriveStage(stage)
+}
+
+// arriveStage queues what a Stage does once it is showing: its OnEnter, and
+// after that its Hold — a Wait and a GoToStage on the same queue, so the
+// clock starts when OnEnter is done and the move lands like any other
+// change, at the top of a frame and through the Stage's Transition.
+func (g *Game) arriveStage(stage *Stage) {
+	if stage == nil {
+		return
+	}
+	if stage.OnEnter != nil {
+		g.queueAction(stage.OnEnter, "stage enter "+stage.Name)
+	}
+	if stage.Hold > 0 && stage.Next != nil {
+		g.queueAction(Seq(Wait(stage.Hold), GoToStage(stage.Next)), "stage hold "+stage.Name)
 	}
 }
 
@@ -492,31 +523,30 @@ func (g *Game) startWorld() {
 	g.Inventory = NewInventory()
 	g.chars = make(map[string]*runtimeChar)
 	g.dialog = nil
-	g.activeDialog = ""
 	g.ClearSpeech()
 	g.endCard = ""
 	g.flash = ""
 	g.flashTimer = 0
 	g.selectedVerb = "look"
 	g.previousScene = ""
-	g.currentScene = g.StartScene
-	g.State.NoteVisit(g.StartScene)
-	g.placeActors(g.StartScene)
+	g.currentScene = g.StartScene.Name
+	g.State.NoteVisit(g.currentScene)
+	g.placeActors(g.currentScene)
 	g.resetTriggers()
 	g.started = true
 
-	scene := g.SceneManager.MustGet(g.StartScene)
-	if scene.Music != "" {
+	scene := g.StartScene
+	if scene.Music != nil {
 		g.Audio.PlayMusic(scene.Music)
 	}
 	var opening []Action
 	if scene.OnEnter != nil {
 		opening = append(opening, scene.OnEnter)
 	}
-	if g.StartScript != "" {
+	if g.StartScript != nil {
 		opening = append(opening, RunScript(g.StartScript))
 	}
-	if g.FinaleScript != "" {
+	if g.FinaleScript != nil {
 		opening = append(opening, RunScript(g.FinaleScript))
 	}
 	if len(opening) > 0 {

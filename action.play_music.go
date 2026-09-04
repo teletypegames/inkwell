@@ -1,12 +1,11 @@
 package inkwell
 
-type playMusicAction struct{ name string }
+type playMusicAction struct{ asset *Asset }
 
-// PlayMusic starts the named audio asset as the music track. Naming the
-// track that is already playing changes nothing.
-func PlayMusic(name string) Action       { return &playMusicAction{name: name} }
+// PlayMusic starts an audio asset looping; the same asset again is a no-op.
+func PlayMusic(asset *Asset) Action      { return &playMusicAction{asset: asset} }
 func (a *playMusicAction) Start() Runner { return a }
 func (a *playMusicAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Audio.PlayMusic(a.name)
+	ctx.Game.Audio.PlayMusic(a.asset)
 	return StatusDone
 }

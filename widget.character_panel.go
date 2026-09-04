@@ -23,8 +23,8 @@ type CharacterPanel struct {
 	Name      string
 	When      Condition
 	Bounds    Rectangle
-	Character string // Character.Name to display
-	Title     Text   // "PLAYER", "NPC", role badge
+	Character *Character
+	Title     Text // "PLAYER", "NPC", role badge
 	Stats     []CharStat
 }
 
@@ -35,7 +35,7 @@ func (c *CharacterPanel) Tick(ctx *UICtx)        {}
 
 func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := ctx.Game
-	if c.Character == "" || !g.CharacterInScene(c.Character) {
+	if c.Character == nil || !g.CharacterInScene(c.Character) {
 		return
 	}
 	th := g.Theme()
@@ -59,10 +59,8 @@ func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 		ty += 10
 	}
 
-	if ch, ok := g.CharacterManager.Get(c.Character); ok && ch.Name != "" {
-		g.DrawText(dst, ch.DisplayName().String(), tx, ty, th.StatusText)
-		ty += 10
-	}
+	g.DrawText(dst, c.Character.DisplayName().String(), tx, ty, th.StatusText)
+	ty += 10
 
 	for _, st := range c.Stats {
 		v := g.State.Var(st.VarKey)
@@ -80,13 +78,9 @@ func (c *CharacterPanel) BlocksClickAt(p Point) bool {
 
 // drawCharacterPortrait renders a tiny version of the character's
 // placeholder shape (or sprite if available) inside the panel.
-func drawCharacterPortrait(dst *ebiten.Image, g *Game, name string, x, y, w, h float64) {
-	c, ok := g.CharacterManager.Get(name)
-	if !ok {
-		return
-	}
-	if c.Sprite != "" && !g.loaded.isPlaceholder(c.Sprite) {
-		img := g.loaded.image(g.AssetManager, c.Sprite)
+func drawCharacterPortrait(dst *ebiten.Image, g *Game, c *Character, x, y, w, h float64) {
+	if c.Sprite != nil && !g.loaded.isPlaceholder(c.Sprite) {
+		img := g.loaded.image(c.Sprite)
 		sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
 		if sw > 0 && sh > 0 {
 			op := &ebiten.DrawImageOptions{}

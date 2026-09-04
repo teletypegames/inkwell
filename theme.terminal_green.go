@@ -5,11 +5,11 @@ import "image/color"
 // terminal-green is a phosphor screen: one green, one dimmer green, and
 // black behind them.
 
-func terminalGreenTheme() Theme {
+func terminalGreenTheme() *Theme {
 	black := color.RGBA{8, 12, 8, 255}
 	green := color.RGBA{120, 220, 120, 255}
 	dim := color.RGBA{60, 120, 60, 255}
-	return Theme{
+	return &Theme{
 		Name:                    "terminal-green",
 		PanelBG:                 black,
 		StatusText:              green,

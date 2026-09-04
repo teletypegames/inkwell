@@ -1,3 +1,3 @@
 package inkwell
 
-type DialogManager = Manager[Dialog]
+type DialogManager = Manager[*Dialog]

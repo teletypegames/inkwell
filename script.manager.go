@@ -1,3 +1,3 @@
 package inkwell
 
-type ScriptManager = Manager[Script]
+type ScriptManager = Manager[*Script]

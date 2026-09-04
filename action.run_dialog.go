@@ -1,10 +1,9 @@
 package inkwell
 
-type runDialogAction struct{ name string }
+type runDialogAction struct{ dialog *Dialog }
 
-// RunDialog opens a registered dialog and holds the frame until it
-// ends, which is what lets a conversation be one step of a script.
-func RunDialog(name string) Action       { return &runDialogAction{name: name} }
+// RunDialog opens a dialog tree and holds the script until it closes.
+func RunDialog(dialog *Dialog) Action    { return &runDialogAction{dialog: dialog} }
 func (a *runDialogAction) Start() Runner { return &runDialogRunner{spec: a} }
 
 type runDialogRunner struct {
@@ -15,7 +14,7 @@ type runDialogRunner struct {
 func (r *runDialogRunner) Tick(ctx *Ctx) Status {
 	if !r.started {
 		r.started = true
-		ctx.Game.startDialog(r.spec.name)
+		ctx.Game.startDialog(r.spec.dialog)
 	}
 	if ctx.Game.dialogActive() {
 		return StatusRunning

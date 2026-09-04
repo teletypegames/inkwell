@@ -34,8 +34,8 @@ func drawCharacter(dst *ebiten.Image, g *Game, c *runtimeChar) {
 	if h == 0 {
 		h = 56
 	}
-	if c.def.Sprite != "" && !g.loaded.isPlaceholder(c.def.Sprite) {
-		img := g.loaded.image(g.AssetManager, c.def.Sprite)
+	if c.def.Sprite != nil && !g.loaded.isPlaceholder(c.def.Sprite) {
+		img := g.loaded.image(c.def.Sprite)
 		// Active animation clip → blit only the current frame's sub-rect
 		// from the sprite sheet, scaled into the character's W×H box.
 		if r, ok := c.currentFrameRect(); ok {
@@ -60,8 +60,8 @@ func drawCharacter(dst *ebiten.Image, g *Game, c *runtimeChar) {
 			return
 		}
 	}
-	if c.def.Sprite != "" {
-		_ = g.loaded.image(g.AssetManager, c.def.Sprite)
+	if c.def.Sprite != nil {
+		_ = g.loaded.image(c.def.Sprite)
 	}
 	x := c.pos.X - w/2
 	y := c.pos.Y - h

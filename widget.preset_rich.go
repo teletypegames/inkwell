@@ -9,7 +9,7 @@ package inkwell
 // The HUD assumes the default 320×200 internal resolution and that
 // PlayerName / NPCName correspond to registered characters. Pass "" for
 // NPCName to skip the NPC panel.
-func RegisterRichUI(g *Game, playerName, npcName string) {
+func RegisterRichUI(g *Game, player, npc *Character) {
 	g.WidgetManager.Register(&TopBar{
 		Name:     "topbar",
 		Height:   12,
@@ -17,11 +17,12 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 		TimeVar: "time",
 	})
 	g.WidgetManager.Register(&HotspotDebug{Name: "hotspot_debug"})
-	if playerName != "" {
+	if player != nil {
+		playerName := player.Name
 		g.WidgetManager.Register(&CharacterPanel{
 			Name:      "panel_player",
 			Bounds:    Rect(2, 14, 92, 36),
-			Character: playerName,
+			Character: player,
 			Title: Text{
 				{Lang: "en", Text: "PLAYER"},
 				{Lang: "hu", Text: "JÁTÉKOS"},
@@ -44,11 +45,12 @@ func RegisterRichUI(g *Game, playerName, npcName string) {
 			},
 		})
 	}
-	if npcName != "" {
+	if npc != nil {
+		npcName := npc.Name
 		g.WidgetManager.Register(&CharacterPanel{
 			Name:      "panel_npc",
 			Bounds:    Rect(180, 14, 92, 36),
-			Character: npcName,
+			Character: npc,
 			Title: Text{
 				{Lang: "en", Text: "NPC"},
 				{Lang: "hu", Text: "NPC"},

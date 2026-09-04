@@ -1,3 +1,3 @@
 package inkwell
 
-type StageManager = Manager[Stage]
+type StageManager = Manager[*Stage]

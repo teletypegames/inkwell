@@ -29,7 +29,20 @@ type Stage struct {
 
 	// Background is a full-screen image for a Stage that is not the world.
 	// Empty leaves the theme's SceneBackdrop showing.
-	Background string
+	Background *Asset
+
+	// Transition is how this Stage gives way to the next one: a change out
+	// of it — GoToStage, or Hold running out — goes through it, and the
+	// swap lands on the frame the picture is fully covered. Nil cuts, which
+	// is what a menu and its sub-screens want; a splash card says Fade.
+	Transition Transition
+
+	// Hold shows this Stage for a number of seconds and then moves on to
+	// Next, through Transition — a splash card, or one card of a title
+	// sequence. The clock starts once OnEnter is done. 0 stays until
+	// something says GoToStage.
+	Hold float64
+	Next *Stage
 
 	OnEnter Action
 	OnLeave Action

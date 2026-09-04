@@ -68,11 +68,14 @@ func (b *InventoryBar) Tick(ctx *UICtx) {
 		if b.slotRect(i).Contains(mp) {
 			g.Input.ConsumeLeft()
 			name := items[i]
-			if g.SelectedVerb() == "look" {
+			if g.SelectedVerb() == "look" && g.Player != nil {
 				if it, ok := g.ItemManager.Get(name); ok && !it.Description.Empty() {
 					g.queueAction(Say(g.Player, it.Description), "inv-look")
 					return
 				}
+			}
+			if b.combine(g, name) {
+				return
 			}
 			if g.Inventory.Selected() == name {
 				g.Inventory.Select("")
@@ -82,6 +85,31 @@ func (b *InventoryBar) Tick(ctx *UICtx) {
 			return
 		}
 	}
+}
+
+// combine is an item used on an item: with one in hand, clicking another
+// runs whichever of the two pairs them in its OnUseWith. It reports whether
+// a pairing was found, so a click that pairs nothing still selects.
+func (b *InventoryBar) combine(g *Game, clicked string) bool {
+	held, ok := g.ItemManager.Get(g.Inventory.Selected())
+	if !ok || held.Name == clicked {
+		return false
+	}
+	other, ok := g.ItemManager.Get(clicked)
+	if !ok {
+		return false
+	}
+	a := held.OnUseWith[other]
+	if a == nil {
+		a = other.OnUseWith[held]
+	}
+	if a == nil {
+		return false
+	}
+	g.LogAction("> " + Format(HintVerbOn, verbLabel(g, "use"), g.ItemLabel(held.Name), g.ItemLabel(other.Name)).String())
+	g.queueAction(a, "useWith items")
+	g.Inventory.Select("")
+	return true
 }
 
 func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
@@ -111,7 +139,7 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 			if !ok {
 				continue
 			}
-			img := g.loaded.image(g.AssetManager, it.Sprite)
+			img := g.loaded.image(it.Sprite)
 			sw, sh := img.Bounds().Dx(), img.Bounds().Dy()
 			if sw == 0 || sh == 0 {
 				continue

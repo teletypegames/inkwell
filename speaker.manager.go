@@ -1,3 +1,3 @@
 package inkwell
 
-type SpeakerManager = Manager[Speaker]
+type SpeakerManager = Manager[*Speaker]

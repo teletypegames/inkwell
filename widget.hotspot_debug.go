@@ -115,7 +115,7 @@ func (h *HotspotDebug) targets(g *Game) (scene, widgets []DebugTarget) {
 			out = append(out, DebugTarget{Kind: kind, Name: hs.Name, Area: hs.Area.Bounds()})
 		}
 		for _, a := range g.sceneActors(g.SceneManager.MustGet(g.currentScene)) {
-			c, ok := g.runtimeChar(a.CharacterName)
+			c, ok := g.runtimeChar(a.Character.Name)
 			if !ok {
 				continue
 			}

@@ -1,3 +1,3 @@
 package inkwell
 
-type ItemManager = Manager[Item]
+type ItemManager = Manager[*Item]

@@ -5,10 +5,10 @@ import "image/color"
 // paper-notebook is the light theme: ink on cream, for a game that reads
 // as something written down rather than something lit up.
 
-func paperNotebookTheme() Theme {
+func paperNotebookTheme() *Theme {
 	cream := color.RGBA{245, 235, 210, 255}
 	ink := color.RGBA{50, 40, 30, 255}
-	return Theme{
+	return &Theme{
 		Name:                    "paper-notebook",
 		PanelBG:                 cream,
 		StatusText:              ink,

@@ -10,51 +10,51 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-type AssetManager = Manager[Asset]
+type AssetManager = Manager[*Asset]
 
 // loadedAssets is the runtime cache for decoded image/audio resources.
 // The Asset structs in the manager remain immutable spec; this is where
 // the actual *ebiten.Image bytes live, lazily decoded on first access.
 type loadedAssets struct {
-	images             map[string]*ebiten.Image
-	placeholders       map[string]bool
+	images             map[*Asset]*ebiten.Image
+	placeholders       map[*Asset]bool
+	missing            *ebiten.Image
 	defaultW, defaultH int
 }
 
 func newLoadedAssets(w, h int) *loadedAssets {
 	return &loadedAssets{
-		images:       make(map[string]*ebiten.Image),
-		placeholders: make(map[string]bool),
+		images:       make(map[*Asset]*ebiten.Image),
+		placeholders: make(map[*Asset]bool),
 		defaultW:     w,
 		defaultH:     h,
 	}
 }
 
-func (la *loadedAssets) image(am *AssetManager, name string) *ebiten.Image {
-	if img, ok := la.images[name]; ok {
-		return img
+// image loads an asset's picture once and hands back the same *ebiten.Image
+// after. An asset that cannot be read, or a nil one, gets a flat placeholder
+// coloured from its name, so a missing file shows rather than crashes.
+func (la *loadedAssets) image(a *Asset) *ebiten.Image {
+	if a == nil {
+		if la.missing == nil {
+			la.missing = placeholderImage("", la.defaultW, la.defaultH)
+		}
+		return la.missing
 	}
-	a, ok := am.Get(name)
-	if !ok {
-		img := placeholderImage(name, la.defaultW, la.defaultH)
-		la.images[name] = img
-		la.placeholders[name] = true
+	if img, ok := la.images[a]; ok {
 		return img
 	}
 	img := loadImageFile(a.Path)
 	if img == nil {
-		img = placeholderImage(name, la.defaultW, la.defaultH)
-		la.placeholders[name] = true
+		img = placeholderImage(a.Name+a.Path, la.defaultW, la.defaultH)
+		la.placeholders[a] = true
 	}
-	la.images[name] = img
+	la.images[a] = img
 	return img
 }
 
-// isPlaceholder reports whether the named image fell back to a generated
-// rectangle. It answers for what has been loaded, so it is only meaningful
-// after image() has been asked for the same name.
-func (la *loadedAssets) isPlaceholder(name string) bool {
-	return la.placeholders[name]
+func (la *loadedAssets) isPlaceholder(a *Asset) bool {
+	return a == nil || la.placeholders[a]
 }
 
 func loadImageFile(path string) *ebiten.Image {

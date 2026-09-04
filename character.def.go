@@ -7,7 +7,7 @@ type Character struct {
 	// Label is what the UI shows instead of Name — a code name, a title,
 	// a shout. Empty means the Name is presentable as it stands.
 	Label       Text
-	Sprite      string // Asset.Name (placeholder if missing)
+	Sprite      *Asset
 	Animations  map[string]AnimationClip
 	Speed       float64
 	SpeechColor color.Color

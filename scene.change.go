@@ -10,7 +10,7 @@ func (g *Game) changeScene(name string) {
 		return
 	}
 	prev := g.currentScene
-	g.transition.start(func() {
+	g.transition.start(sceneTransition, func() {
 		if prev != "" && prev != name {
 			g.previousScene = prev
 		}
@@ -25,7 +25,7 @@ func (g *Game) changeScene(name string) {
 		g.placeActors(name)
 		g.resetTriggers()
 		s := g.SceneManager.MustGet(name)
-		if s.Music != "" {
+		if s.Music != nil {
 			g.Audio.PlayMusic(s.Music)
 		}
 		if s.OnEnter != nil {
