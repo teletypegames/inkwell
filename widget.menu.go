@@ -200,7 +200,7 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 		g.DrawText(dst, "×", closeX, titleY, th.DialogSpeaker)
 	}
 	g.DrawText(dst, m.breadcrumb(closeX-crumbX-GlyphW), crumbX, titleY, th.DialogSpeaker)
-	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight()), th.DialogBorder)
+	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight())-0.5, th.DialogBorder)
 
 	cctx := g.makeCtx()
 	if len(page.rows) == 0 {
@@ -241,7 +241,7 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 
 	footY := float32(frame.Y+frame.H) - float32(m.footerHeight())
-	m.rule(dst, frame, footY, th.DialogBorder)
+	m.rule(dst, frame, footY+0.5, th.DialogBorder)
 	keys := MenuKeys
 	if m.Sticky {
 		keys = MenuKeysSticky
@@ -250,6 +250,9 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 		int(frame.X)+pad, int(footY)+baseline, dimmed(th.StatusText))
 }
 
+// rule draws a one-pixel horizontal line. Its y is a pixel centre, so a
+// rule meant to sit on the last row of the title band, just above the first
+// row's highlight, is drawn at that row's centre rather than its edge.
 func (m *Menu) rule(dst *ebiten.Image, frame Rectangle, y float32, c color.Color) {
 	vector.StrokeLine(dst, float32(frame.X), y, float32(frame.X+frame.W), y, 1, c, false)
 }
