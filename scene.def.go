@@ -23,25 +23,31 @@ type Scene struct {
 
 	// Derived is asked once, by Run, for exits the scene computes rather
 	// than writes — a map screen's pins, one per scene that leads back to
-	// it. What comes back is appended to Exits before Validate.
-	Derived func(g *Game) []Exit
+	// it. It is handed the scene itself, so it can ask "who leads to me"
+	// without naming its own variable, which its own initialiser may not.
+	// What comes back is appended to Exits before Validate.
+	Derived func(g *Game, self *Scene) []Exit
 }
 
 func (s Scene) GetName() string   { return s.Name }
 func (s Scene) TypeLabel() string { return "scene" }
 
-// Scene makes *Scene its own SceneRef, so a scene that is safe to name
-// directly can be.
-func (s *Scene) Scene() *Scene { return s }
-
-// SceneRef is a scene named indirectly. Two scenes that lead to each other
-// cannot each hold the other's pointer in their own literal — Go rejects
-// the initialisation cycle — so an Exit and a GoTo take a SceneRef and ask
-// it at run time. *Scene is one; a game's own empty type whose Scene()
-// method returns the variable is the other, and breaks the cycle because a
-// type is not a dependency.
-type SceneRef interface {
-	Scene() *Scene
+// Leads appends exits to a scene after it is declared, and hands the scene
+// back. Two scenes that lead to each other cannot each hold the other's
+// pointer in their own literal — Go rejects the initialisation cycle — so a
+// scene file declares the scene first and its exits second:
+//
+//	var Alley = SceneManager.Register(&Scene{Name: "alley", …})
+//
+//	var _ = Alley.Leads(
+//		Exit{To: Street, Side: ExitLeft},
+//	)
+//
+// The second declaration depends on both scenes and neither scene depends
+// on it, so the graph may be as tangled as the city is.
+func (s *Scene) Leads(exits ...Exit) *Scene {
+	s.Exits = append(s.Exits, exits...)
+	return s
 }
 
 // SceneActor is a character standing in a scene when it is entered.

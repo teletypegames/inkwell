@@ -1,9 +1,7 @@
 package inkwell
 
-type inSceneCond struct{ scene SceneRef }
+type inSceneCond struct{ scene *Scene }
 
-// InScene is true while the named scene is the current one.
-func InScene(scene SceneRef) Condition { return &inSceneCond{scene: scene} }
-func (i *inSceneCond) Eval(ctx *Ctx) bool {
-	return ctx.Scene != nil && i.scene != nil && ctx.Scene == i.scene.Scene()
-}
+// InScene is true while the given scene is the current one.
+func InScene(scene *Scene) Condition      { return &inSceneCond{scene: scene} }
+func (i *inSceneCond) Eval(ctx *Ctx) bool { return ctx.Scene != nil && ctx.Scene == i.scene }

@@ -16,10 +16,9 @@ const (
 // Game.ExitTake when the Exit says nothing of its own.
 type Exit struct {
 	// To is where the exit leads. Nil means back the way the player came.
-	// It is a SceneRef rather than a *Scene because two scenes that lead to
-	// each other cannot each hold the other's pointer in their own literal;
-	// see SceneRef.
-	To SceneRef
+	// A scene that leads back to the one that leads here is written with
+	// Scene.Leads, after both are declared.
+	To *Scene
 
 	Label Text
 
@@ -38,11 +37,11 @@ type Exit struct {
 }
 
 // ExitName is the hotspot name an Exit gets: "exit:<scene>", or "exit:back".
-func ExitName(to SceneRef) string {
+func ExitName(to *Scene) string {
 	if to == nil {
 		return "exit:back"
 	}
-	return "exit:" + to.Scene().Name
+	return "exit:" + to.Name
 }
 
 func (e Exit) hotspot(g *Game) Hotspot {
@@ -112,7 +111,7 @@ func (g *Game) resolveDerived() {
 		if s.Derived == nil {
 			continue
 		}
-		if derived := s.Derived(g); len(derived) > 0 {
+		if derived := s.Derived(g, s); len(derived) > 0 {
 			s.Exits = append(s.Exits, derived...)
 		}
 	}

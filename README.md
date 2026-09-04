@@ -243,7 +243,7 @@ either way — the order the files are presented in.
 The result is the handle. Every manager holds **pointers** — `Manager[*Scene]`,
 not `Manager[Scene]` — so the variable a file binds and the entry the engine
 looks up are one instance, and every field that refers to another entity is a
-pointer to it: `Stage.Background *Asset`, `Exit.To SceneRef`,
+pointer to it: `Stage.Background *Asset`, `Exit.To *Scene`,
 `SceneActor.Character *Character`, `Say(speaker Talker, …)`. A reference is
 therefore an identifier, checked by the compiler and followed by an editor, and
 `Name` is left with the one job only a string can do: it is the key a save
@@ -926,14 +926,10 @@ type Scene struct {
     Actors     []SceneActor
     OnEnter    Action
     OnLeave    Action
-    Derived    func(g *Game) []Exit  // exits worked out from the rest of the game
+    Derived    func(g *Game, self *Scene) []Exit  // exits worked out from the rest of the game
 }
 
-func (s *Scene) Scene() *Scene            // *Scene is its own SceneRef
-
-type SceneRef interface {
-    Scene() *Scene
-}
+func (s *Scene) Leads(exits ...Exit) *Scene  // append exits after declaration; see below
 
 type SceneActor struct {
     Character *Character
@@ -965,25 +961,23 @@ anywhere: a scene may nest the literal, or a game may derive one per scene
 after registration, the way a game whose backgrounds are named after their
 scenes does. Nil leaves the theme's backdrop showing.
 
-**Naming another scene.** A scene refers to another through a `SceneRef`, not
-a `*Scene`, and the reason is Go's initialisation rule: two package-level
-variables may not refer to each other in their initialisers, and two scenes
-that lead to each other do exactly that. `*Scene` is a `SceneRef`, so a scene
-that is safe to name directly can be; for the round trips, a game declares an
-empty type per scene file and gives it the method:
+**Naming another scene.** `Exit.To` and `GoTo` hold the `*Scene` itself, and
+Go's initialisation rule says two package-level variables may not refer to
+each other in their initialisers — which two scenes that lead to each other
+would. So a scene file declares the scene first and its exits second, with
+`Leads`, a method that appends to `Exits` and hands the scene back:
 
 ```go
-type street struct{}
+var Alley = SceneManager.Register(&inkwell.Scene{Name: "alley", …})
 
-func (street) Scene() *inkwell.Scene { return Street }
-
-// in scene.alley.go
-Exits: []inkwell.Exit{{To: street{}, Side: inkwell.ExitLeft}},
+var _ = Alley.Leads(
+    inkwell.Exit{To: Street, Side: inkwell.ExitLeft},
+)
 ```
 
-A type is not a dependency, so the cycle is gone, and the reference still
-lands on the right file. `Exit.To`, `GoTo` and `InScene` all take a
-`SceneRef`; the engine asks it at run time, after every variable exists.
+The second declaration depends on both scenes and neither depends on it, so
+the graph may be as tangled as the city is, and every reference is still the
+scene.
 
 `Exits` are the scene's connections to other scenes, declared as data. The
 engine turns each one into a hotspot — see [§7.3](#73-exit).
@@ -993,16 +987,18 @@ written into this scene — the pins on a map screen, which are every location
 that says it leads there:
 
 ```go
-SceneManager.Register(&Scene{
+var Selector = SceneManager.Register(&Scene{
     Name:    "selector",
-    Derived: pins.fromGraph,
+    Derived: selectorPins,
 })
 
-func (selector) fromGraph(g *inkwell.Game) []inkwell.Exit {
+func selectorPins(g *inkwell.Game, self *inkwell.Scene) []inkwell.Exit {
     var exits []inkwell.Exit
     for _, s := range g.SceneManager.All() {
-        if leadsToSelector(s) {
-            exits = append(exits, inkwell.Exit{To: s, …})
+        for _, exit := range s.Exits {
+            if exit.To == self {
+                exits = append(exits, inkwell.Exit{To: s, …})
+            }
         }
     }
     return exits
@@ -1020,7 +1016,7 @@ instead of being patched from the wiring after registration.
 // inkwell/scene.exit.go
 
 type Exit struct {
-    To      SceneRef    // where it leads; nil means "back the way you came"
+    To      *Scene      // where it leads; nil means "back the way you came"
     Label   Text        // what the status line calls it
     Side    ExitSide    // where it sits when Area is nil
     Area    Shape       // overrides the edge strip Side would give it
@@ -1038,30 +1034,31 @@ const (
     ExitNear                  // out towards the camera
 )
 
-func ExitName(to SceneRef) string
+func ExitName(to *Scene) string
 ```
 
 A connection belongs to the scene it leads out of, so it is written in that
-scene's own literal rather than in a map kept somewhere else:
+scene's own file, right after the scene, with `Leads` — after rather than
+inside the literal because the scene it leads to may lead back (see
+[§7.2](#72-scene)):
 
 ```go
-Scene{
-    Name: "alley",
-    Exits: []Exit{
-        {
-            To:    noodleHouse{},
-            Label: Text{{Lang: "en", Text: "back out to the street"}},
-            Side:  ExitLeft,
-        },
-        {
-            To:      nil,
-            Label:   Text{{Lang: "en", Text: "the fire escape"}},
-            Side:    ExitBack,
-            Needs:   "has_ladder",
-            Blocked: Say(paul, Text{{Lang: "en", Text: "Can't reach it."}}),
-        },
+var Alley = SceneManager.Register(&Scene{Name: "alley", …})
+
+var _ = Alley.Leads(
+    Exit{
+        To:    NoodleHouse,
+        Label: Text{{Lang: "en", Text: "back out to the street"}},
+        Side:  ExitLeft,
     },
-}
+    Exit{
+        To:      nil,
+        Label:   Text{{Lang: "en", Text: "the fire escape"}},
+        Side:    ExitBack,
+        Needs:   "has_ladder",
+        Blocked: Say(paul, Text{{Lang: "en", Text: "Can't reach it."}}),
+    },
+)
 ```
 
 The engine expands each exit into a `Hotspot` with `Cursor: CursorExit`, the
@@ -1562,7 +1559,7 @@ type Ctx struct {
 | `Wait(seconds float64) Action`           | Block the runner for `seconds`.                                            |
 | `Say(speaker Talker, text Text) Action`  | Show the line above the speaker (`SpeechBubble`), append to chat-log. Click-to-skip. Duration scales with the resolved text's length, 1.2s floor. |
 | `Reply(speaker Talker, answer func(*State) Text) Action` | `Say` with the line decided when it is spoken: `answer` is handed the `State` and returns the `Text` for this moment, so a speaker can answer from what the player has done without a dialog node per case. |
-| `GoTo(scene SceneRef) Action`              | Switch the current scene via a fade transition.                            |
+| `GoTo(scene *Scene) Action`                | Switch the current scene via a fade transition.                            |
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character *Character, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
 | `Give(item *Item) Action`               | Add `item` to inventory.                                                   |
@@ -1646,7 +1643,7 @@ type Condition interface {
 | `Flag(name string) Condition`          | `State.Flag(name)`                               |
 | `HasItem(item *Item) Condition`       | `Inventory.Has(name)`                            |
 | `SelectedItem(item *Item) Condition`  | `Inventory.Selected() == name`                   |
-| `InScene(scene SceneRef) Condition`       | The current `Ctx.Scene` matches.                 |
+| `InScene(scene *Scene) Condition`         | The current `Ctx.Scene` is this one.             |
 | `OnStage(stage *Stage) Condition`       | The named [Stage](#712-stage) is the one showing. |
 | `OnWorld() Condition`                  | The Stage showing is the world, whichever that is. |
 | `Started() Condition`                  | A session exists — begun or loaded.              |

@@ -29,7 +29,7 @@ func (g *Game) Validate() error {
 			}
 		}
 		for _, e := range s.Exits {
-			if e.To != nil && (e.To.Scene() == nil || !g.SceneManager.Has(e.To.Scene().Name)) {
+			if e.To != nil && !g.SceneManager.Has(e.To.Name) {
 				return fmt.Errorf("%w: scene %q exit to an unregistered scene", ErrUnknownScene, s.Name)
 			}
 		}
