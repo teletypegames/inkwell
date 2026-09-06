@@ -517,9 +517,9 @@ func (g *Game) enterStage(stage *Stage) {
 }
 
 // arriveStage queues what a Stage does once it is showing: its OnEnter, and
-// after that its Hold — a Wait and a GoToStage on the same queue, so the
-// clock starts when OnEnter is done and the move lands like any other
-// change, at the top of a frame and through the Stage's Transition.
+// after that its Hold, on the same queue, so the clock starts when OnEnter
+// is done and the move lands like any other change, at the top of a frame
+// and through the Stage's Transition.
 func (g *Game) arriveStage(stage *Stage) {
 	if stage == nil {
 		return
@@ -531,7 +531,7 @@ func (g *Game) arriveStage(stage *Stage) {
 		g.queueAction(stage.OnEnter, "stage enter "+stage.Name)
 	}
 	if stage.Hold > 0 && stage.Next != nil {
-		g.queueAction(Seq(Wait(stage.Hold), GoToStage(stage.Next)), "stage hold "+stage.Name)
+		g.queueAction(&holdAction{stage: stage}, "stage hold "+stage.Name)
 	}
 }
 

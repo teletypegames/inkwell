@@ -48,6 +48,11 @@ type Stage struct {
 	Hold float64
 	Next *Stage
 
+	// Skippable lets the player cut a Hold short: Space, Enter or a click
+	// moves on to Next at once, through the same Transition. A splash card
+	// says it; a title card timed to its music does not.
+	Skippable bool
+
 	OnEnter Action
 	OnLeave Action
 }

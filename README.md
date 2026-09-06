@@ -1465,7 +1465,8 @@ type Stage struct {
     Music      *Music   // a track for this Stage; nil keeps what is playing
     Transition Transition // how this Stage gives way to the next; nil cuts
     Hold       float64  // seconds to show, then move on to Next
-    Next       string
+    Next       *Stage
+    Skippable  bool     // Space, Enter or a click ends the Hold early
     OnEnter    Action
     OnLeave    Action
 }
@@ -1533,14 +1534,19 @@ StageManager.Register(&inkwell.Stage{
     Name:       "splash_studio",
     Transition: inkwell.Fade(0.5),
     Hold:       2,
+    Skippable:  true,
     Next:       splashTitle,
 })
 ```
 
-The clock starts once `OnEnter` is done: the hold is a `Wait` and a
-`GoToStage` on the same queue, so it lands like any other change, at the top
-of a frame. `Validate` rejects a `Next` nobody registered and a `Hold` with
-no `Next`.
+The clock starts once `OnEnter` is done: the hold is one action on the same
+queue as `OnEnter`, so it lands like any other change, at the top of a frame.
+`Skippable` lets the player cut it short — Space, Enter or a click moves on
+to `Next` at once, through the same `Transition`, and the key or the click is
+claimed so nothing underneath reads it. It is one action rather than a `Wait`
+and a `GoToStage` for exactly that reason: a `GoToStage` still queued after a
+skip would fire on whatever Stage was showing by then. `Validate` rejects a
+`Next` nobody registered and a `Hold` with no `Next`.
 
 **Starting a session.** A game whose `StartStage` is the world starts one at
 boot: the start scene is entered and `StartScript` is queued. A game that
