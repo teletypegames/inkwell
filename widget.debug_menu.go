@@ -227,6 +227,7 @@ func debugInvokeWith(scene, hotspot string, item *Item) Action {
 	return Custom(func(ctx *Ctx) Status {
 		g := ctx.Game
 		g.Inventory.Add(item.Name)
+		g.State.NoteKnown(item)
 		g.Inventory.Select(item.Name)
 		if spot := debugHotspot(g, scene, hotspot); spot != nil {
 			g.InvokeVerb(spot, "use")

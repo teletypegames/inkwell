@@ -10,7 +10,7 @@ import (
 
 // saveVersion is bumped when the on-disk schema changes. Load returns
 // ErrSaveVersion if the file is from a future version.
-const saveVersion = 2
+const saveVersion = 3
 
 // saveFile is the JSON-serialisable snapshot of a game session. Only the
 // runtime mutable state lands here — managers, themes and assets are
@@ -45,6 +45,7 @@ type savedState struct {
 	Vars    map[string]any  `json:"vars"`
 	Visited map[string]int  `json:"visited"`
 	Talked  map[string]int  `json:"talked"`
+	Known   map[string]int  `json:"known,omitempty"`
 }
 
 const slotsVersion = 1
@@ -166,6 +167,7 @@ func (g *Game) buildSave() saveFile {
 			Vars:    copyMap(g.State.vars),
 			Visited: copyMap(g.State.visited),
 			Talked:  copyMap(g.State.talked),
+			Known:   copyMap(g.State.known),
 		},
 	}
 	for name, c := range g.chars {
@@ -220,6 +222,9 @@ func (g *Game) applySave(sf *saveFile) error {
 	}
 	for k, v := range sf.State.Talked {
 		st.talked[k] = v
+	}
+	for k, v := range sf.State.Known {
+		st.known[k] = v
 	}
 	g.State = st
 

@@ -7,6 +7,10 @@ type Character struct {
 	// Label is what the UI shows instead of Name — a code name, a title,
 	// a shout. Empty means the Name is presentable as it stands.
 	Label Text
+	// Lore is what the player's record says about the character once they
+	// are known — a bio for a dossier or a codex screen. Nil keeps the
+	// character out of such a screen.
+	Lore Text
 	// Poses are the sprites the character is drawn with, one per Pose the
 	// artwork covers. Nil, or a Pose with no entry, falls back to Idle; no
 	// Idle draws the placeholder figure sized W by H.

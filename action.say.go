@@ -45,6 +45,7 @@ func (r *sayRunner) Tick(ctx *Ctx) Status {
 			}
 		}
 		ctx.Game.talking = r.spec.speaker
+		ctx.Game.noteSpoken(r.spec.speaker)
 		r.bubble = ctx.Game.DeliveryOf(r.spec.speaker) == DeliveryBubble
 		if r.bubble {
 			ctx.Game.SetSpeech(r.spec.speaker, r.line)

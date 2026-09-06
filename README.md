@@ -1202,6 +1202,7 @@ type Item struct {
     Name        string
     Sprite      *Sprite                  // a picture, or frames on a sheet; see Character
     Description Text
+    Lore        Text                     // a paragraph for a dossier screen, once the item is known
 
     OnUseSelf Action
     OnUseWith map[*Item]Action          // this item used on that item
@@ -1210,7 +1211,7 @@ type Item struct {
 
 Items live in the `ItemManager`. When the player picks one up
 (`Give(key)`) the item is appended to the `Inventory`, which remembers it by
-`Name`. Clicking a hotspot with an item selected resolves the action via, in
+`Name`, and the item becomes known (see `State.Known`). Clicking a hotspot with an item selected resolves the action via, in
 order:
 1. `hotspot.OnUseWith[item]`
 2. `hotspot.OnUseWithAny`
@@ -1251,6 +1252,7 @@ Not a manager — pure runtime state owned by `Game`. Mutated by actions
 type Character struct {
     Name        string
     Label       Text                         // what the UI shows; empty = Name
+    Lore        Text                         // a bio for a dossier screen, once the character is known
     Poses       map[Pose]*Sprite             // one Sprite per Pose the art covers; none draws the placeholder
     Speed       float64
     SpeechColor color.Color
@@ -1318,6 +1320,7 @@ type Speaker struct {
     Label Text
     Delivery Delivery
     Color    color.Color
+    Lore     Text                        // a bio for a dossier screen, once the voice is known
 }
 ```
 
@@ -1620,7 +1623,8 @@ type Ctx struct {
 | `Back() Action`                          | Return to `PreviousScene()`. No-op when there is nowhere to go back to.    |
 | `Walk(character *Character, to Point) Action`| Move a character to `to` at `Character.Speed`. Returns when arrived.       |
 | `SetPose(character *Character, pose Pose) Action` | Hold a character in a pose until it next walks or speaks.            |
-| `Give(item *Item) Action`               | Add `item` to inventory.                                                   |
+| `Give(item *Item) Action`               | Add `item` to inventory, and mark it known.                                |
+| `Learn(entity Knowable) Action`         | Mark an Item, Character or Speaker known — see `State.Known`.              |
 | `TakeAway(item *Item) Action`           | Remove `item` from inventory.                                              |
 | `RequireItem(item *Item) Action`        | If the item is not in inventory, flash `MsgNeedItem` and fail.             |
 | `SetFlag(name string) Action`            | `State.SetFlag(name)`.                                                     |
@@ -1631,6 +1635,7 @@ type Ctx struct {
 | `UseTheme(theme *Theme) Action`           | Switch the active theme mid-script, and save the settings.                 |
 | `UseLang(lang string) Action`            | Switch the language every `Text` resolves into, and save the settings; reaches the next frame. |
 | `GoToStage(stage *Stage) Action`          | Show another [Stage](#712-stage), at the top of the next frame.            |
+| `GoBack() Action`                        | Show the Stage that was showing before this one. No-op when there is none. |
 | `Restart() Action`                       | Begin a new session, at the top of the next frame.                         |
 | `LoadSlot(slot int) Action`              | Restore a saved session, at the top of the next frame.                     |
 | `SaveSlot(slot int) Action`              | Write the session to a slot, where it is called.                           |
@@ -1706,6 +1711,7 @@ type Condition interface {
 | `OnStage(stage *Stage) Condition`       | The named [Stage](#712-stage) is the one showing. |
 | `OnWorld() Condition`                  | The Stage showing is the world, whichever that is. |
 | `Started() Condition`                  | A session exists — begun or loaded.              |
+| `Knows(entity Knowable) Condition`     | `State.Known(entity) > 0`                        |
 | `VarEq(name string, v any) Condition`  | `State.Var(name) == v` (Go equality).            |
 | `Given{Flag, NotFlag, Item, NotItem, Var, Is}` | A literal: every set field must hold; `Item` and `NotItem` are `*Item`. `Given{}` holds always. |
 
@@ -1750,6 +1756,11 @@ func (s *State) SetVar(name string, v any)
 func (s *State) Visited(name string) int
 func (s *State) NoteVisit(name string)             // engine bumps on scene enter
 
+type Knowable interface { Named; TypeLabel() string }  // an Item, a Character, a Speaker
+
+func (s *State) Known(entity Knowable) int         // 1, 2, 3… in order of discovery; 0 for not yet
+func (s *State) NoteKnown(entity Knowable)         // Say notes the talker, Give the item, Learn anything
+
 func (s *State) Talked(node string) int
 func (s *State) NoteTalked(node string)            // DialogBox bumps on Once-choice pick
 ```
@@ -1758,6 +1769,8 @@ func (s *State) NoteTalked(node string)            // DialogBox bumps on Once-ch
 `SetVar` accepts any value — strings for text, numbers for scores, struct
 references for richer dashboards. The `TopBar` widget reads vars by name
 to render score / time.
+
+`Known` is the player's record of who and what they have met, kept for a dossier or codex screen. The engine fills it in on its own from two rules — a character or a speaker is known once it has said a line, an item once it has been in the inventory — and a script says `Learn(entity)` for the rest: a name read off a list, a face seen through glass. The value is the order of discovery, so a screen sorted by it reads as the player's own history; `Knows(entity)` is the same fact as a condition. An item and a character may share a `Name`, because the kind is part of the key.
 
 `Visited` and `Talked` underpin the "Once" semantics in dialogs and
 could be used by triggers once those land.
@@ -2390,6 +2403,7 @@ type MenuItem struct {
     Value    func(*Ctx) Text        // right-hand column: a count, a target, "held"
     Items    []MenuItem             // the page this row opens, as authored
     Expand   func(*Ctx) []MenuItem  // the page this row opens, read out of the game
+    Body     Text                   // the page this row opens, as a paragraph to read
     Do       Action                 // what Enter queues on a leaf
     Enabled  Condition              // false dims the row and refuses Enter
     KeepOpen bool                   // leave the menu up after Do
@@ -2398,12 +2412,14 @@ type MenuItem struct {
 func FixedValue(t Text) func(*Ctx) Text   // a Value that does not depend on the game
 ```
 
-A row with neither `Items` nor `Expand` is a leaf, and Enter hands its `Do`
+A row with none of `Items`, `Expand` or `Body` is a leaf, and Enter hands its `Do`
 to `Game.Do`. The two page fields are one decision: **`Items` is what an
 author typed, `Expand` is what the game knows.** An `Expand` page is rebuilt
 while it is open, so a list of what is clickable in the current scene
 rewrites itself when the player leaves the scene; an `Items` page costs
 nothing per frame.
+
+`Body` makes the page a row opens a paragraph rather than rows: the `Text` wrapped to the window in the player's language, scrolled with the same keys, with nothing to pick. A codex entry, a letter, a bio. A row with a `Body` shows the same `→` as a row with a page, and its `Do` is never run.
 
 `Value`, `Expand` and `Enabled` all take the same `*Ctx` an action or a
 condition takes, so `ctx.Scene` is there without being asked for.

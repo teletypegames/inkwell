@@ -13,6 +13,9 @@ type Speaker struct {
 	Label    Text
 	Delivery Delivery
 	Color    color.Color
+	// Lore is what the player's record says about the voice once it is
+	// known — see Character.Lore.
+	Lore Text
 }
 
 func (s Speaker) GetName() string   { return s.Name }
@@ -56,6 +59,18 @@ func (c Character) speaker() Speaker {
 		Label:    c.Label,
 		Delivery: c.Delivery,
 		Color:    c.SpeechColor,
+	}
+}
+
+// noteSpoken records that the voice behind a name has been heard, which is
+// how a Character or a Speaker becomes Known without a script saying so.
+func (g *Game) noteSpoken(name string) {
+	if c, ok := g.CharacterManager.Get(name); ok {
+		g.State.NoteKnown(c)
+		return
+	}
+	if s, ok := g.SpeakerManager.Get(name); ok {
+		g.State.NoteKnown(s)
 	}
 }
 

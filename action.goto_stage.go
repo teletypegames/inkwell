@@ -14,3 +14,20 @@ func (a *gotoStageAction) Tick(ctx *Ctx) Status {
 	ctx.Game.GoToStage(a.stage)
 	return StatusDone
 }
+
+type goBackAction struct{}
+
+// GoBack shows the Stage that was showing before the current one — what a
+// screen reached from two places wants on its way out, so that a dossier
+// opened over the game returns to the game and one opened from the main
+// menu returns to the menu. Nothing happens when there is no previous Stage.
+func GoBack() Action { return &goBackAction{} }
+
+func (a *goBackAction) Start() Runner { return a }
+
+func (a *goBackAction) Tick(ctx *Ctx) Status {
+	if previous := ctx.Game.PreviousStage(); previous != nil {
+		ctx.Game.GoToStage(previous)
+	}
+	return StatusDone
+}

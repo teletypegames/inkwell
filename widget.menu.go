@@ -13,10 +13,17 @@ import (
 // Root is a MenuItem whose Label titles the window, and every level under it
 // is a MenuItem whose Label is that level's crumb in the title bar.
 //
-// A page is either written out (Items) or worked out when the row is entered
-// (Expand). A row with neither is a leaf, and Enter queues its Do.
+// A page is either written out (Items), worked out when the row is entered
+// (Expand), or a paragraph (Body). A row with none of the three is a leaf,
+// and Enter queues its Do.
 type MenuItem struct {
 	Label Text
+
+	// Body makes the page this row opens a paragraph rather than rows: the
+	// Text wrapped to the window, scrolled with the same keys. A codex
+	// entry, a letter, a bio — anything the player reads rather than picks
+	// from.
+	Body Text
 
 	// Value is the right-hand column: what the row is worth right now — a
 	// count, a destination, "held". Nil leaves the column empty.
@@ -53,7 +60,11 @@ func (it MenuItem) page(ctx *Ctx) []MenuItem {
 }
 
 // leaf reports whether entering this item runs it rather than opening a page.
-func (it MenuItem) leaf() bool { return it.Expand == nil && len(it.Items) == 0 }
+func (it MenuItem) leaf() bool { return it.Expand == nil && len(it.Items) == 0 && len(it.Body) == 0 }
+
+// reads reports whether the page this item opens is a Body to read rather
+// than rows to pick from.
+func (it MenuItem) reads() bool { return len(it.Body) > 0 }
 
 // FixedValue is a row's value column when it does not depend on the game: a
 // constant Text in the shape MenuItem.Value asks for.
@@ -106,13 +117,23 @@ type Menu struct {
 	wheel   float64
 }
 
-// menuPage is one open level: where it came from, the rows it is showing,
-// which row the cursor is on and which row it is scrolled to.
+// menuPage is one open level: where it came from, the rows it is showing —
+// or the lines, when the source is a Body — which row the cursor is on and
+// which row or line it is scrolled to.
 type menuPage struct {
 	source MenuItem
 	rows   []MenuItem
+	lines  []string
 	cursor int
 	top    int
+}
+
+// length is how many rows or lines the page has to move over.
+func (page *menuPage) length() int {
+	if page.source.reads() {
+		return len(page.lines)
+	}
+	return len(page.rows)
 }
 
 func (m *Menu) GetName() string            { return m.Name }
@@ -178,7 +199,7 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	baseline := (lh - GlyphH) / 2
 
 	page := m.top()
-	if page.rows == nil {
+	if page.rows == nil && page.lines == nil {
 		m.refresh(g.makeCtx())
 	}
 
@@ -203,7 +224,16 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	m.rule(dst, frame, float32(frame.Y)+float32(m.titleHeight())-0.5, th.DialogBorder)
 
 	cctx := g.makeCtx()
-	if len(page.rows) == 0 {
+	if page.source.reads() {
+		for slot := 0; slot < m.visibleRows(frame); slot++ {
+			index := page.top + slot
+			if index >= len(page.lines) {
+				break
+			}
+			rect := m.slotRect(frame, slot)
+			g.DrawText(dst, page.lines[index], int(rect.X)+2, int(rect.Y)+baseline, th.DialogText)
+		}
+	} else if len(page.rows) == 0 {
 		rect := m.slotRect(frame, 0)
 		g.DrawText(dst, MenuEmpty.String(), int(rect.X)+2, int(rect.Y)+baseline, dimmed(th.DialogText))
 	}
@@ -338,7 +368,7 @@ func (m *Menu) mouse(ctx *Ctx) {
 
 func (m *Menu) enter(ctx *Ctx) {
 	page := m.top()
-	if page == nil || page.cursor >= len(page.rows) {
+	if page == nil || page.source.reads() || page.cursor >= len(page.rows) {
 		return
 	}
 	row := page.rows[page.cursor]
@@ -372,22 +402,34 @@ func (m *Menu) back(ctx *Ctx) {
 
 // refresh rebuilds the open page's rows — an Expand page answers for the
 // game as it is now, so teleporting out of a scene rewrites the list of what
-// is clickable in it — and keeps the cursor on a row that exists.
+// is clickable in it — and keeps the cursor on a row that exists. A Body
+// page is wrapped to the window instead, in the player's language.
 func (m *Menu) refresh(ctx *Ctx) {
 	page := m.top()
 	if page == nil {
 		return
 	}
-	page.rows = page.source.page(ctx)
+	if page.source.reads() {
+		page.rows = nil
+		page.lines = WrapText(page.source.Body.String(), int(m.slotRect(m.frame, 0).W)-4)
+	} else {
+		page.rows = page.source.page(ctx)
+	}
 	m.moveTo(page.cursor)
 }
 
+// move steps the cursor, wrapping round the rows of a list; a Body has no
+// cursor to wrap, so it scrolls and stops at either end.
 func (m *Menu) move(step int) {
 	page := m.top()
-	if page == nil || len(page.rows) == 0 {
+	if page == nil || page.length() == 0 {
 		return
 	}
-	n := len(page.rows)
+	if page.source.reads() {
+		m.jump(step)
+		return
+	}
+	n := page.length()
 	m.moveTo(((page.cursor+step)%n + n) % n)
 }
 
@@ -406,25 +448,31 @@ func (m *Menu) moveTo(index int) {
 	if page == nil {
 		return
 	}
-	if index >= len(page.rows) {
-		index = len(page.rows) - 1
+	if index >= page.length() {
+		index = page.length() - 1
 	}
 	if index < 0 {
 		index = 0
 	}
 	page.cursor = index
 	rows := m.visibleRows(m.frame)
+	if page.source.reads() {
+		page.top = page.cursor
+	}
 	if page.cursor < page.top {
 		page.top = page.cursor
 	}
 	if rows > 0 && page.cursor >= page.top+rows {
 		page.top = page.cursor - rows + 1
 	}
-	if page.top > len(page.rows)-rows {
-		page.top = len(page.rows) - rows
+	if page.top > page.length()-rows {
+		page.top = page.length() - rows
 	}
 	if page.top < 0 {
 		page.top = 0
+	}
+	if page.source.reads() {
+		page.cursor = page.top
 	}
 }
 
@@ -485,10 +533,11 @@ func (m *Menu) slotRect(frame Rectangle, slot int) Rectangle {
 	)
 }
 
-// slotAt is the row slot a point falls on, if it falls on one at all.
+// slotAt is the row slot a point falls on, if it falls on one at all. A
+// Body has no rows to fall on.
 func (m *Menu) slotAt(point Point) (int, bool) {
 	page := m.top()
-	if page == nil {
+	if page == nil || page.source.reads() {
 		return 0, false
 	}
 	for slot := 0; slot < m.visibleRows(m.frame); slot++ {
