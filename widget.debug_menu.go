@@ -32,6 +32,10 @@ var DebugMenuRoot = MenuItem{
 			Value:  debugTally(debugExitCount),
 			Expand: debugExitRows,
 		},
+		{
+			Label:  explorerTitle,
+			Expand: exploreGame,
+		},
 	},
 }
 

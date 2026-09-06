@@ -64,6 +64,7 @@ import "git.teletypegames.org/games/inkwell"
     - 11.6 [Custom widgets](#116-custom-widgets)
     - 11.7 [The menu system](#117-the-menu-system)
     - 11.8 [The debug menu](#118-the-debug-menu)
+    - 11.9 [The explorer](#119-the-explorer)
 12. [Themes](#12-themes)
 13. [Asset pipeline](#13-asset-pipeline)
 14. [Audio](#14-audio)
@@ -2472,11 +2473,12 @@ DEBUG
 │   └── <hotspot>          value: its CursorKind
 │       ├── <verb>         only the verbs the hotspot answers
 │       └── use with → <item>   the hotspot's OnUseWith pairs
-└── Exits          the current scene's exits, as the graph sees them
-    └── exit:<to>          value: which edge it sits on
-        ├── go
-        └── needs <flag>   value: on / off
-            └── set · clear
+├── Exits          the current scene's exits, as the graph sees them
+│   └── exit:<to>          value: which edge it sits on
+│       ├── go
+│       └── needs <flag>   value: on / off
+│           └── set · clear
+└── EXPLORER       the Game itself, field by field — see below
 ```
 
 The rows name **registry keys**, not the prose a player reads: a debug menu
@@ -2497,6 +2499,65 @@ Root: inkwell.MenuItem{
     Label: inkwell.DebugMenuRoot.Label,
     Items: append(inkwell.DebugMenuRoot.Items, mySection),
 },
+```
+
+### 11.9 The explorer
+
+`ExplorerRoot` is the other page tree the library ships, and the last page
+of `DebugMenuRoot`: the `Game` itself, field by field, worked out by
+reflection when a page opens. A manager opens onto its entities, an entity
+onto its literal, an action onto the actions it is made of, a `Text` onto its
+translations — as deep as the game was written, and nothing is typed out
+twice.
+
+```
+EXPLORER
+├── Title · Width · Height · …          value: the scalar itself
+├── SceneManager                        value: how many
+│   └── <scene>                         value: its Name
+│       ├── Title                       value: the line in the current language
+│       │   └── en · hu                 value: that translation
+│       ├── Layers                      value: how many
+│       │   └── <asset name>            value: the asset's Name
+│       │       ├── Asset → Name · Path
+│       │       └── Z
+│       └── Hotspots → <hotspot>
+│           └── OnLook                  value: Seq
+│               ├── run                 Enter queues the action
+│               └── children
+│                   └── [0]             value: Say
+│                       ├── run
+│                       ├── speaker     value: paul
+│                       └── text        value: the line
+├── ItemManager · CharacterManager · …
+└── State · Inventory · …               the run as it stands
+```
+
+The value column is what a row is worth right now: a name for what has one,
+the current language's line for a `Text`, `Given = true` for a `Condition`
+evaluated against the game as it stands, the kind of action — `Say`, `Seq`,
+`If` — for an `Action`, `#RRGGBBAA` for a colour, a count for a collection.
+A pointer to a registered entity is a link: `Item = key` opens onto the item
+itself, wherever it was met. A function is `func` and opens onto nothing; a
+`Reply`, a `Custom` and a `Derived` are closures, and the explorer stops
+where the writing turns into code.
+
+Unexported fields are read too, through a fresh pointer to the same memory.
+An action's speaker and line live in unexported fields of an unexported
+type, and an explorer that could not see inside a `Say` would stop exactly
+where the writing starts. Every action row opens with `run`, so any authored
+sequence can be played from where it is written.
+
+`Explore` runs a game with nothing on screen but this — a Stage that is a
+`Sticky` `Menu` over the whole window, rooted at `ExplorerRoot` — validated
+and wired exactly as `Run` wires it, so what it shows is the game as it would
+have run:
+
+```go
+if explore {
+    return inkwell.Explore(game)
+}
+return inkwell.Run(game)
 ```
 
 ---
@@ -3208,6 +3269,7 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── widget.hotspot_debug.go     # HotspotDebug
 ├── widget.menu.go              # Menu + MenuItem: the menu system
 ├── widget.debug_menu.go        # DebugMenuRoot: the menu system's one built-in use
+├── explore.go                  # ExplorerRoot and Explore: the Game, field by field, by reflection
 ├── widget.panel.go             # Panel
 ├── widget.top_bar.go           # TopBar
 ├── widget.character_panel.go   # CharacterPanel + CharStat
