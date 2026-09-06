@@ -142,7 +142,7 @@ func main() {
     player := &inkwell.Character{Name: "player", W: 28, H: 62}
     room := &inkwell.Scene{
         Name:       "room",
-        Background: &inkwell.Asset{Name: "bg/room", Path: "assets/bg/room.png"},
+        Layers:     []inkwell.SceneLayer{{Asset: &inkwell.Asset{Name: "bg/room", Path: "assets/bg/room.png"}, Z: -1}},
         Actors:     []inkwell.SceneActor{{Character: player, At: inkwell.Point{X: 160, Y: 140}}},
         Hotspots: []inkwell.Hotspot{{
             Name:   "door",
@@ -363,7 +363,6 @@ game := inkwell.New(inkwell.Game{
     UseWithFail: script.UseWithFail,
 
     SceneManager:  scene.SceneManager,
-    AssetManager:  background.BackgroundManager,
     ScriptManager: script.ScriptManager,
     WidgetManager: widget.WidgetManager,
     ThemeManager:  theme.ThemeManager,
@@ -919,7 +918,7 @@ kitchen := g.AssetManager.Register(&inkwell.Asset{
 type Scene struct {
     Name       string
     Title      Text           // optional human-readable name (TopBar widget reads this)
-    Background *Asset         // the picture; nil leaves the theme's backdrop
+    Layers     []SceneLayer   // the picture in planes, each at a depth Z; empty leaves the theme's backdrop
     Music      *Music         // starts on enter; nil changes nothing
     Hotspots   []Hotspot
     Exits      []Exit         // connections to other scenes
@@ -936,6 +935,11 @@ func (s *Scene) Leads(exits ...Exit) *Scene  // append exits after declaration; 
 type SceneActor struct {
     Character *Character
     At        Point
+}
+
+type SceneLayer struct {
+    Asset *Asset
+    Z     int      // the cast is at 0: negative is behind every character, positive in front
 }
 ```
 
@@ -958,10 +962,26 @@ straight line — see [§7.8](#78-character) and [§16.4](#164-character-movemen
 `Triggers` fire on the rising edge of their `When` condition. The
 engine samples each trigger once per idle frame; see [§7.5](#75-trigger).
 
-`Background` is the picture itself, an `*Asset`, and it need not be registered
-anywhere: a scene may nest the literal, or a game may derive one per scene
-after registration, the way a game whose backgrounds are named after their
-scenes does. Nil leaves the theme's backdrop showing.
+`Layers` is the picture, in planes. Every layer is a full-screen image with
+transparency where the planes behind it show through, at a depth `Z`, and the
+cast stands at 0: a layer with a negative `Z` is behind every character, one
+with a positive `Z` is in front of every character, and the further from 0
+the further from the cast. The background is the layer at -1, which everybody
+walks in front of; a foreground — a fence along the bottom edge, a counter —
+is the layer at 1, which everybody walks behind. Two layers at one `Z` keep
+the order they were written in.
+
+A layer's `Asset` need not be registered anywhere: a scene may nest the
+literal, or a game may derive one per scene after registration, the way a game
+whose backgrounds are named after their scenes does. An empty `Layers` leaves
+the theme's backdrop showing. A missing file is the usual named placeholder
+for the lowest layer, and nothing at all for a layer above it — a missing
+piece of transparency is not a plate to paint over the scene.
+
+Because every plane is the whole canvas, the painter exports them from the
+same file as the background, one PNG per layer, and there is no offset to
+keep in step; the cost is one full-screen texture per layer, which a painted
+adventure can afford.
 
 **Naming another scene.** `Exit.To` and `GoTo` hold the `*Scene` itself, and
 Go's initialisation rule says two package-level variables may not refer to
@@ -2759,10 +2779,13 @@ that falls through a menu reaches nothing rather than the alley behind it.
 ### 16.2 `engine.Draw`
 
 ```
-fill Theme.SceneBackdrop (if any)
-draw scene background image
+fill Theme.SceneBackdrop, or black
+for layer in scene layers with Z <= 0, by Z:
+    drawFullScreen(layer)
 for c in characters sorted by Y:
     drawCharacter(c)
+for layer in scene layers with Z > 0, by Z:
+    drawFullScreen(layer)
 for w in WidgetManager (by layer, then registration order):
     if not WidgetVisible(w): continue
     w.Draw(screen, uictx)

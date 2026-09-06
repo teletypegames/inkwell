@@ -7,9 +7,12 @@ type Scene struct {
 	Name string
 	// Title is the human-readable name a TopBar shows; empty shows Name.
 	Title Text
-	// Background is the picture, stretched over the scene area. Nil leaves
+	// Layers is the picture, in planes: every one a full-screen image at a
+	// depth Z, with the cast at 0. A negative Z is behind every character —
+	// the background is -1 — and a positive Z is in front of every
+	// character, a foreground the player walks behind. Nothing here leaves
 	// the theme's backdrop showing — a scene that is all widgets.
-	Background *Asset
+	Layers []SceneLayer
 	// Music starts when the scene is entered and keeps playing until a
 	// scene or Stage with different music is. Nil changes nothing.
 	Music     *Music

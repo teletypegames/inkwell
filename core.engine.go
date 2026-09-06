@@ -226,34 +226,25 @@ func (e *engine) Draw(screen *ebiten.Image) {
 	g := e.g
 	th := g.Theme()
 
-	// optional backdrop (helps when the background image doesn't fill the screen)
+	// The backdrop is what shows wherever nothing is painted over it: a
+	// theme's own colour, or black.
 	if th.SceneBackdrop != nil {
 		screen.Fill(th.SceneBackdrop)
+	} else {
+		screen.Fill(color.RGBA{0, 0, 0, 255})
 	}
 
 	world := g.OnWorldStage()
 
-	// The picture: the current scene on the world Stage, and whatever the
-	// Stage itself carries anywhere else. A Stage with no Background of its
-	// own leaves the theme's backdrop showing.
+	// The picture: the current scene on the world Stage, its layers behind
+	// and in front of its cast, and whatever the Stage itself carries
+	// anywhere else. A scene with no layers and a Stage with no Background leave the
+	// backdrop showing.
 	switch {
-	case world && g.currentScene != "" && g.SceneManager.MustGet(g.currentScene).Background != nil:
-		drawFullScreen(screen, g, g.SceneManager.MustGet(g.currentScene).Background)
-	case !world:
-		if g.currentStage != nil && g.currentStage.Background != nil {
-			drawFullScreen(screen, g, g.currentStage.Background)
-		} else if th.SceneBackdrop == nil {
-			screen.Fill(color.RGBA{0, 0, 0, 255})
-		}
-	default:
-		screen.Fill(color.RGBA{0, 0, 0, 255})
-	}
-
-	// characters (y-sorted)
-	if world {
-		for _, c := range sortedChars(g) {
-			drawCharacter(screen, g, c)
-		}
+	case world && g.currentScene != "":
+		drawScene(screen, g, g.SceneManager.MustGet(g.currentScene))
+	case !world && g.currentStage != nil:
+		drawFullScreen(screen, g, g.currentStage.Background)
 	}
 
 	// widgets from the bottom layer up
