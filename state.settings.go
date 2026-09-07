@@ -22,7 +22,12 @@ type Settings struct {
 	Extra map[string]any `json:"extra,omitempty"`
 }
 
-const settingsKey = "settings"
+// SettingsKey is the Store key the settings document lives under. It is
+// exported beside SlotsKey so a game can name the documents it sends
+// somewhere else — a platform's cloud, say — without knowing their spelling.
+const SettingsKey = "settings"
+
+const settingsKey = SettingsKey
 
 // Settings is the document as it stands: what was loaded at boot, updated
 // by every SaveSettings since. A game reads and writes its Extra here.

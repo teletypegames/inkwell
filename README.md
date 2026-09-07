@@ -26,6 +26,7 @@ import "git.teletypegames.org/games/inkwell"
 2. [Quick start](#2-quick-start)
 3. [The Manager pattern](#3-the-manager-pattern)
 4. [The Game aggregate](#4-the-game-aggregate)
+   - 4.9 [Extensions, and the Steam layer](#49-extensions-and-the-steam-layer)
 5. [Text and languages](#5-text-and-languages)
    - 5.1 [Writing one](#51-writing-one)
    - 5.2 [Resolving one](#52-resolving-one)
@@ -48,6 +49,7 @@ import "git.teletypegames.org/games/inkwell"
    - 7.10 [Script](#710-script)
    - 7.11 [Verb](#711-verb)
    - 7.12 [Stage](#712-stage)
+   - 7.13 [Achievement](#713-achievement)
 8. [The action system](#8-the-action-system)
    - 8.1 [Action and Runner](#81-action-and-runner)
    - 8.2 [Status and Ctx](#82-status-and-ctx)
@@ -327,6 +329,7 @@ type Game struct {
     FinaleScript *Script   // closing script, queued straight after StartScript
     StartTheme   *Theme    // theme selected at boot (nil -> classic-scumm)
     Flags        []string  // State flags set before the first frame
+    SystemLang   string    // the language the machine or platform reports; after the stored one, before Fallback
 
     // runtime services
     State     *State
@@ -340,6 +343,10 @@ type Game struct {
     // where settings and saves live
     App   string   // the game's name to the machine: its config directory, its localStorage prefix
     Store Store    // nil takes the platform's default for App
+
+    // what lives beside the game
+    AchievementManager *AchievementManager   // what the player can be recognised for — see 7.13
+    Extensions         []Extension           // platform layers: started, ticked, stopped — see 4.9
     /* unexported runtime fields */
 }
 ```
@@ -574,6 +581,86 @@ engine starts the next one on the first frame the previous is done, so a
 widget, a trigger and a hotspot click can all hand work in without any of
 them being dropped or racing the others. The engine's own hotspot and
 `OnEnter` actions go through the same queue.
+
+---
+
+### 4.9 Extensions, and the Steam layer
+
+```go
+// inkwell/extension.def.go
+
+type Extension interface {
+    Start(game *Game) error   // top of Run, before the settings are read
+    Tick(ctx *Ctx)            // first thing in every Update, on every Stage
+    Stop()                    // once the ebiten loop has returned
+}
+
+type Unlocker interface {     // optional: an Extension that records achievements
+    Unlock(achievement *Achievement)
+}
+```
+
+An `Extension` is machinery that lives beside the game for the whole run
+and is not a widget: a platform layer, which has to be up before the window
+opens, pumped every frame whether a script holds the frame or not, and shut
+down when the loop returns. A widget stands still while a script runs and
+has no hook at either end, which is why this is its own contract.
+
+`Start` runs before `loadSettings`, so an extension may hand the game a
+`Store` of its own — the settings are then read from it — and may set
+`Game.SystemLang`, the language the machine or the platform reports. `Run`
+resolves the language in this order: whatever was set before `Run` (a
+`-lang` flag), the stored setting, `SystemLang`, `Fallback`. An error from
+`Start` ends `Run`. `Stop` runs in reverse order, through a `defer`, so it
+runs whichever way the loop returned.
+
+An extension that implements `Unlocker` is handed every `Achievement` the
+world earns — see 7.13. It is asked for by type assertion, the way an action
+asks its host, so an extension with no notion of achievements implements
+nothing extra.
+
+**`steam/`** is the one extension the engine ships, in its own package,
+`git.teletypegames.org/engines/inkwell/steam`, which the root package does
+not import — a game that never names it links none of it, and none of
+`github.com/bogdannbv/go-steamworks`, the purego binding underneath. It is
+one literal in the `Game`:
+
+```go
+Extensions: []inkwell.Extension{
+    &steam.Steam{
+        AppID: 480,
+        Languages: map[string]string{
+            "english":   "en",
+            "hungarian": "hu",
+        },
+        Cloud: []string{inkwell.SlotsKey},
+    },
+},
+```
+
+`Start` loads the redistributable, relaunches the binary through Steam when
+it was started outside it (`RestartAppIfNecessary` with `AppID`), initialises
+the API, and then hands the game what it learned: the client's language
+through `Languages`, which maps Steam's names (`"english"`, `"hungarian"`)
+onto the game's codes, and for the `Store` keys named in `Cloud` a `Store`
+backed by Steam Cloud, one file per document. Every other key stays with the
+platform's default store, and the cloud store degrades toward the disk: a
+cloud read that finds nothing falls back to the local document — which is
+how a save made before the game had Steam reaches the load screen and gets
+uploaded on the next write — and a failed cloud write is written locally
+instead and logged. `Tick` is `RunCallbacks`, `Stop` is `Shutdown`, and
+`Unlock` is `SetAchievement` plus `StoreStats`.
+
+When the library cannot be loaded or the API does not initialise, the
+extension logs why and stands down: the game runs without Steam rather than
+not at all. `Running()` says which happened.
+
+At runtime the Steam client must be running and the redistributable —
+`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib` — must be in the
+working directory, which is where Steam launches a game from; the
+`STEAMWORKS_LIB_PATH` environment variable names another location, and
+`STEAM_APPID` makes the binding write the `steam_appid.txt` a run outside
+Steam needs. The binding is 64-bit only, Windows, Linux and macOS.
 
 ---
 
@@ -1563,6 +1650,39 @@ boot: the start scene is entered and `StartScript` is queued. A game that
 opens on a menu starts one when the player says so — which is all `Restart`
 is. `Started()` reports whether one exists, and is what a "Resume" or "Save"
 row is enabled by.
+
+### 7.13 Achievement
+
+```go
+// inkwell/achievement/achievement.go
+
+type Achievement struct {
+    Name  string      // the key a platform knows it by — the Steam API name
+    Title Text        // what a screen shows for it
+    Text  Text
+    When  Condition   // what earns it, evaluated on the world stage every frame
+}
+```
+
+An `Achievement` is something the player is recognised for, declared as
+content: a name, a title and a line in every language the game speaks, and
+the `Condition` that earns it — a flag raised, an item in hand, a scene
+entered. It is registered like any other entity and handed over as
+`Game.AchievementManager`; `Validate` rejects one with no `When`.
+
+The engine evaluates every achievement on each frame the world is showing, a
+running script included, and hands the ones that have just come true to
+every `Unlocker` among the `Extensions` (see 4.9). It keeps no record of its
+own beyond a per-process set that stops a condition that stays true from
+firing every frame: a platform that has a record, Steam, answers a repeated
+`Unlock` idempotently, and a game without one has nothing to persist. A
+`Load` that finds a condition already met therefore reports it again on the
+next run of the process, which is what lets an achievement earned offline
+reach the platform.
+
+`Title` and `Text` are what a platform's own listing repeats — the words
+typed into the Steamworks partner site are these — and what a screen of the
+game's own would show; nothing in the engine draws them yet.
 
 ---
 
@@ -3060,6 +3180,13 @@ choice on a settings screen is kept the moment it is made. `Extra` is the
 game's: read and write it through `Settings()`, call `SaveSettings`, and it
 round-trips beside the engine's fields.
 
+**Documents by name.** The two keys are exported as `SettingsKey` and
+`SlotsKey`, so a game can name the documents it sends somewhere other than
+the default store — `steam.Steam{Cloud: []string{inkwell.SlotsKey}}` keeps
+the saves in Steam Cloud and the settings on the machine — without knowing
+their spelling. `Game.AppName()` is `App` or `"inkwell"`, the directory the
+default store files them under, for a `Store` an extension builds beside it.
+
 ```json
 {"version": 1, "lang": "hu", "theme": "realworld-93", "window_scale": 2, "voice": true}
 ```
@@ -3314,6 +3441,13 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── widget.text_card.go         # TextCard
 ├── stage.def.go                # Stage
 ├── stage.manager.go            # StageManager
+│
+├── achievement.def.go          # Achievement → alias to achievement/
+├── achievement.manager.go      # AchievementManager alias
+├── achievement.runtime.go      # tickAchievements: the rising edge, handed to the Unlockers
+├── extension.def.go            # Extension, Unlocker; start, tick, stop
+├── achievement/                # Achievement and its Manager
+├── steam/                      # the Steamworks Extension: init, callbacks, achievements, cloud saves
 │
 ├── transition.def.go           # Transition
 ├── transition.fade.go          # Fade, FadeTo

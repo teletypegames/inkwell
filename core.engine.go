@@ -23,6 +23,10 @@ func (e *engine) Update() error {
 	g := e.g
 	dt := 1.0 / 60.0
 
+	// Extensions tick before anything else and on every Stage: a platform
+	// layer's callbacks are due whether a menu or a cutscene is showing.
+	g.tickExtensions(g.makeCtx())
+
 	// A screen change asked for last frame lands here, before anything is
 	// ticked, so nothing is torn down underneath a runner mid-Tick.
 	g.applyPending()
@@ -43,6 +47,12 @@ func (e *engine) Update() error {
 	// which tick first so that a click or a key of theirs is not also read
 	// as "skip this line".
 	world := g.OnWorldStage()
+
+	// An achievement is earned by the world as it stands, so it is checked
+	// wherever the world is showing, a running script included.
+	if world {
+		g.tickAchievements(g.makeCtx())
+	}
 
 	if g.scriptRunner != nil {
 		g.tickAwakeWidgets(dt)

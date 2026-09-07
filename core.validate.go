@@ -37,6 +37,11 @@ func (g *Game) Validate() error {
 	if g.Player != nil && !g.CharacterManager.Has(g.Player.Name) {
 		return fmt.Errorf("%w: player %q", ErrUnknownCharacter, g.Player.Name)
 	}
+	for _, a := range g.AchievementManager.All() {
+		if a.When == nil {
+			return fmt.Errorf("inkwell: achievement %q names no When", a.Name)
+		}
+	}
 	if g.activeTheme == "" || !g.ThemeManager.Has(g.activeTheme) {
 		return fmt.Errorf("inkwell: no active theme (got %q)", g.activeTheme)
 	}

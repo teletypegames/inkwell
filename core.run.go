@@ -11,8 +11,19 @@ func Run(g *Game) error {
 	// that hold a registry directly are wired here, not at construction.
 	g.resolveDerived()
 
+	// Extensions start before the settings are read, so that one may hand
+	// the game the Store the settings are read from; and they stop once
+	// the loop has returned, whichever way it returned.
+	if err := g.startExtensions(); err != nil {
+		return err
+	}
+	defer g.stopExtensions()
+
 	if err := g.loadSettings(); err != nil {
 		logf("settings: %v", err)
+	}
+	if Lang == "" {
+		Lang = g.SystemLang
 	}
 	if Lang == "" {
 		Lang = Fallback

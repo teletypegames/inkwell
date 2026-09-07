@@ -24,6 +24,16 @@ type Game struct {
 	WidgetManager    *WidgetManager
 	ThemeManager     *ThemeManager
 	StageManager     *StageManager
+	// AchievementManager holds what the player can be recognised for. Its
+	// entries are evaluated on the world stage and reported through the
+	// Extensions — see achievement.def.go and extension.def.go.
+	AchievementManager *AchievementManager
+
+	// Extensions live beside the game for the whole run: started before the
+	// settings are read, ticked first thing every frame, stopped when the
+	// loop returns. A platform layer such as Steam is one. Nil is a game
+	// with none.
+	Extensions []Extension
 
 	// SceneRect is the part of the window the picture occupies. Zero means
 	// the whole window. A game with a HUD along the foot sets it, so that
@@ -66,6 +76,13 @@ type Game struct {
 	// build or command line switches something on says so here rather
 	// than reaching into State after construction.
 	Flags []string
+
+	// SystemLang is the language the machine or the platform reports — the
+	// Steam client's, an OS locale — and the one a first run speaks when
+	// nothing stored says otherwise. Run's order is: the language set
+	// before Run, then the stored setting, then this, then Fallback. An
+	// Extension's Start is where a platform writes it.
+	SystemLang string
 
 	// Player names the character the player controls: the one a scene gets
 	// when it lists no actors of its own, placed at that character's Start,
@@ -137,6 +154,10 @@ type Game struct {
 	// triggerStates tracks per-trigger rising-edge / fired bookkeeping
 	// for the current scene. Cleared on scene change and on Load.
 	triggerStates map[string]*triggerState
+
+	// unlocked is every Achievement reported to the Extensions this process,
+	// so a condition that stays true is handed over once.
+	unlocked map[string]bool
 }
 
 // speechState is what the SpeechBubble widget renders. Mutated by Say.
@@ -208,6 +229,9 @@ func New(spec Game) *Game {
 	if g.StageManager == nil {
 		g.StageManager = NewManager[*Stage]()
 	}
+	if g.AchievementManager == nil {
+		g.AchievementManager = NewManager[*Achievement]()
+	}
 
 	g.State = NewState()
 	g.Inventory = NewInventory()
@@ -215,6 +239,7 @@ func New(spec Game) *Game {
 	g.Input = newInput()
 	g.loaded = newLoadedAssets(g.Width, g.Height)
 	g.chars = make(map[string]*runtimeChar)
+	g.unlocked = make(map[string]bool)
 	g.transition = &transition{}
 	g.selectedVerb = "look"
 	g.pending = noChange

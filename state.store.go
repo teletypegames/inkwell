@@ -37,12 +37,15 @@ func (m *MemoryStore) Write(key string, data []byte) error {
 
 func (g *Game) store() Store {
 	if g.Store == nil {
-		g.Store = defaultStore(g.appName())
+		g.Store = defaultStore(g.AppName())
 	}
 	return g.Store
 }
 
-func (g *Game) appName() string {
+// AppName is App, or "inkwell" for a game that named none: the word the
+// platform's default Store files the documents under, exported so that a
+// Store an extension builds files them under the same one.
+func (g *Game) AppName() string {
 	if g.App != "" {
 		return g.App
 	}

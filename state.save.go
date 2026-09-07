@@ -50,7 +50,11 @@ type savedState struct {
 
 const slotsVersion = 1
 
-const slotsKey = "slots"
+// SlotsKey is the Store key the slots document lives under — see
+// SettingsKey.
+const SlotsKey = "slots"
+
+const slotsKey = SlotsKey
 
 // slotsFile is the one document every save slot lives in: a slot is a key,
 // "slot1", and its value carries what a load screen lists — when, where —
