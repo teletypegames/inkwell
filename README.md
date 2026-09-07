@@ -96,6 +96,13 @@ Monkey Island, Day of the Tentacle):
 - swappable color themes,
 - placeholder graphics so the game runs without any art on disk.
 
+The generic infrastructure — registries, i18n, state, action and condition
+framework, widget system, and nine reusable widgets — lives in the
+`inkbase/` sub-packages. A game that is not a point-and-click adventure can
+import `inkbase` alone without pulling in scenes, characters, dialogs or
+verbs. inkwell itself delegates to inkbase where the types match, and
+re-exports everything for backward compatibility.
+
 The design collapses to **one organising pattern**: every named entity is
 registered via `Manager.Register(Entity{Name: "..."})`. No builders, no
 fluent chains, no scattered registries. The same mental model applies to
@@ -3176,38 +3183,42 @@ inkwell.DebugLog = true                 // logf output to stderr (script queue, 
 
 ## 22. Project layout
 
-All library source files live at the repo root; no nested package
-directory. The naming convention is `category.identifier.go` — `ls widget.*`
-or `ls action.*` instantly groups a category, and the category is the word
-the entity itself uses: `character.*` holds `Character`, `script.*` holds
-`Script`, `dialog.*` holds `Dialog`. There is no `ui.*` group, because
-"UI" is not an entity anybody registers — a widget, a theme and a verb are
-three categories that happen to be drawn. Below the category file that
-holds a group's shared contract, each file holds **one** thing: one action,
-one condition, one preset theme, one widget. Adding a built-in action is
-adding a file; the tree below writes those runs of files as a glob rather
-than listing all twenty-three.
+The adventure-specific source lives at the repo root, named
+`category.identifier.go`. The generic infrastructure lives under `inkbase/`
+in sub-packages a non-adventure game can import on their own.
+
+At the root, `ls widget.*` or `ls action.*` groups a category, and the
+category is the word the entity itself uses: `character.*` holds
+`Character`, `script.*` holds `Script`. Below the category file that holds
+a group's shared contract, each file holds **one** thing. Adding a built-in
+action is adding a file; the runs of them are written below as a glob.
+
+Many root-level types are aliases to their `inkbase` counterpart (Point,
+Rectangle, Asset, State, Delivery, Status, Named, Manager, …), and six
+generic actions plus three conditions delegate through an adapter.
 
 ```
 inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── go.mod
 ├── go.sum
 │
+├── inkbase/                    # generic foundation — see below
+│
 ├── core.doc.go                 # package docs
-├── core.manager.go             # Manager[T Named], Named, TypeLabel
+├── core.manager.go             # Manager, Named → aliases to inkbase
 ├── core.game.go                # Game aggregate, its managers and accessors
 ├── core.transition.go          # the one Transition in flight, scene or Stage
 ├── core.validate.go            # Game.Validate
-├── core.log.go                 # LogKind, LogMessage, the chat-log buffer
+├── core.log.go                 # LogKind, LogMessage → aliases; chat-log buffer
 ├── core.engine.go              # ebiten.Game adapter (Update/Draw/Layout)
 ├── core.run.go                 # Run()
 ├── core.errors.go              # sentinel errors
 │
-├── util.geometry.go            # Point, Rectangle, Polygon, Shape
+├── util.geometry.go            # Point, Rectangle, Polygon, Shape → aliases to inkbase
 ├── util.log.go                 # DebugLog + logf
 │
-├── asset.def.go                # Asset: a picture
-├── audio.def.go                # Audible: Voice, Music, Sound
+├── asset.def.go                # Asset → alias to inkbase
+├── audio.def.go                # Voice, Music, Sound → aliases to inkbase
 ├── asset.manager.go            # AssetManager alias + lazy loader
 ├── asset.audio.go              # AudioPlayer (WAV/OGG/MP3): music, voices, sounds
 ├── asset.text.go               # drawText / wrapText helpers
@@ -3232,7 +3243,7 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── item.manager.go             # ItemManager alias
 ├── item.inventory.go           # Inventory
 │
-├── character.def.go            # Character
+├── character.def.go            # Character; Delivery → alias to inkbase
 ├── character.manager.go        # CharacterManager alias
 ├── character.pose.go           # tickPose: which Pose, which frame
 ├── sprite.def.go               # Sprite, Pose, Facing, drawSprite
@@ -3246,18 +3257,20 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── dialog.manager.go           # DialogManager alias
 ├── dialog.runtime.go           # the conversation in flight
 │
-├── action.def.go               # Action, Runner, Ctx, Status: the contract
+├── action.def.go               # Action, Runner, Ctx; Status → alias to inkbase
+├── action.adapt.go             # adaptAction: bridges inkbase.Ctx ↔ inkwell.Ctx
 ├── action.queue.go             # Game.Do and the one-at-a-time queue
 ├── action.custom.go            # Custom
-├── action.*.go                 # one built-in action per file: say, goto, wait, walk, …
+├── action.*.go                 # one per file; generic ones delegate to inkbase/action
 │
 ├── condition.def.go            # Condition
-├── condition.*.go              # one condition per file: flag, has_item, and, or, …
+├── condition.adapt.go          # adaptCondition: bridges inkbase.Ctx ↔ inkwell.Ctx
+├── condition.*.go              # one per file; generic ones delegate to inkbase/condition
 │
 ├── script.def.go               # Script
 ├── script.manager.go           # ScriptManager alias
 │
-├── state.def.go                # State (flags, vars, visited, talked)
+├── state.def.go                # State → alias to inkbase
 ├── state.store.go              # Store, MemoryStore: where settings and saves live
 ├── state.store_native.go       # FileStore under os.UserConfigDir (!js)
 ├── state.store_js.go           # LocalStore over window.localStorage (js)
@@ -3275,7 +3288,7 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── verb.manager.go             # VerbManager alias
 ├── verb.defaults.go            # the built-in SCUMM verb set
 │
-├── widget.def.go               # Widget interface, Layer, Gated, Awake, UICtx, Size, Align
+├── widget.def.go               # Widget, Layer, Gated, Awake, UICtx; Align, Size → aliases
 ├── widget.manager.go           # WidgetManager alias + layer-ordered iterators
 ├── widget.preset_scumm.go      # RegisterDefaultUI
 ├── widget.preset_radial.go     # RegisterRadialVerbUI
@@ -3309,6 +3322,52 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── LICENSE.md                  # MIT
 └── README.md                   # this file
 ```
+
+### inkbase — the generic foundation
+
+`inkbase/` and its sub-packages are the types and components any Ebitengine
+game can use without adventure-game machinery. The root package (`inkbase`)
+is pure Go with no external dependencies; the sub-packages import Ebitengine
+only where they must (font rendering, input polling, image loading, widgets).
+
+```
+inkbase/                        # pure Go, no external deps
+├── inkbase.go                  # Named, Knowable, Manager[T]
+├── text.go                     # Text, Translation, Lang, Fallback, Format
+├── geo.go                      # Point, Rectangle, Polygon, Shape
+├── state.go                    # State (flags, vars, visited, talked, known)
+├── action.go                   # Status, Ctx, Action, Runner
+├── condition.go                # Condition
+├── align.go                    # Align, Size, MouseButton
+├── asset.go                    # Asset, SceneLayer
+├── audio.go                    # Audible, Voice, Music, Sound
+├── stage.go                    # Stage
+├── script.go                   # Script
+├── speaker.go                  # Delivery, Speaker
+├── log.go                      # LogKind, LogMessage
+│
+├── font/                       # ebiten: glyph atlas, DrawText, TextWidth, WrapText, ClipText
+├── input/                      # ebiten: consume-on-use Input
+├── asset/                      # ebiten: AssetFS, image cache, AudioPlayer
+│
+├── action/                     # generic actions: Seq, Par, If, Wait, SetFlag, GoToStage, …
+├── condition/                  # generic conditions: And, Or, Not, Flag, VarEq, OnStage, …
+├── widget/                     # Widget interface, Layer, UICtx, ordering helpers
+│
+├── menu/                       # Menu widget (nested tree, keyboard+mouse, breadcrumb)
+├── textcard/                   # TextCard (centered block of lines)
+├── panel/                      # Panel (colored rectangle backdrop)
+├── keybinding/                 # KeyBinding (key → action)
+├── letterbox/                  # Letterbox (cutscene bars)
+├── endcard/                    # EndCard (fullscreen overlay)
+├── statusline/                 # StatusLine (flash + hover hint)
+├── topbar/                     # TopBar (title, score, time)
+└── chatlog/                    # ChatLog (scrolling message log)
+```
+
+Each widget package defines a narrow unexported `host` interface that
+`ctx.Game` is asserted to. inkwell's `*Game` satisfies these interfaces
+through methods defined in the engine.
 
 The companion demo project (`inkwell-demo`) lives in its own repo at
 <ssh://git@git.teletypegames.org:2222/games/inkwell-demo>. It consumes this
