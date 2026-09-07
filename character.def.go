@@ -1,6 +1,17 @@
 package inkwell
 
-import "image/color"
+import (
+	"image/color"
+
+	"git.teletypegames.org/engines/inkwell/inkbase"
+)
+
+type Delivery = inkbase.Delivery
+
+const (
+	DeliveryBubble = inkbase.DeliveryBubble
+	DeliveryLog    = inkbase.DeliveryLog
+)
 
 type Character struct {
 	Name string
@@ -25,16 +36,6 @@ type Character struct {
 	// Size hints used when the sprite is a placeholder rectangle.
 	W, H float64
 }
-
-// Delivery is how a character reaches the player: over the scene as a speech
-// bubble, or through the message log alone — a radio, a tape, a narrator
-// that has no body to speak from.
-type Delivery int
-
-const (
-	DeliveryBubble Delivery = iota // speech bubble over the scene, plus the log
-	DeliveryLog                    // the log alone
-)
 
 func (c Character) GetName() string { return c.Name }
 

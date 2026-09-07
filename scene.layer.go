@@ -4,19 +4,11 @@ import (
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"git.teletypegames.org/engines/inkwell/inkbase"
 )
 
-// SceneLayer is one plane of a scene's picture: a full-screen image with
-// transparency where the planes behind it show through, at a depth Z. The
-// cast stands at 0, so a layer with a negative Z is behind every character
-// and one with a positive Z is in front of every character; the further
-// from 0, the further from the cast. The background is the layer at -1, a
-// foreground the layer at 1. Two layers at one Z keep the order they were
-// written in.
-type SceneLayer struct {
-	Asset *Asset
-	Z     int
-}
+type SceneLayer = inkbase.SceneLayer
 
 // sortedLayers is a scene's layers back to front.
 func sortedLayers(s *Scene) []SceneLayer {

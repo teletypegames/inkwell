@@ -31,11 +31,11 @@ func (r *notingRunner) Tick(ctx *Ctx) Status {
 	}
 	if r.inner == nil {
 		r.inner = r.spec.inner.Start()
-		ctx.Game.State.SetVar(r.spec.name, r.spec.value)
+		ctx.State.SetVar(r.spec.name, r.spec.value)
 	}
 	status := r.inner.Tick(ctx)
 	if status != StatusRunning {
-		ctx.Game.State.SetVar(r.spec.name, nil)
+		ctx.State.SetVar(r.spec.name, nil)
 	}
 	return status
 }

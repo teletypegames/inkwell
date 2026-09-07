@@ -1,6 +1,10 @@
 package inkwell
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"git.teletypegames.org/engines/inkwell/inkbase"
+)
 
 // Widget is the minimal surface a HUD element must implement to participate
 // in the per-frame loop. The library ships several built-in widgets
@@ -112,25 +116,18 @@ type UICtx struct {
 	DT   float64
 }
 
-// MouseButton identifies which mouse button a widget binds to (e.g. the
-// RadialVerbs widget uses MouseButtonRight by default).
-type MouseButton int
+type MouseButton = inkbase.MouseButton
 
 const (
-	MouseButtonLeft MouseButton = iota
-	MouseButtonRight
+	MouseButtonLeft  = inkbase.MouseButtonLeft
+	MouseButtonRight = inkbase.MouseButtonRight
 )
 
-// Size is a {Width, Height} pair in screen-space pixels.
-type Size struct {
-	W, H int
-}
-
-// Align controls horizontal text alignment for widgets that draw a single line.
-type Align int
+type Size = inkbase.Size
+type Align = inkbase.Align
 
 const (
-	AlignLeft Align = iota
-	AlignCenter
-	AlignRight
+	AlignLeft   = inkbase.AlignLeft
+	AlignCenter = inkbase.AlignCenter
+	AlignRight  = inkbase.AlignRight
 )

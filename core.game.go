@@ -399,7 +399,7 @@ func (g *Game) HoverHint() string {
 }
 
 func (g *Game) makeCtx() *Ctx {
-	c := &Ctx{Game: g, DT: 1.0 / 60.0}
+	c := &Ctx{Game: g, DT: 1.0 / 60.0, State: g.State}
 	if g.currentScene != "" {
 		c.Scene = g.SceneManager.MustGet(g.currentScene)
 	}

@@ -58,7 +58,7 @@ func debugVisits(ctx *Ctx, scene string) Text {
 	if ctx.Game.CurrentScene() == scene {
 		return debugHere
 	}
-	if visits := ctx.Game.State.Visited(scene); visits > 0 {
+	if visits := ctx.State.Visited(scene); visits > 0 {
 		return plain("×" + strconv.Itoa(visits))
 	}
 	return Text{}
@@ -325,7 +325,7 @@ func debugExitCount(ctx *Ctx) int {
 }
 
 func debugFlagMark(ctx *Ctx, flag string) Text {
-	if ctx.Game.State.Flag(flag) {
+	if ctx.State.Flag(flag) {
 		return debugOn
 	}
 	return debugOff

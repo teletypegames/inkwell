@@ -1,7 +1,6 @@
 package inkwell
 
-type flagCond struct{ name string }
+import ibcond "git.teletypegames.org/engines/inkwell/inkbase/condition"
 
 // Flag holds while a named world-state flag is raised.
-func Flag(name string) Condition       { return &flagCond{name: name} }
-func (f *flagCond) Eval(ctx *Ctx) bool { return ctx.Game.State.Flag(f.name) }
+func Flag(name string) Condition { return adaptCondition(ibcond.Flag(name)) }

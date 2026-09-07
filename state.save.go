@@ -163,11 +163,11 @@ func (g *Game) buildSave() saveFile {
 			Selected: g.Inventory.Selected(),
 		},
 		State: savedState{
-			Flags:   copyMap(g.State.flags),
-			Vars:    copyMap(g.State.vars),
-			Visited: copyMap(g.State.visited),
-			Talked:  copyMap(g.State.talked),
-			Known:   copyMap(g.State.known),
+			Flags:   g.State.Flags(),
+			Vars:    g.State.Vars(),
+			Visited: g.State.VisitedMap(),
+			Talked:  g.State.TalkedMap(),
+			Known:   g.State.KnownMap(),
 		},
 	}
 	for name, c := range g.chars {
@@ -209,23 +209,11 @@ func (g *Game) applySave(sf *saveFile) error {
 	}
 
 	st := NewState()
-	for k, v := range sf.State.Flags {
-		if v {
-			st.flags[k] = true
-		}
-	}
-	for k, v := range sf.State.Vars {
-		st.vars[k] = v
-	}
-	for k, v := range sf.State.Visited {
-		st.visited[k] = v
-	}
-	for k, v := range sf.State.Talked {
-		st.talked[k] = v
-	}
-	for k, v := range sf.State.Known {
-		st.known[k] = v
-	}
+	st.LoadFlags(sf.State.Flags)
+	st.LoadVars(sf.State.Vars)
+	st.LoadVisited(sf.State.Visited)
+	st.LoadTalked(sf.State.Talked)
+	st.LoadKnown(sf.State.Known)
 	g.State = st
 
 	inv := NewInventory()

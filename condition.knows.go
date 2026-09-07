@@ -1,10 +1,6 @@
 package inkwell
 
-type knowsCond struct{ entity Knowable }
+import ibcond "git.teletypegames.org/engines/inkwell/inkbase/condition"
 
-// Knows is true once the player has come to know an entity — see
-// State.Known — which is what a dialog choice that asks about somebody by
-// name wants to be gated on.
-func Knows(entity Knowable) Condition { return &knowsCond{entity: entity} }
-
-func (c *knowsCond) Eval(ctx *Ctx) bool { return ctx.Game.State.Known(c.entity) > 0 }
+// Knows is true once the player has come to know an entity.
+func Knows(entity Knowable) Condition { return adaptCondition(ibcond.Knows(entity)) }

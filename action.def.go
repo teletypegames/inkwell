@@ -1,18 +1,20 @@
 package inkwell
 
-// Status is the outcome of one tick of a Runner.
-type Status int
+import "git.teletypegames.org/engines/inkwell/inkbase"
+
+type Status = inkbase.Status
 
 const (
-	StatusRunning Status = iota
-	StatusDone
-	StatusFailed
+	StatusRunning = inkbase.StatusRunning
+	StatusDone    = inkbase.StatusDone
+	StatusFailed  = inkbase.StatusFailed
 )
 
 // Ctx is the per-tick context passed to running actions.
 type Ctx struct {
 	Game    *Game
 	DT      float64
+	State   *State
 	Scene   *Scene
 	Hotspot *Hotspot
 	Item    *Item
