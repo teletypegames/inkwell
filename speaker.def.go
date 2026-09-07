@@ -1,6 +1,10 @@
 package inkwell
 
-import "image/color"
+import (
+	"image/color"
+
+	"git.teletypegames.org/engines/inkwell/inkbase"
+)
 
 // Speaker is a voice with no body: something that talks but never stands in
 // a scene — a tape in a slot, a room-scale system, a narrator. Characters
@@ -28,15 +32,10 @@ func (s Speaker) DisplayName() Text {
 	return plain(s.Name)
 }
 
-// Talker is whoever a line can be given to: a *Character or a *Speaker. Say
-// takes one, and so does a DialogLine, which is what lets a dialog file
-// name the person or the voice itself rather than spell its name.
-type Talker interface {
-	talkerName() string
-}
+type Talker = inkbase.Talker
 
-func (s *Speaker) talkerName() string   { return s.Name }
-func (c *Character) talkerName() string { return c.Name }
+func (s *Speaker) TalkerName() string   { return s.Name }
+func (c *Character) TalkerName() string { return c.Name }
 
 // Say and Reply on the talker itself read the way a script does — who, then
 // what: paul.Say(line). They are the package-level Say and Reply with the
@@ -50,7 +49,7 @@ func talkerName(t Talker) string {
 	if t == nil {
 		return ""
 	}
-	return t.talkerName()
+	return t.TalkerName()
 }
 
 func (c Character) speaker() Speaker {

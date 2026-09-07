@@ -19,7 +19,7 @@ func (c *Cursor) Layer() Layer           { return LayerCursor }
 func (c *Cursor) Tick(ctx *UICtx)        {}
 
 func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	x, y := g.Input.Pos()
 	if sel := g.Inventory.Selected(); sel != "" {
 		if it, ok := g.ItemManager.Get(sel); ok {

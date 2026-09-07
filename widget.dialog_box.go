@@ -30,7 +30,7 @@ func (d *DialogBox) Layer() Layer           { return LayerDialog }
 func (d *DialogBox) TicksDuringScript() bool { return true }
 
 func (d *DialogBox) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if !g.dialogActive() {
 		return
 	}
@@ -72,7 +72,7 @@ func (d *DialogBox) Tick(ctx *UICtx) {
 // resolveChoices is the choices the player can see right now, as positions
 // in the node's own list.
 func (d *DialogBox) resolveChoices(ctx *UICtx) []int {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	dlg := g.dialog
 	out := make([]int, 0, len(dlg.Node.Choices))
 	for i, c := range dlg.Node.Choices {
@@ -109,7 +109,7 @@ func (d *DialogBox) BlocksClickAt(p Point) bool {
 }
 
 func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if !g.dialogActive() {
 		return
 	}

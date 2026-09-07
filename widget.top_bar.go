@@ -46,7 +46,7 @@ func (t *TopBar) Layer() Layer           { return LayerHUD }
 func (t *TopBar) Tick(ctx *UICtx)        {}
 
 func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	h := t.Height
 	if h <= 0 {

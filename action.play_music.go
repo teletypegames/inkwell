@@ -7,6 +7,7 @@ type playMusicAction struct{ music *Music }
 func PlayMusic(music *Music) Action      { return &playMusicAction{music: music} }
 func (a *playMusicAction) Start() Runner { return a }
 func (a *playMusicAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Audio.PlayMusic(a.music)
+	game := gameOf(ctx)
+	game.Audio.PlayMusic(a.music)
 	return StatusDone
 }

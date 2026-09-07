@@ -14,6 +14,7 @@ func Restart() Action { return &restartAction{} }
 func (a *restartAction) Start() Runner { return a }
 
 func (a *restartAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Restart()
+	game := gameOf(ctx)
+	game.Restart()
 	return StatusDone
 }

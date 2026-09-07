@@ -17,20 +17,21 @@ func (e *EndCard) VisibleWhen() Condition { return e.When }
 func (e *EndCard) Layer() Layer           { return LayerCurtain }
 
 func (e *EndCard) Tick(ctx *UICtx) {
-	if ctx.Game.endCard == "" {
+	g := gameOfUI(ctx)
+	if g.endCard == "" {
 		return
 	}
 	// swallow every click while the end card is up
-	if ctx.Game.Input.LeftClicked() {
-		ctx.Game.Input.ConsumeLeft()
+	if g.Input.LeftClicked() {
+		g.Input.ConsumeLeft()
 	}
-	if ctx.Game.Input.RightClicked() {
-		ctx.Game.Input.ConsumeRight()
+	if g.Input.RightClicked() {
+		g.Input.ConsumeRight()
 	}
 }
 
 func (e *EndCard) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if g.endCard == "" {
 		return
 	}

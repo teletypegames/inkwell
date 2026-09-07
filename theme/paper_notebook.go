@@ -1,4 +1,4 @@
-package inkwell
+package theme
 
 import "image/color"
 

@@ -11,7 +11,8 @@ func LoadSlot(slot int) Action { return &loadSlotAction{slot: slot} }
 func (a *loadSlotAction) Start() Runner { return a }
 
 func (a *loadSlotAction) Tick(ctx *Ctx) Status {
-	ctx.Game.LoadLater(a.slot)
+	game := gameOf(ctx)
+	game.LoadLater(a.slot)
 	return StatusDone
 }
 
@@ -24,7 +25,8 @@ func SaveSlot(slot int) Action { return &saveSlotAction{slot: slot} }
 func (a *saveSlotAction) Start() Runner { return a }
 
 func (a *saveSlotAction) Tick(ctx *Ctx) Status {
-	if err := ctx.Game.Save(a.slot); err != nil {
+	game := gameOf(ctx)
+	if err := game.Save(a.slot); err != nil {
 		logf("saveSlot %d: %v", a.slot, err)
 		return StatusFailed
 	}

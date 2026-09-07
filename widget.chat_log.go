@@ -89,7 +89,7 @@ func (c *ChatLog) latest(g *Game) string {
 }
 
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	b := c.Bounds
 	if b.W <= 0 || b.H <= 0 {

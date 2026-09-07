@@ -24,18 +24,19 @@ func (v *VerbBar) VisibleWhen() Condition { return v.When }
 func (v *VerbBar) Layer() Layer           { return LayerHUD }
 
 func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
+	g := gameOfUI(ctx)
 	cols := v.Cols
 	if cols <= 0 {
 		cols = 2
 	}
-	names := ctx.Game.VerbManager.Names()
+	names := g.VerbManager.Names()
 	out := make([]verbButton, 0, len(names))
 	for i, n := range names {
 		col := i % cols
 		row := i / cols
 		x := int(v.Origin.X) + col*(v.Button.W+int(v.Gap.X))
 		y := int(v.Origin.Y) + row*(v.Button.H+int(v.Gap.Y))
-		verb := ctx.Game.VerbManager.MustGet(n)
+		verb := g.VerbManager.MustGet(n)
 		out = append(out, verbButton{
 			Name:   n,
 			Label:  verb.Label.String(),
@@ -46,7 +47,7 @@ func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 }
 
 func (v *VerbBar) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if !g.Input.LeftClicked() {
 		return
 	}
@@ -61,7 +62,7 @@ func (v *VerbBar) Tick(ctx *UICtx) {
 }
 
 func (v *VerbBar) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	if v.PanelBG {
 		// rough bounding box of the buttons

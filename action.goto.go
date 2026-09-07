@@ -1,13 +1,12 @@
 package inkwell
 
-type gotoAction struct{ scene *Scene }
+import "git.teletypegames.org/engines/inkwell/act"
 
 // GoTo takes the player to another scene, through the scene fade.
-func GoTo(scene *Scene) Action      { return &gotoAction{scene: scene} }
-func (a *gotoAction) Start() Runner { return a }
-func (a *gotoAction) Tick(ctx *Ctx) Status {
-	if a.scene != nil {
-		ctx.Game.changeScene(a.scene.Name)
+func GoTo(scene *Scene) Action {
+	name := ""
+	if scene != nil {
+		name = scene.Name
 	}
-	return StatusDone
+	return act.GoTo(name)
 }

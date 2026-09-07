@@ -166,7 +166,7 @@ func (m *Menu) Toggle() {
 }
 
 func (m *Menu) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if m.Sticky {
 		if !m.open {
 			m.Open()
@@ -190,7 +190,7 @@ func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !m.open || len(m.pages) == 0 {
 		return
 	}
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	m.frame = m.frameRect(g)
 	frame := m.frame
@@ -290,7 +290,8 @@ func (m *Menu) rule(dst *ebiten.Image, frame Rectangle, y float32, c color.Color
 // ----- navigation -------------------------------------------------------
 
 func (m *Menu) keys(ctx *Ctx) {
-	in := ctx.Game.Input
+	game := gameOf(ctx)
+	in := game.Input
 	switch {
 	case in.ClaimKey(ebiten.KeyEscape):
 		if !m.Sticky {
@@ -316,7 +317,7 @@ func (m *Menu) keys(ctx *Ctx) {
 }
 
 func (m *Menu) mouse(ctx *Ctx) {
-	g := ctx.Game
+	g := gameOf(ctx)
 	point := g.Input.Point()
 	inside := m.frame.Contains(point)
 
@@ -383,7 +384,7 @@ func (m *Menu) enter(ctx *Ctx) {
 	if row.Do == nil {
 		return
 	}
-	ctx.Game.Do(row.Do)
+	gameOf(ctx).Do(row.Do)
 	if !row.KeepOpen {
 		m.Close()
 	}

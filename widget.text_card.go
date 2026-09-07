@@ -39,7 +39,7 @@ func (c *TextCard) lineHeight() int {
 }
 
 func (c *TextCard) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	if c.Backdrop {
 		vector.DrawFilledRect(dst, 0, 0, float32(g.Width), float32(g.Height), th.EndCardBG, false)

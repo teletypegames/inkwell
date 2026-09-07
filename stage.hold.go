@@ -16,9 +16,10 @@ type holdRunner struct {
 func (a *holdAction) Start() Runner { return &holdRunner{spec: a} }
 
 func (r *holdRunner) Tick(ctx *Ctx) Status {
+	game := gameOf(ctx)
 	r.elapsed += ctx.DT
-	if r.elapsed >= r.spec.stage.Hold || r.skipped(ctx.Game.Input) {
-		ctx.Game.GoToStage(r.spec.stage.Next)
+	if r.elapsed >= r.spec.stage.Hold || r.skipped(game.Input) {
+		game.GoToStage(r.spec.stage.Next)
 		return StatusDone
 	}
 	return StatusRunning

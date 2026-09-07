@@ -1,12 +1,6 @@
 package inkwell
 
-type giveAction struct{ item *Item }
+import "git.teletypegames.org/engines/inkwell/act"
 
 // Give puts an item in the inventory.
-func Give(item *Item) Action        { return &giveAction{item: item} }
-func (a *giveAction) Start() Runner { return a }
-func (a *giveAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Inventory.Add(a.item.Name)
-	ctx.State.NoteKnown(a.item)
-	return StatusDone
-}
+func Give(item *Item) Action { return act.Give(item) }

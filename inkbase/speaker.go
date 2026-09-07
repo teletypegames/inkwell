@@ -21,6 +21,13 @@ type Speaker struct {
 	Lore     Text
 }
 
+// Talker is whoever a line can be given to: a *Character or a *Speaker.
+// Say takes one, and so does a DialogLine, which is what lets a dialog file
+// name the person or the voice itself rather than spell its name.
+type Talker interface {
+	TalkerName() string
+}
+
 func (s Speaker) GetName() string   { return s.Name }
 func (s Speaker) TypeLabel() string { return "speaker" }
 

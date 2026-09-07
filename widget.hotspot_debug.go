@@ -79,7 +79,7 @@ func (h *HotspotDebug) Tick(ctx *UICtx) {
 	if key == 0 {
 		key = ebiten.KeyF1
 	}
-	if ctx.Game.Input.ClaimKey(key) {
+	if gameOfUI(ctx).Input.ClaimKey(key) {
 		h.Enabled = !h.Enabled
 	}
 }
@@ -88,12 +88,13 @@ func (h *HotspotDebug) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !h.Enabled {
 		return
 	}
-	scene, widgets := h.targets(ctx.Game)
+	g := gameOfUI(ctx)
+	scene, widgets := h.targets(g)
 	for _, t := range scene {
-		h.plate(dst, ctx.Game, t, true)
+		h.plate(dst, g, t, true)
 	}
 	for _, t := range widgets {
-		h.plate(dst, ctx.Game, t, false)
+		h.plate(dst, g, t, false)
 	}
 }
 

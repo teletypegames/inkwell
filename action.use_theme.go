@@ -8,7 +8,8 @@ func UseTheme(theme *Theme) Action { return &useThemeAction{theme: theme} }
 func (a *useThemeAction) Start() Runner { return a }
 
 func (a *useThemeAction) Tick(ctx *Ctx) Status {
-	ctx.Game.UseTheme(a.theme)
-	_ = ctx.Game.SaveSettings()
+	game := gameOf(ctx)
+	game.UseTheme(a.theme)
+	_ = game.SaveSettings()
 	return StatusDone
 }

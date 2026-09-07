@@ -32,7 +32,8 @@ func (k *KeyBinding) Tick(ctx *UICtx) {
 	if k.Key == 0 || k.Do == nil {
 		return
 	}
-	if ctx.Game.Input.ClaimKey(k.Key) {
-		ctx.Game.Do(k.Do)
+	g := gameOfUI(ctx)
+	if g.Input.ClaimKey(k.Key) {
+		g.Do(k.Do)
 	}
 }

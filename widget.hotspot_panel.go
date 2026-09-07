@@ -80,7 +80,7 @@ func (p *HotspotPanel) at(g *Game, pt Point) *Hotspot {
 }
 
 func (p *HotspotPanel) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	spot := p.at(g, g.Input.Point())
 	if spot == nil {
 		return

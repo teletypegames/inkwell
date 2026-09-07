@@ -1,3 +1,5 @@
 package inkwell
 
-type DialogManager = Manager[*Dialog]
+import iwdialog "git.teletypegames.org/engines/inkwell/dialog"
+
+type DialogManager = iwdialog.Manager

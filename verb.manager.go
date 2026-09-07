@@ -1,3 +1,5 @@
 package inkwell
 
-type VerbManager = Manager[*Verb]
+import "git.teletypegames.org/engines/inkwell/verb"
+
+type VerbManager = verb.Manager

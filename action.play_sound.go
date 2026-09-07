@@ -6,6 +6,7 @@ type playSoundAction struct{ sound *Sound }
 func PlaySound(sound *Sound) Action      { return &playSoundAction{sound: sound} }
 func (a *playSoundAction) Start() Runner { return a }
 func (a *playSoundAction) Tick(ctx *Ctx) Status {
-	ctx.Game.Audio.PlaySound(a.sound)
+	game := gameOf(ctx)
+	game.Audio.PlaySound(a.sound)
 	return StatusDone
 }

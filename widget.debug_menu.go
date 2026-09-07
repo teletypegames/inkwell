@@ -14,12 +14,12 @@ var DebugMenuRoot = MenuItem{
 	Items: []MenuItem{
 		{
 			Label:  debugScenes,
-			Value:  debugTally(func(ctx *Ctx) int { return ctx.Game.SceneManager.Len() }),
+			Value:  debugTally(func(ctx *Ctx) int { return gameOf(ctx).SceneManager.Len() }),
 			Expand: debugSceneRows,
 		},
 		{
 			Label:  debugItems,
-			Value:  debugTally(func(ctx *Ctx) int { return ctx.Game.ItemManager.Len() }),
+			Value:  debugTally(func(ctx *Ctx) int { return gameOf(ctx).ItemManager.Len() }),
 			Expand: debugItemRows,
 		},
 		{
@@ -42,8 +42,9 @@ var DebugMenuRoot = MenuItem{
 // ----- scenes ------------------------------------------------------------
 
 func debugSceneRows(ctx *Ctx) []MenuItem {
-	rows := make([]MenuItem, 0, ctx.Game.SceneManager.Len())
-	for _, scene := range ctx.Game.SceneManager.All() {
+	game := gameOf(ctx)
+	rows := make([]MenuItem, 0, game.SceneManager.Len())
+	for _, scene := range game.SceneManager.All() {
 		scene := scene
 		rows = append(rows, MenuItem{
 			Label: plain(scene.Name),
@@ -55,7 +56,7 @@ func debugSceneRows(ctx *Ctx) []MenuItem {
 }
 
 func debugVisits(ctx *Ctx, scene string) Text {
-	if ctx.Game.CurrentScene() == scene {
+	if gameOf(ctx).CurrentScene() == scene {
 		return debugHere
 	}
 	if visits := ctx.State.Visited(scene); visits > 0 {
@@ -67,8 +68,9 @@ func debugVisits(ctx *Ctx, scene string) Text {
 // ----- items -------------------------------------------------------------
 
 func debugItemRows(ctx *Ctx) []MenuItem {
-	rows := make([]MenuItem, 0, ctx.Game.ItemManager.Len())
-	for _, item := range ctx.Game.ItemManager.All() {
+	game := gameOf(ctx)
+	rows := make([]MenuItem, 0, game.ItemManager.Len())
+	for _, item := range game.ItemManager.All() {
 		rows = append(rows, MenuItem{
 			Label:  plain(item.Name),
 			Value:  debugHeldMark(item),
@@ -131,17 +133,18 @@ func debugItemPairRows(item *Item) func(*Ctx) []MenuItem {
 
 func debugSelectItem(item *Item) Action {
 	return Custom(func(ctx *Ctx) Status {
-		ctx.Game.Inventory.Select(item.Name)
+		gameOf(ctx).Inventory.Select(item.Name)
 		return StatusDone
 	})
 }
 
 func debugHeldMark(item *Item) func(*Ctx) Text {
 	return func(ctx *Ctx) Text {
-		if !ctx.Game.Inventory.Has(item.Name) {
+		game := gameOf(ctx)
+		if !game.Inventory.Has(item.Name) {
 			return Text{}
 		}
-		if ctx.Game.Inventory.Selected() == item.Name {
+		if game.Inventory.Selected() == item.Name {
 			return debugSelected
 		}
 		return debugHeld
@@ -151,8 +154,9 @@ func debugHeldMark(item *Item) func(*Ctx) Text {
 // ----- action points -----------------------------------------------------
 
 func debugActionPointRows(ctx *Ctx) []MenuItem {
-	scene := ctx.Game.CurrentScene()
-	hotspots := ctx.Game.SceneHotspots(scene)
+	game := gameOf(ctx)
+	scene := game.CurrentScene()
+	hotspots := game.SceneHotspots(scene)
 	rows := make([]MenuItem, 0, len(hotspots))
 	for _, hotspot := range hotspots {
 		name := hotspot.Name
@@ -166,17 +170,19 @@ func debugActionPointRows(ctx *Ctx) []MenuItem {
 }
 
 func debugActionPointCount(ctx *Ctx) int {
-	return len(ctx.Game.SceneHotspots(ctx.Game.CurrentScene()))
+	game := gameOf(ctx)
+	return len(game.SceneHotspots(game.CurrentScene()))
 }
 
 func debugVerbRows(scene, hotspot string) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
-		spot := debugHotspot(ctx.Game, scene, hotspot)
+		game := gameOf(ctx)
+		spot := debugHotspot(game, scene, hotspot)
 		if spot == nil {
 			return nil
 		}
 		var rows []MenuItem
-		for _, verb := range ctx.Game.VerbManager.All() {
+		for _, verb := range game.VerbManager.All() {
 			if spot.handler(verb.Name) == nil {
 				continue
 			}
@@ -198,7 +204,7 @@ func debugVerbRows(scene, hotspot string) func(*Ctx) []MenuItem {
 
 func debugPairRows(scene, hotspot string) func(*Ctx) []MenuItem {
 	return func(ctx *Ctx) []MenuItem {
-		spot := debugHotspot(ctx.Game, scene, hotspot)
+		spot := debugHotspot(gameOf(ctx), scene, hotspot)
 		if spot == nil {
 			return nil
 		}
@@ -216,8 +222,9 @@ func debugPairRows(scene, hotspot string) func(*Ctx) []MenuItem {
 
 func debugInvoke(scene, hotspot, verb string) Action {
 	return Custom(func(ctx *Ctx) Status {
-		if spot := debugHotspot(ctx.Game, scene, hotspot); spot != nil {
-			ctx.Game.InvokeVerb(spot, verb)
+		game := gameOf(ctx)
+		if spot := debugHotspot(game, scene, hotspot); spot != nil {
+			game.InvokeVerb(spot, verb)
 		}
 		return StatusDone
 	})
@@ -225,12 +232,12 @@ func debugInvoke(scene, hotspot, verb string) Action {
 
 func debugInvokeWith(scene, hotspot string, item *Item) Action {
 	return Custom(func(ctx *Ctx) Status {
-		g := ctx.Game
-		g.Inventory.Add(item.Name)
-		g.State.NoteKnown(item)
-		g.Inventory.Select(item.Name)
-		if spot := debugHotspot(g, scene, hotspot); spot != nil {
-			g.InvokeVerb(spot, "use")
+		game := gameOf(ctx)
+		game.Inventory.Add(item.Name)
+		ctx.State.NoteKnown(item)
+		game.Inventory.Select(item.Name)
+		if spot := debugHotspot(game, scene, hotspot); spot != nil {
+			game.InvokeVerb(spot, "use")
 		}
 		return StatusDone
 	})
@@ -266,7 +273,8 @@ func debugCursorName(kind CursorKind) string {
 // ----- exits -------------------------------------------------------------
 
 func debugExitRows(ctx *Ctx) []MenuItem {
-	scene, ok := ctx.Game.SceneManager.Get(ctx.Game.CurrentScene())
+	game := gameOf(ctx)
+	scene, ok := game.SceneManager.Get(game.CurrentScene())
 	if !ok {
 		return nil
 	}
@@ -317,7 +325,8 @@ func debugExitPage(exit Exit) func(*Ctx) []MenuItem {
 }
 
 func debugExitCount(ctx *Ctx) int {
-	scene, ok := ctx.Game.SceneManager.Get(ctx.Game.CurrentScene())
+	game := gameOf(ctx)
+	scene, ok := game.SceneManager.Get(game.CurrentScene())
 	if !ok {
 		return 0
 	}

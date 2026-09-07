@@ -34,7 +34,7 @@ func (c *CharacterPanel) Layer() Layer           { return LayerHUD }
 func (c *CharacterPanel) Tick(ctx *UICtx)        {}
 
 func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if c.Character == nil || !g.CharacterInScene(c.Character) {
 		return
 	}

@@ -32,9 +32,10 @@ func (p *Panel) Layer() Layer           { return LayerPanel }
 func (p *Panel) Tick(ctx *UICtx)        {}
 
 func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
+	g := gameOfUI(ctx)
 	bg := p.BG
 	if bg == nil {
-		bg = ctx.Game.Theme().PanelBG
+		bg = g.Theme().PanelBG
 	}
 	vector.DrawFilledRect(dst,
 		float32(p.Bounds.X), float32(p.Bounds.Y),
@@ -42,7 +43,7 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if p.Border > 0 {
 		bc := p.BorderColor
 		if bc == nil {
-			bc = ctx.Game.Theme().DialogBorder
+			bc = g.Theme().DialogBorder
 		}
 		vector.StrokeRect(dst,
 			float32(p.Bounds.X), float32(p.Bounds.Y),

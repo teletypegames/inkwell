@@ -11,7 +11,8 @@ func UseLang(lang string) Action { return &useLangAction{lang: lang} }
 func (a *useLangAction) Start() Runner { return a }
 
 func (a *useLangAction) Tick(ctx *Ctx) Status {
+	game := gameOf(ctx)
 	Lang = a.lang
-	_ = ctx.Game.SaveSettings()
+	_ = game.SaveSettings()
 	return StatusDone
 }

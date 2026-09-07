@@ -22,7 +22,7 @@ func (s *SpeechBubble) Layer() Layer           { return LayerSpeech }
 func (s *SpeechBubble) Tick(ctx *UICtx)        {}
 
 func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	sp := g.speech
 	if !sp.Active {
 		return

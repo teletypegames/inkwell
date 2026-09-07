@@ -19,6 +19,7 @@ func (e *engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (e *engine) Update() error {
+	syncLang()
 	g := e.g
 	dt := 1.0 / 60.0
 
@@ -47,9 +48,6 @@ func (e *engine) Update() error {
 		g.tickAwakeWidgets(dt)
 		ctx := g.scriptCtx
 		ctx.DT = dt
-		if g.currentScene != "" {
-			ctx.Scene = g.SceneManager.MustGet(g.currentScene)
-		}
 		st := g.scriptRunner.Tick(ctx)
 		if st != StatusRunning {
 			g.scriptRunner = nil

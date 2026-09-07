@@ -36,7 +36,7 @@ func drawCharacter(dst *ebiten.Image, g *Game, c *runtimeChar) {
 	}
 	x := c.pos.X - w/2
 	y := c.pos.Y - h
-	if s := c.sprite(); s != nil && drawSprite(dst, g, s, s.frameAt(c.poseElapsed), c.facing, x, y, w, h) {
+	if s := c.sprite(); s != nil && drawSprite(dst, g, s, s.FrameAt(c.poseElapsed), c.facing, x, y, w, h) {
 		return
 	}
 	bodyCol := color.RGBA{200, 200, 200, 255}

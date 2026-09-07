@@ -49,7 +49,7 @@ func (b *InventoryBar) DebugTargets(g *Game) []DebugTarget {
 }
 
 func (b *InventoryBar) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	mp := g.Input.Point()
 	items := g.Inventory.Items()
 
@@ -113,7 +113,7 @@ func (b *InventoryBar) combine(g *Game, clicked string) bool {
 }
 
 func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	items := g.Inventory.Items()
 

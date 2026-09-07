@@ -1,11 +1,6 @@
 package inkwell
 
-type gotoNodeAction struct{ node string }
+import "git.teletypegames.org/engines/inkwell/act"
 
 // GotoNode moves the open conversation to another of its nodes.
-func GotoNode(node string) Action       { return &gotoNodeAction{node: node} }
-func (a *gotoNodeAction) Start() Runner { return a }
-func (a *gotoNodeAction) Tick(ctx *Ctx) Status {
-	ctx.Game.gotoDialogNode(a.node)
-	return StatusDone
-}
+func GotoNode(node string) Action { return act.GotoNode(node) }

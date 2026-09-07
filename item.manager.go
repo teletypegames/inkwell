@@ -1,3 +1,5 @@
 package inkwell
 
-type ItemManager = Manager[*Item]
+import "git.teletypegames.org/engines/inkwell/item"
+
+type ItemManager = item.Manager

@@ -319,7 +319,7 @@ func itemFrame(g *Game, s *Sprite) int {
 	if s == nil {
 		return 0
 	}
-	return s.frameAt(g.clock)
+	return s.FrameAt(g.clock)
 }
 
 // FlashLine shows a status-line message for ~2 seconds.
@@ -399,11 +399,7 @@ func (g *Game) HoverHint() string {
 }
 
 func (g *Game) makeCtx() *Ctx {
-	c := &Ctx{Game: g, DT: 1.0 / 60.0, State: g.State}
-	if g.currentScene != "" {
-		c.Scene = g.SceneManager.MustGet(g.currentScene)
-	}
-	return c
+	return &Ctx{Game: g, DT: 1.0 / 60.0, State: g.State}
 }
 
 func (g *Game) showEndCard(text string) { g.endCard = text }

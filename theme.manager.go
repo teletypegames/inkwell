@@ -1,3 +1,5 @@
 package inkwell
 
-type ThemeManager = Manager[*Theme]
+import "git.teletypegames.org/engines/inkwell/theme"
+
+type ThemeManager = theme.Manager

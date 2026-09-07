@@ -34,7 +34,8 @@ func (l *Letterbox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if fill == nil {
 		fill = color.Black
 	}
-	w, h := float32(ctx.Game.Width), float32(ctx.Game.Height)
+	g := gameOfUI(ctx)
+	w, h := float32(g.Width), float32(g.Height)
 	vector.DrawFilledRect(dst, 0, 0, w, float32(bar), fill, false)
 	vector.DrawFilledRect(dst, 0, h-float32(bar), w, float32(bar), fill, false)
 }

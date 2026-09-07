@@ -9,6 +9,7 @@ func Quit() Action { return &quitAction{} }
 func (a *quitAction) Start() Runner { return a }
 
 func (a *quitAction) Tick(ctx *Ctx) Status {
-	ctx.Game.quitting = true
+	game := gameOf(ctx)
+	game.quitting = true
 	return StatusDone
 }

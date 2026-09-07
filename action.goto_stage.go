@@ -11,7 +11,8 @@ func GoToStage(stage *Stage) Action { return &gotoStageAction{stage: stage} }
 func (a *gotoStageAction) Start() Runner { return a }
 
 func (a *gotoStageAction) Tick(ctx *Ctx) Status {
-	ctx.Game.GoToStage(a.stage)
+	game := gameOf(ctx)
+	game.GoToStage(a.stage)
 	return StatusDone
 }
 
@@ -26,8 +27,9 @@ func GoBack() Action { return &goBackAction{} }
 func (a *goBackAction) Start() Runner { return a }
 
 func (a *goBackAction) Tick(ctx *Ctx) Status {
-	if previous := ctx.Game.PreviousStage(); previous != nil {
-		ctx.Game.GoToStage(previous)
+	game := gameOf(ctx)
+	if previous := game.PreviousStage(); previous != nil {
+		game.GoToStage(previous)
 	}
 	return StatusDone
 }

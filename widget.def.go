@@ -1,9 +1,8 @@
 package inkwell
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-
 	"git.teletypegames.org/engines/inkwell/inkbase"
+	ibwidget "git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
 // Widget is the minimal surface a HUD element must implement to participate
@@ -20,53 +19,45 @@ import (
 //     higher layer is painted on top.
 //
 // Registration order only decides ties inside one layer — see Layer.
-type Widget interface {
-	Named
-	Tick(ctx *UICtx)
-	Draw(dst *ebiten.Image, ctx *UICtx)
-}
+type Widget = ibwidget.Widget
 
 // Layer is a widget's place in the paint order. A widget says where it
 // belongs rather than depending on the order it happened to be registered
 // in, which frees a domain to register its widgets one file at a time.
-type Layer int
+type Layer = ibwidget.Layer
 
 const (
 	// LayerScene is over the picture and under the HUD: hotspot outlines,
 	// cutscene bars, and the invisible widgets that only tick.
-	LayerScene Layer = 0
+	LayerScene Layer = ibwidget.LayerScene
 	// LayerPanel is the plate the HUD is drawn on.
-	LayerPanel Layer = 100
+	LayerPanel Layer = ibwidget.LayerPanel
 	// LayerHUD is everything mounted on that plate: verbs, inventory,
 	// status line, top bar.
-	LayerHUD Layer = 200
+	LayerHUD Layer = ibwidget.LayerHUD
 	// LayerSpeech is speech bubbles, which float over the scene.
-	LayerSpeech Layer = 300
+	LayerSpeech Layer = ibwidget.LayerSpeech
 	// LayerDialog is the dialog box.
-	LayerDialog Layer = 400
+	LayerDialog Layer = ibwidget.LayerDialog
 	// LayerDebug is the developer's overlay: over the scene, the HUD and
 	// the dialog it annotates, under the menus a developer works from.
 	LayerDebug Layer = 450
 	// LayerMenu is what opens on top of the game: radial verbs, menus.
-	LayerMenu Layer = 500
+	LayerMenu Layer = ibwidget.LayerMenu
 	// LayerCurtain is what covers the game: end cards, fades.
-	LayerCurtain Layer = 600
+	LayerCurtain Layer = ibwidget.LayerCurtain
 	// LayerCursor is the pointer, and nothing else belongs above it.
-	LayerCursor Layer = 700
+	LayerCursor Layer = ibwidget.LayerCursor
 )
 
 // Layered is implemented by a widget that declares its own layer. Every
 // built-in widget does. A widget that does not sits on LayerHUD.
-type Layered interface {
-	Layer() Layer
-}
+type Layered = ibwidget.Layered
 
 // Gated is implemented by a widget that can be switched off by game
 // state — every built-in is, through its When field. A widget that does
 // not implement it, or whose condition is nil, is always live.
-type Gated interface {
-	VisibleWhen() Condition
-}
+type Gated = ibwidget.Gated
 
 // Awake is implemented by a widget that ticks even on the frames a running
 // script holds — a debug menu or a pause menu, which has to answer a key
@@ -76,44 +67,34 @@ type Gated interface {
 //
 // An awake widget ticks BEFORE the script's runner does, so a click it
 // consumes is not also read as "skip this line".
-type Awake interface {
-	TicksDuringScript() bool
-}
+type Awake = ibwidget.Awake
+
+// UICtx is the per-tick context handed to widgets. Game is opaque; widgets
+// type-assert it to their own host interface. DT is seconds since the
+// previous frame.
+type UICtx = ibwidget.UICtx
+
+// gameOfUI extracts the *Game from a UICtx whose Game field is any.
+func gameOfUI(ctx *UICtx) *Game { return ctx.Game.(*Game) }
 
 // WidgetVisible reports whether a widget takes part in this frame at all.
 // A widget switched off neither ticks nor draws, and does not block a
 // click, so a HUD can be hidden for a cutscene without unregistering it.
 func WidgetVisible(ctx *Ctx, w Widget) bool {
-	g, ok := w.(Gated)
-	if !ok {
-		return true
-	}
-	c := g.VisibleWhen()
-	return c == nil || c.Eval(ctx)
+	return ibwidget.WidgetVisible(ctx, w)
 }
 
 // WidgetAwake reports whether a widget takes part in the frames a script
 // holds. Nothing but a menu should say yes.
 func WidgetAwake(w Widget) bool {
-	a, ok := w.(Awake)
-	return ok && a.TicksDuringScript()
+	return ibwidget.WidgetAwake(w)
 }
 
 // LayerOf reports the layer a widget paints on. A wrapper widget that
 // forwards to an inner one — a visibility gate, say — should return
 // LayerOf(inner) so that wrapping does not move the widget.
 func LayerOf(w Widget) Layer {
-	if l, ok := w.(Layered); ok {
-		return l.Layer()
-	}
-	return LayerHUD
-}
-
-// UICtx is the per-tick context handed to widgets. Game is the root
-// aggregate; DT is seconds since the previous frame.
-type UICtx struct {
-	Game *Game
-	DT   float64
+	return ibwidget.LayerOf(w)
 }
 
 type MouseButton = inkbase.MouseButton

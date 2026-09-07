@@ -48,7 +48,7 @@ func (r *RadialVerbs) VisibleWhen() Condition { return r.When }
 func (r *RadialVerbs) Layer() Layer           { return LayerMenu }
 
 func (r *RadialVerbs) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if r.Radius <= 0 {
 		r.Radius = 40
 	}
@@ -143,26 +143,27 @@ func (r *RadialVerbs) consumeTrigger(g *Game) {
 // whether its area covers the cursor — so the radial menu doesn't open
 // over an InventoryBar that would also want this click.
 func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
-	for _, name := range ctx.Game.WidgetManager.Names() {
+	g := gameOfUI(ctx)
+	for _, name := range g.WidgetManager.Names() {
 		if name == r.Name {
 			continue
 		}
-		w := ctx.Game.WidgetManager.MustGet(name)
-		if !WidgetVisible(ctx.Game.makeCtx(), w) {
+		w := g.WidgetManager.MustGet(name)
+		if !WidgetVisible(g.makeCtx(), w) {
 			continue
 		}
 		// DialogBox advertises its bounds via clickBlocker even when no
 		// dialog is open, so the verb-coin would refuse to pop up over
 		// scenery that happens to sit under the dialog rect. Skip the
 		// dialog when it's actually inactive.
-		if _, isDialog := w.(*DialogBox); isDialog && !ctx.Game.dialogActive() {
+		if _, isDialog := w.(*DialogBox); isDialog && !g.dialogActive() {
 			continue
 		}
 		// CharacterPanel auto-hides when its character isn't in the
 		// current scene; treat the hidden panel as transparent so the
 		// coin can open over the empty space it would occupy.
 		if cp, isCP := w.(*CharacterPanel); isCP {
-			if cp.Character == nil || !ctx.Game.CharacterInScene(cp.Character) {
+			if cp.Character == nil || !g.CharacterInScene(cp.Character) {
 				continue
 			}
 		}
@@ -226,7 +227,7 @@ func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !r.visible {
 		return
 	}
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	verbs := g.VerbManager.Names()
 	n := len(verbs)

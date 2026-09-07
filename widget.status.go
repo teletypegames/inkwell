@@ -18,7 +18,7 @@ func (s *StatusLine) VisibleWhen() Condition { return s.When }
 func (s *StatusLine) Layer() Layer           { return LayerHUD }
 
 func (s *StatusLine) Tick(ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	if g.flashTimer > 0 {
 		g.flashTimer -= ctx.DT
 		if g.flashTimer <= 0 {
@@ -28,7 +28,7 @@ func (s *StatusLine) Tick(ctx *UICtx) {
 }
 
 func (s *StatusLine) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := ctx.Game
+	g := gameOfUI(ctx)
 	th := g.Theme()
 	w := s.ScreenWidth
 	if w == 0 {

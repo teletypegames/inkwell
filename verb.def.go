@@ -1,13 +1,5 @@
 package inkwell
 
-// Verb is a registered "action word" (Look, Use, Talk, Take, …). The
-// VerbBar / RadialVerbs widgets read the VerbManager to know which verbs
-// to render; Hotspot.handler(name) looks up the bound action by Verb.Name.
-type Verb struct {
-	Name    string
-	Label   Text
-	Default Action
-}
+import "git.teletypegames.org/engines/inkwell/verb"
 
-func (v Verb) GetName() string   { return v.Name }
-func (v Verb) TypeLabel() string { return "verb" }
+type Verb = verb.Verb
