@@ -1,9 +1,12 @@
 # A könyvtárnak nincs teszt-suite-ja, ezért a regressziót a fordítás és a
 # `go vet` fogja meg. Az ebitengine builder image kell hozzá: az Ebitengine
 # Linuxon cgo-t használ, tehát a fordításhoz X11/GL/ALSA fejlécek kellenek.
+# Az ebitengine-ttg ugyanez a builder, a TTG Go-moduljaival előtöltve (services/teletypegames
+# ci/ebitengine-ttg.Dockerfile), így a lépés nem tölti le őket újra; mozgó tag, ezért mindig pullolva.
 steps:
   - name: test
-    image: git.teletypegames.org/build/ebitengine-builder:latest
+    image: git.teletypegames.org/build/ebitengine-ttg:latest
+    pull: true
     commands:
       - go version
       - echo "==> go build"
