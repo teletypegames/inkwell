@@ -158,6 +158,9 @@ type Game struct {
 	// unlocked is every Achievement reported to the Extensions this process,
 	// so a condition that stays true is handed over once.
 	unlocked map[string]bool
+
+	// derived is set once every Scene.Derived has been asked for its exits.
+	derived bool
 }
 
 // speechState is what the SpeechBubble widget renders. Mutated by Say.

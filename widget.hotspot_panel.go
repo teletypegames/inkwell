@@ -60,6 +60,15 @@ func (p *HotspotPanel) DebugTargets(g *Game) []DebugTarget {
 	return out
 }
 
+// panelHotspots is the panel's targets for a run with nobody at the mouse —
+// how a simulated run (core.solve.go) reaches a device on the HUD.
+func (p *HotspotPanel) panelHotspots(g *Game) []Hotspot {
+	if p.Hotspots == nil {
+		return nil
+	}
+	return p.Hotspots(g)
+}
+
 func (p *HotspotPanel) Draw(dst *ebiten.Image, ctx *UICtx) {}
 
 func (p *HotspotPanel) BlocksClickAt(pt Point) bool { return p.Bounds.Contains(pt) }

@@ -105,8 +105,13 @@ func (s ExitSide) area(r Rectangle) Shape {
 }
 
 // resolveDerived asks every scene for its Derived exits once, before
-// Validate, and appends them in place.
+// Validate, and appends them in place. Asking again does nothing, so Run,
+// Explore and Solve may each make sure of it.
 func (g *Game) resolveDerived() {
+	if g.derived {
+		return
+	}
+	g.derived = true
 	for _, s := range g.SceneManager.All() {
 		if s.Derived == nil {
 			continue

@@ -41,6 +41,10 @@ type AudioPlayer struct {
 	sfxActive []*audio.Player   // in-flight one-shots; pruned each PlaySound
 
 	failed map[string]bool // sources that errored once — don't retry every frame
+
+	// silent players play nothing and never open an audio device: what a
+	// simulated run (see core.solve.go) hands its copy of the game.
+	silent bool
 }
 
 func NewAudioPlayer() *AudioPlayer {
@@ -87,6 +91,9 @@ func (a *AudioPlayer) PlayMusic(music *Music) {
 	}
 	a.stopMusic()
 	a.music = music
+	if a.silent {
+		return
+	}
 
 	if music == nil || !a.playable(music) {
 		logf("audio.PlayMusic %s: no source", sourceName(music))
@@ -135,6 +142,9 @@ func (a *AudioPlayer) stopMusic() {
 // played. A Voice already playing is stopped first: one line at a time.
 func (a *AudioPlayer) PlayVoice(voice *Voice) float64 {
 	a.StopVoice()
+	if a.silent {
+		return 0
+	}
 	if voice == nil || !a.playable(voice) {
 		logf("audio.PlayVoice %s: no source", sourceName(voice))
 		return 0
@@ -159,6 +169,9 @@ func (a *AudioPlayer) StopVoice() {
 }
 
 func (a *AudioPlayer) PlaySound(sound *Sound) {
+	if a.silent {
+		return
+	}
 	if sound == nil || !a.playable(sound) {
 		logf("audio.PlaySound %s: no source", sourceName(sound))
 		return

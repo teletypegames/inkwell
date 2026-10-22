@@ -74,6 +74,7 @@ import "git.teletypegames.org/games/inkwell"
 16. [The game loop](#16-the-game-loop)
 17. [Scene transitions](#17-scene-transitions)
 18. [Validation](#18-validation)
+   - 18.1 [Solving](#181-solving)
 19. [Save and load](#19-save-and-load)
 20. [Errors](#20-errors)
 21. [Testing](#21-testing)
@@ -820,7 +821,10 @@ wording is no longer a stable identity.
 A `Once` dialog choice is recorded against its **position** in its
 node, not its text — a choice the player has used up stays used up when
 the game is played in another language, and a translator can reword a
-line without reopening somebody's save.
+line without reopening somebody's save. The key is
+`<dialog>/<node>:<position>`: the dialog is part of it because node names
+repeat (nearly every conversation starts at `root`), and a choice used up
+in one conversation must not hide the one at the same place in another.
 
 `TopBar.NoteVar` reads a `State` var, and a `Condition` compares against
 that value, so the value itself has to be identical in every language.
@@ -3109,6 +3113,70 @@ Returns the first error wrapping one of the `Err...` sentinels (so callers
 can `errors.Is` against them). Duplicate-name registration is caught
 eagerly at `Register` time via panic.
 
+### 18.1 Solving
+
+```go
+func (g *Game) Solve(options SolveOptions) Solution
+func (g *Game) Situation(options SolveOptions) Situation
+```
+
+`Validate` checks that what a game names exists. `Solve` checks that it
+can be **finished**. Because content is declared rather than coded, every
+move a player can make from a given moment can be listed — a verb on a
+hotspot (painted, an exit, or on a `HotspotPanel`), an item on a hotspot
+or on another item, a choice in an open dialog — made on a headless copy
+of the game, and the copy compared with where it started. The copy runs
+the game's real actions through the engine's own paths (`InvokeVerb`, the
+trigger loop, the scene change), with the clock run forward so every line,
+wait, walk and fade is over at once, a silent `AudioPlayer`, and a
+`MemoryStore`. The game itself is never touched.
+
+The unit of search is one step to a **milestone**: breadth first from a
+moment to the nearest flag raised that is not raised there, or to the goal
+(by default the end card; `SolveOptions.Goal` names another).
+
+- `Situation` takes one such step from the session as it stands — whatever
+  is running is dropped, only what it already did to the world is kept —
+  and reports the milestone, the shortest way to it (`Next[0]` is the next
+  thing to do) and the `Frontier`: every move from here that changes the
+  world. It is what a companion who gives hints needs, and it answers in
+  milliseconds. A game whose world has not begun is asked about the moment
+  it will begin at.
+- `Solve` starts a new session and takes milestone after milestone to the
+  goal. A milestone from which no further one is in reach is a **dead
+  end**: Solve reports the first it meets (`DeadEnd`, and the
+  `DeadEndFrontier` there), steps back and tries the next-nearest
+  milestone, depth first, never entering the same moment twice. It also
+  reports the scenes no moment stood in, and every move whose actions never
+  settle (`Runaway`).
+
+```go
+solution := game.Solve(inkwell.SolveOptions{})
+if !solution.Solved {
+    // solution.DeadEnd is how a player gets stuck
+}
+for _, move := range solution.Path {
+    fmt.Println(move) // "alley: use hook on grate"
+}
+```
+
+What the search compares is the world — scene, flags, vars, inventory and
+trigger bookkeeping, and the previous scene where an exit leads back to it.
+What the player has visited, come to know or said in a `Once` choice is
+carried along but not compared; a `Once` choice that matters raises a flag
+or hands over an item, and that is compared. Only what the game itself
+answers is tried: a verb with no handler of the hotspot's own and an item
+paired with nothing fall to generic replies, which change nothing.
+
+A breadth-first walk of every moment would count every dead end, but the
+number of moments in a game with several puzzles open at once grows with
+every order they can be done in. `SolveOptions.Exhaustive` asks for that
+walk anyway; it only finishes in useful time for a small game.
+
+Content that asks for a `Situation` from inside an action — a hint line
+decided when it is spoken — is itself played by the search; a `Situation`
+or `Solve` asked for during a search answers empty instead of recursing.
+
 ---
 
 ## 19. Save and load
@@ -3336,6 +3404,7 @@ inkwell/                        # module git.teletypegames.org/engines/inkwell
 ├── core.game.go                # Game aggregate, its managers and accessors
 ├── core.transition.go          # the one Transition in flight, scene or Stage
 ├── core.validate.go            # Game.Validate
+├── core.solve.go               # Solve and Situation: the game played headless, milestone to milestone
 ├── core.log.go                 # LogKind, LogMessage → aliases; chat-log buffer
 ├── core.engine.go              # ebiten.Game adapter (Update/Draw/Layout)
 ├── core.run.go                 # Run()
