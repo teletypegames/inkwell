@@ -59,7 +59,7 @@ func (d *DialogBox) Tick(ctx *UICtx) {
 			idx := d.resolveChoices(ctx)[i]
 			choice := dlg.Node.Choices[idx]
 			if choice.Once {
-				g.State.NoteTalked(choiceKey(dlg.Node, idx))
+				g.State.NoteTalked(choiceKey(dlg.Dialog, dlg.Node, idx))
 			}
 			if len(choice.Actions) > 0 {
 				g.queueAction(Seq(choice.Actions...), "choice")
@@ -80,7 +80,7 @@ func (d *DialogBox) resolveChoices(ctx *UICtx) []int {
 		if c.Show != nil && !c.Show.Eval(gctx) {
 			continue
 		}
-		if c.Once && g.State.Talked(choiceKey(dlg.Node, i)) > 0 {
+		if c.Once && g.State.Talked(choiceKey(dlg.Dialog, dlg.Node, i)) > 0 {
 			continue
 		}
 		out = append(out, i)
@@ -88,13 +88,16 @@ func (d *DialogBox) resolveChoices(ctx *UICtx) []int {
 	return out
 }
 
-// choiceKey identifies a Once choice in saved state. It is the node plus the
-// choice's position in it, never its wording: a choice the player has used
-// up has to stay used up when the game is played in another language, and a
-// translator has to be free to reword a line without reopening somebody's
-// save.
-func choiceKey(n *DialogNode, i int) string {
-	return n.Name + ":" + strconv.Itoa(i)
+// choiceKey identifies a Once choice in saved state. It is the dialog, the
+// node and the choice's position in it, never its wording: a choice the
+// player has used up has to stay used up when the game is played in another
+// language, and a translator has to be free to reword a line without
+// reopening somebody's save. The dialog is part of it because node names
+// repeat — nearly every conversation starts at "root" — and a choice used up
+// in one conversation must not hide the choice at the same place in
+// another.
+func choiceKey(d *Dialog, n *DialogNode, i int) string {
+	return d.Name + "/" + n.Name + ":" + strconv.Itoa(i)
 }
 
 // BlocksClickAt — when a dialog is open, every click is ours.
