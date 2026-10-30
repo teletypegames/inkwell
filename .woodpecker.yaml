@@ -35,9 +35,10 @@ steps:
         from_secret: gitea_token
     commands:
       - V="$${CI_COMMIT_TAG#v}"
+      # annotált tagnél a CI_COMMIT_SHA a tag-objektum, nem a commit
       - doc2go -out doc -home git.teletypegames.org/engines/inkwell -pkg-version "$CI_COMMIT_TAG" -rel-link-style directory ./...
       - |
-        printf '{"gem":"inkwell","version":"%s","commit":"%s","date":"%s","coverage":100}\n' "$$V" "$CI_COMMIT_SHA" "$(date -u +%F)" > doc/meta.json
+        printf '{"gem":"inkwell","version":"%s","commit":"%s","date":"%s","coverage":100}\n' "$$V" "$(git rev-parse HEAD)" "$(date -u +%F)" > doc/meta.json
       - tar -czf godoc.tar.gz -C doc .
       - |
         curl --fail-with-body -sS -X PUT \
