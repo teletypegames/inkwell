@@ -59,5 +59,6 @@ func Run(g *Game) error {
 	return ebiten.RunGame(&engine{g: g})
 }
 
-// (Game.Run is provided here for convenience; some callers prefer it.)
+// Run is [Run] called on g: it validates the game and enters the ebiten
+// main loop, returning when the window closes or on a validation error.
 func (g *Game) Run() error { return Run(g) }

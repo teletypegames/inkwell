@@ -2,11 +2,15 @@ package inkbase
 
 import "math"
 
+// Point is a position in screen-space pixels.
 type Point struct {
 	X, Y float64
 }
 
+// Add returns the sum of p and q, p moved by q.
 func (p Point) Add(q Point) Point { return Point{X: p.X + q.X, Y: p.Y + q.Y} }
+
+// Dist returns the straight-line distance between p and q.
 func (p Point) Dist(q Point) float64 {
 	dx, dy := p.X-q.X, p.Y-q.Y
 	return math.Sqrt(dx*dx + dy*dy)
@@ -18,24 +22,35 @@ type Shape interface {
 	Bounds() Rectangle
 }
 
+// Rectangle is an axis-aligned box: its top-left corner X, Y and its size
+// W, H, in screen-space pixels.
 type Rectangle struct {
 	X, Y, W, H float64
 }
 
+// Rect returns the Rectangle with top-left corner x, y and size w, h.
 func Rect(x, y, w, h float64) Rectangle { return Rectangle{X: x, Y: y, W: w, H: h} }
 
+// Contains reports whether p lies in r. The left and top edges belong to
+// the rectangle, the right and bottom ones do not.
 func (r Rectangle) Contains(p Point) bool {
 	return p.X >= r.X && p.X < r.X+r.W && p.Y >= r.Y && p.Y < r.Y+r.H
 }
 
+// Bounds returns r itself.
 func (r Rectangle) Bounds() Rectangle { return r }
 
+// Polygon is a closed shape through Points in order; the last point joins
+// back to the first.
 type Polygon struct {
 	Points []Point
 }
 
+// Poly returns the Polygon through pts.
 func Poly(pts ...Point) Polygon { return Polygon{Points: pts} }
 
+// Contains reports whether pt lies inside g, by the even-odd rule. A
+// polygon of fewer than three points contains nothing.
 func (g Polygon) Contains(pt Point) bool {
 	n := len(g.Points)
 	if n < 3 {
@@ -52,6 +67,8 @@ func (g Polygon) Contains(pt Point) bool {
 	return inside
 }
 
+// Bounds returns the smallest Rectangle around every point of g, or the
+// zero Rectangle when g has no points.
 func (g Polygon) Bounds() Rectangle {
 	if len(g.Points) == 0 {
 		return Rectangle{}

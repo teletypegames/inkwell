@@ -10,6 +10,8 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// Colors is the palette a [StatusLine] draws with: Flash for a flash
+// message, Status for the hover hint.
 type Colors struct {
 	Flash  color.Color
 	Status color.Color
@@ -24,18 +26,36 @@ type host interface {
 	StatusLineColors() Colors
 }
 
+// StatusLine renders a single line of text: the host's flash message while
+// one is up, otherwise the hover hint for what is under the cursor. It does
+// nothing on a host that does not provide them, the screen size, text
+// drawing and [Colors].
 type StatusLine struct {
-	Name        string
-	When        inkbase.Condition
-	Y           int
-	Align       inkbase.Align
+	// Name is the key the widget is registered under.
+	Name string
+	// When gates the widget; nil shows it always.
+	When inkbase.Condition
+	// Y is the line's top in pixels.
+	Y int
+	// Align places the line: left or right with a 2 pixel margin, centred
+	// otherwise.
+	Align inkbase.Align
+	// ScreenWidth is the width Align works against; 0 uses the screen's.
 	ScreenWidth int
 }
 
-func (s *StatusLine) GetName() string                { return s.Name }
-func (s *StatusLine) VisibleWhen() inkbase.Condition { return s.When }
-func (s *StatusLine) Layer() widget.Layer            { return widget.LayerHUD }
+// GetName returns the status line's Name, the key it is registered under.
+func (s *StatusLine) GetName() string { return s.Name }
 
+// VisibleWhen returns When, the condition that shows the status line; nil shows
+// it always.
+func (s *StatusLine) VisibleWhen() inkbase.Condition { return s.When }
+
+// Layer puts the status line on [widget.LayerHUD].
+func (s *StatusLine) Layer() widget.Layer { return widget.LayerHUD }
+
+// Tick counts the host's flash timer down by the frame's time and clears
+// the flash message when it runs out.
 func (s *StatusLine) Tick(ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {
@@ -52,6 +72,8 @@ func (s *StatusLine) Tick(ctx *widget.UICtx) {
 	}
 }
 
+// Draw prints the flash message, or the hover hint when there is none, at
+// Y; with neither it draws nothing.
 func (s *StatusLine) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {

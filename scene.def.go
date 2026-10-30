@@ -32,7 +32,10 @@ type Scene struct {
 	Derived func(g *Game, self *Scene) []Exit
 }
 
-func (s Scene) GetName() string   { return s.Name }
+// GetName returns the scene's Name, its key in the SceneManager.
+func (s Scene) GetName() string { return s.Name }
+
+// TypeLabel returns "scene", the kind a Scene is registered as.
 func (s Scene) TypeLabel() string { return "scene" }
 
 // Leads appends exits to a scene after it is declared, and hands the scene

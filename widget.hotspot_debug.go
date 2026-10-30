@@ -16,10 +16,15 @@ import (
 type DebugKind int
 
 const (
+	// DebugHotspot is a hotspot painted into the scene.
 	DebugHotspot DebugKind = iota
+	// DebugExit is a way out of the scene.
 	DebugExit
+	// DebugCharacter is a character standing in the scene.
 	DebugCharacter
+	// DebugItem is an item in an inventory slot.
 	DebugItem
+	// DebugPanel is a hotspot mounted on a [HotspotPanel].
 	DebugPanel
 )
 
@@ -60,9 +65,15 @@ type HotspotDebug struct {
 	Colors map[DebugKind]color.Color
 }
 
-func (h *HotspotDebug) GetName() string        { return h.Name }
+// GetName returns the name the overlay is registered under.
+func (h *HotspotDebug) GetName() string { return h.Name }
+
+// VisibleWhen returns the condition that switches the overlay on; nil means
+// always. Enabled decides whether it paints.
 func (h *HotspotDebug) VisibleWhen() Condition { return h.When }
-func (h *HotspotDebug) Layer() Layer           { return LayerDebug }
+
+// Layer puts the overlay on [LayerDebug].
+func (h *HotspotDebug) Layer() Layer { return LayerDebug }
 
 var debugDefaultColors = map[DebugKind]color.Color{
 	DebugHotspot:   color.NRGBA{R: 0xE8, G: 0xC8, B: 0x30, A: 0x70},
@@ -74,6 +85,8 @@ var debugDefaultColors = map[DebugKind]color.Color{
 
 var debugLabelColor = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
 
+// Tick flips Enabled when ToggleKey (F1 when zero) is pressed, claiming the
+// key.
 func (h *HotspotDebug) Tick(ctx *UICtx) {
 	key := h.ToggleKey
 	if key == 0 {
@@ -84,6 +97,8 @@ func (h *HotspotDebug) Tick(ctx *UICtx) {
 	}
 }
 
+// Draw paints the plates while Enabled: the scene's targets with their names
+// written across them, then the widgets' targets bare.
 func (h *HotspotDebug) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !h.Enabled {
 		return

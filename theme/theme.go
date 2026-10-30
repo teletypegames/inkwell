@@ -54,5 +54,9 @@ type Theme struct {
 	CharacterPanelTitle  color.Color // "PLAYER" / "NPC" badge color
 }
 
-func (t Theme) GetName() string   { return t.Name }
+// GetName returns the theme's Name, the key it is registered under.
+func (t Theme) GetName() string { return t.Name }
+
+// TypeLabel returns "theme", the kind that tells a theme apart from
+// other entities of the same Name in saved state and in panic messages.
 func (t Theme) TypeLabel() string { return "theme" }

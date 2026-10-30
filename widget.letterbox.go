@@ -20,11 +20,21 @@ type Letterbox struct {
 	Color color.Color
 }
 
-func (l *Letterbox) GetName() string        { return l.Name }
-func (l *Letterbox) VisibleWhen() Condition { return l.When }
-func (l *Letterbox) Layer() Layer           { return LayerScene }
-func (l *Letterbox) Tick(ctx *UICtx)        {}
+// GetName returns the name the letterbox is registered under.
+func (l *Letterbox) GetName() string { return l.Name }
 
+// VisibleWhen returns the condition that brings the bars in, typically
+// "a cutscene is playing"; nil means always.
+func (l *Letterbox) VisibleWhen() Condition { return l.When }
+
+// Layer puts the bars on [LayerScene], over the picture and under the HUD.
+func (l *Letterbox) Layer() Layer { return LayerScene }
+
+// Tick does nothing; the bars only display.
+func (l *Letterbox) Tick(ctx *UICtx) {}
+
+// Draw paints one bar of height Bar across the top of the screen and one
+// across the bottom.
 func (l *Letterbox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	bar := l.Bar
 	if bar <= 0 {

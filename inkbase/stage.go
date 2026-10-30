@@ -30,5 +30,8 @@ type Stage struct {
 	OnLeave Action
 }
 
-func (s Stage) GetName() string   { return s.Name }
+// GetName returns the stage's Name, its key in the registry.
+func (s Stage) GetName() string { return s.Name }
+
+// TypeLabel returns "stage", the kind used in log and panic messages.
 func (s Stage) TypeLabel() string { return "stage" }

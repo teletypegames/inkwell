@@ -6,6 +6,7 @@ import "image/color"
 // bubble, or through the message log alone.
 type Delivery int
 
+// The ways a Speaker can be delivered.
 const (
 	DeliveryBubble Delivery = iota // speech bubble over the scene, plus the log
 	DeliveryLog                    // the log alone
@@ -28,7 +29,11 @@ type Talker interface {
 	TalkerName() string
 }
 
-func (s Speaker) GetName() string   { return s.Name }
+// GetName returns the speaker's Name, its key in the registry.
+func (s Speaker) GetName() string { return s.Name }
+
+// TypeLabel returns "speaker", the speaker's kind in the known-entity
+// key and in log and panic messages.
 func (s Speaker) TypeLabel() string { return "speaker" }
 
 // DisplayName is the Label if there is one, the Name otherwise.

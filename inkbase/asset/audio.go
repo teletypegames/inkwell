@@ -37,6 +37,10 @@ type AudioPlayer struct {
 	logf func(string, ...any)
 }
 
+// NewAudioPlayer returns an idle AudioPlayer. logf receives a line for
+// every missing or undecodable file and every music change; it may be nil.
+// The audio context is made, or Ebitengine's current one taken, on first
+// play.
 func NewAudioPlayer(logf func(string, ...any)) *AudioPlayer {
 	return &AudioPlayer{
 		sfxCache: make(map[string][]byte),
@@ -78,6 +82,11 @@ func (a *AudioPlayer) log(format string, args ...any) {
 	}
 }
 
+// PlayMusic switches the background track to music, looping it when
+// music.Loop is set. Asking for the track already playing does nothing;
+// any other track is stopped first. A nil music, or one whose file is
+// missing or does not decode (.wav, .ogg and .mp3 are read), leaves
+// silence, and a failed file is not tried again.
 func (a *AudioPlayer) PlayMusic(music *inkbase.Music) {
 	if a.music == music && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
 		return
@@ -110,6 +119,8 @@ func (a *AudioPlayer) PlayMusic(music *inkbase.Music) {
 	p.Play()
 }
 
+// StopMusic stops the background track and forgets it, so the next
+// PlayMusic starts from the beginning.
 func (a *AudioPlayer) StopMusic() {
 	if a.music == nil && a.musicPlayer == nil {
 		return
@@ -144,6 +155,7 @@ func (a *AudioPlayer) PlayVoice(voice *inkbase.Voice) float64 {
 	return float64(len(pcm)) / float64(audioSampleRate*audioFrameBytes)
 }
 
+// StopVoice cuts off the recorded line playing, if any.
 func (a *AudioPlayer) StopVoice() {
 	if a.voicePlayer == nil {
 		return
@@ -152,6 +164,9 @@ func (a *AudioPlayer) StopVoice() {
 	a.voicePlayer = nil
 }
 
+// PlaySound plays sound once, on top of whatever else is sounding. The
+// decoded file is cached, so a sound played again starts at once; a nil
+// sound or a file that cannot be read stays silent.
 func (a *AudioPlayer) PlaySound(sound *inkbase.Sound) {
 	if sound == nil || !a.playable(sound) {
 		a.log("audio.PlaySound %s: no source", sourceName(sound))

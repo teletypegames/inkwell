@@ -43,6 +43,8 @@ type AudioPlayer struct {
 	failed map[string]bool // sources that errored once — don't retry every frame
 }
 
+// NewAudioPlayer returns an AudioPlayer with nothing playing. The audio
+// context is not created until the first thing is played.
 func NewAudioPlayer() *AudioPlayer {
 	return &AudioPlayer{
 		sfxCache: make(map[string][]byte),
@@ -81,6 +83,10 @@ func sourceName(audible Audible) string {
 	return audible.Source()
 }
 
+// PlayMusic starts music in place of the current track, looping it when
+// its Loop says so. The same track already playing carries on untouched; nil
+// or a file that cannot be played stops the current track and plays
+// nothing.
 func (a *AudioPlayer) PlayMusic(music *Music) {
 	if a.music == music && a.musicPlayer != nil && a.musicPlayer.IsPlaying() {
 		return
@@ -113,6 +119,8 @@ func (a *AudioPlayer) PlayMusic(music *Music) {
 	p.Play()
 }
 
+// StopMusic stops the current track and forgets it, so the next PlayMusic
+// starts afresh even with the same Music.
 func (a *AudioPlayer) StopMusic() {
 	if a.music == nil && a.musicPlayer == nil {
 		return
@@ -158,6 +166,9 @@ func (a *AudioPlayer) StopVoice() {
 	a.voicePlayer = nil
 }
 
+// PlaySound plays a sound once, on top of anything else playing. The file
+// is decoded on first use and kept; nil or a file that cannot be played
+// does nothing.
 func (a *AudioPlayer) PlaySound(sound *Sound) {
 	if sound == nil || !a.playable(sound) {
 		logf("audio.PlaySound %s: no source", sourceName(sound))

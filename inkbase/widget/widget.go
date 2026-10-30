@@ -1,5 +1,3 @@
-// Package widget provides the Widget interface, layer constants, and the
-// visibility/ordering helpers the engine uses to drive its per-frame loop.
 package widget
 
 import (
@@ -18,15 +16,17 @@ type Widget interface {
 // Layer is a widget's place in the paint order.
 type Layer int
 
+// The standard layers, from the back to the front. A higher Layer is drawn
+// later, on top; the gaps leave room for layers in between.
 const (
-	LayerScene   Layer = 0
-	LayerPanel   Layer = 100
-	LayerHUD     Layer = 200
-	LayerSpeech  Layer = 300
-	LayerDialog  Layer = 400
-	LayerMenu    Layer = 500
-	LayerCurtain Layer = 600
-	LayerCursor  Layer = 700
+	LayerScene   Layer = 0   // the scene itself and what stands in it
+	LayerPanel   Layer = 100 // panels docked around the scene
+	LayerHUD     Layer = 200 // heads-up elements: inventory, hover labels
+	LayerSpeech  Layer = 300 // speech bubbles
+	LayerDialog  Layer = 400 // dialog choices
+	LayerMenu    Layer = 500 // menus over the game
+	LayerCurtain Layer = 600 // full-screen fades and flashes
+	LayerCursor  Layer = 700 // the mouse cursor, above everything
 )
 
 // Layered is implemented by a widget that declares its own layer.

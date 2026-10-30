@@ -6,18 +6,27 @@ import (
 	iwsprite "git.teletypegames.org/engines/inkwell/sprite"
 )
 
+// Sprite is a picture or a sequence of them cut from one sheet; see
+// [iwsprite.Sprite].
 type Sprite = iwsprite.Sprite
+
+// Facing is which way a character looks, left or right; see
+// [iwsprite.Facing].
 type Facing = iwsprite.Facing
+
+// Pose is what a character is doing as far as its sprite is concerned; see
+// [iwsprite.Pose].
 type Pose = iwsprite.Pose
 
+// The facings and the poses a character is drawn in.
 const (
-	FacingRight = iwsprite.FacingRight
-	FacingLeft  = iwsprite.FacingLeft
+	FacingRight = iwsprite.FacingRight // looking right
+	FacingLeft  = iwsprite.FacingLeft  // looking left
 
-	PoseIdle = iwsprite.PoseIdle
-	PoseWalk = iwsprite.PoseWalk
-	PoseTalk = iwsprite.PoseTalk
-	PoseWait = iwsprite.PoseWait
+	PoseIdle = iwsprite.PoseIdle // standing; the fallback for a pose with no sprite
+	PoseWalk = iwsprite.PoseWalk // moving
+	PoseTalk = iwsprite.PoseTalk // while its line is up
+	PoseWait = iwsprite.PoseWait // after standing still a while
 )
 
 // waitAfter re-exports the constant so root files (character.pose.go) keep

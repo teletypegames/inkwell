@@ -11,9 +11,16 @@ func (g *Game) SetQuitting() { g.quitting = true }
 
 // --- inventory host methods (for act/) ---
 
-// InventoryAdd satisfies act.InventoryHost.
-func (g *Game) InventoryAdd(name string)    { g.Inventory.Add(name) }
+// InventoryAdd puts the named item in the player's Inventory; it satisfies
+// [act.InventoryHost].
+func (g *Game) InventoryAdd(name string) { g.Inventory.Add(name) }
+
+// InventoryRemove takes the named item out of the player's Inventory; it
+// satisfies [act.InventoryHost].
 func (g *Game) InventoryRemove(name string) { g.Inventory.Remove(name) }
+
+// InventoryHas reports whether the player carries the named item; it
+// satisfies [act.InventoryHost].
 func (g *Game) InventoryHas(name string) bool { return g.Inventory.Has(name) }
 
 // InventorySelected satisfies cond.InventoryChecker.

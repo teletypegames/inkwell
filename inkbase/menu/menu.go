@@ -13,21 +13,32 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// Texts the [Menu] prints in its own chrome. A game may replace them before
+// the first frame to change the wording or add a language.
 var (
+	// MenuEmpty is printed on a page that has no rows.
 	MenuEmpty = inkbase.Text{
 		{Lang: "en", Text: "(nothing here)"},
 		{Lang: "hu", Text: "(nincs itt semmi)"},
 	}
+	// MenuKeys is the key help in the footer of a menu that can be closed.
 	MenuKeys = inkbase.Text{
 		{Lang: "en", Text: "↑↓ move  ENTER open  BACKSPACE back  ESC close"},
 		{Lang: "hu", Text: "↑↓ mozgás  ENTER nyit  BACKSPACE vissza  ESC zár"},
 	}
+	// MenuKeysSticky is the key help in the footer of a Sticky menu, which
+	// has no close key.
 	MenuKeysSticky = inkbase.Text{
 		{Lang: "en", Text: "↑↓ move  ENTER choose  BACKSPACE back"},
 		{Lang: "hu", Text: "↑↓ mozgás  ENTER választ  BACKSPACE vissza"},
 	}
 )
 
+// Colors is the palette a [Menu] draws with, read from the host every frame:
+// BG fills the window, Border outlines it and draws its rules, Text is a
+// row's label and a page's paragraph, Hover fills the row under the cursor,
+// Speaker is the title bar (arrows and breadcrumb), Accent the value column,
+// and Status the key help in the footer.
 type Colors struct {
 	BG, Border, Text, Hover, Speaker, Accent, Status color.Color
 }
@@ -41,14 +52,33 @@ type host interface {
 	MenuColors() Colors
 }
 
+// MenuItem is one row of a menu and, when it has children, the page those
+// children make up. The Menu's Root is a MenuItem whose Label titles the
+// window, and every level under it is a MenuItem whose Label is that level's
+// crumb in the title bar.
+//
+// A page is either written out (Items), worked out when the row is entered
+// (Expand), or a paragraph (Body). A row with none of the three is a leaf,
+// and Enter runs its Do.
 type MenuItem struct {
-	Label    inkbase.Text
-	Body     inkbase.Text
-	Value    func(*inkbase.Ctx) inkbase.Text
-	Items    []MenuItem
-	Expand   func(*inkbase.Ctx) []MenuItem
-	Do       inkbase.Action
-	Enabled  inkbase.Condition
+	// Label is the row's text, and the page's crumb once it is entered.
+	Label inkbase.Text
+	// Body makes the page this row opens a paragraph to read, wrapped to
+	// the window and scrolled with the same keys, rather than rows.
+	Body inkbase.Text
+	// Value is the right-hand column: what the row is worth right now. Nil
+	// leaves the column empty.
+	Value func(*inkbase.Ctx) inkbase.Text
+	// Items is the page this row opens, as written.
+	Items []MenuItem
+	// Expand builds the page this row opens when the player enters it, and
+	// again on every frame it is open. It wins over Items.
+	Expand func(*inkbase.Ctx) []MenuItem
+	// Do is the action Enter runs on a leaf.
+	Do inkbase.Action
+	// Enabled, when it evaluates false, dims the row and refuses Enter.
+	Enabled inkbase.Condition
+	// KeepOpen leaves the menu up after Do ran; by default it closes.
 	KeepOpen bool
 }
 
@@ -62,19 +92,43 @@ func (it MenuItem) page(ctx *inkbase.Ctx) []MenuItem {
 func (it MenuItem) leaf() bool  { return it.Expand == nil && len(it.Items) == 0 && len(it.Body) == 0 }
 func (it MenuItem) reads() bool { return len(it.Body) > 0 }
 
+// FixedValue returns a [MenuItem.Value] function that ignores the game and
+// always returns t.
 func FixedValue(t inkbase.Text) func(*inkbase.Ctx) inkbase.Text {
 	return func(*inkbase.Ctx) inkbase.Text { return t }
 }
 
+// Menu is a nested list in a window: a page of rows, any of which can open a
+// page of its own, as deep as the [MenuItem] tree goes. Up and down walk the
+// rows, Enter or right opens one, Backspace or left goes back a level (and
+// closes at the root), Escape closes, PageUp, PageDown, Home and End jump.
+// The mouse does the same: hovering moves the cursor, the wheel scrolls, the
+// left button opens a row, the right button goes back, and the title bar has
+// a back arrow and a close box. Every key the menu uses it claims, so
+// nothing underneath sees it.
+//
+// The host the widget is ticked and drawn for must provide the screen size,
+// text drawing, input, action dispatch, a Ctx and the [Colors]; on any other
+// host it does nothing.
 type Menu struct {
-	Name       string
-	When       inkbase.Condition
-	Root       MenuItem
-	Bounds     inkbase.Rectangle
-	ToggleKey  ebiten.Key
-	Sticky     bool
+	// Name is the key the widget is registered under.
+	Name string
+	// When gates the widget; nil shows it always.
+	When inkbase.Condition
+	// Root is the first page, and its Label is the window's title.
+	Root MenuItem
+	// Bounds is the window. A zero width or height takes the right half of
+	// the screen.
+	Bounds inkbase.Rectangle
+	// ToggleKey opens and closes the menu. Zero binds no key.
+	ToggleKey ebiten.Key
+	// Sticky keeps the menu open: it opens itself on the first tick and
+	// neither Escape, Backspace at the root nor a close box closes it.
+	Sticky bool
+	// LineHeight is a row's height in pixels; 0 means the glyph height + 2.
 	LineHeight int
-	Padding    int
+	// Padding is the inner margin in pixels; 0 means 6.
+	Padding int
 
 	open    bool
 	pages   []menuPage
@@ -98,23 +152,41 @@ func (page *menuPage) length() int {
 	return len(page.rows)
 }
 
-func (m *Menu) GetName() string                      { return m.Name }
-func (m *Menu) VisibleWhen() inkbase.Condition       { return m.When }
-func (m *Menu) Layer() widget.Layer                  { return widget.LayerMenu }
-func (m *Menu) TicksDuringScript() bool              { return true }
-func (m *Menu) BlocksClickAt(p inkbase.Point) bool   { return m.open && m.frame.Contains(p) }
-func (m *Menu) IsOpen() bool                         { return m.open }
+// GetName returns the menu's Name, the key it is registered under.
+func (m *Menu) GetName() string { return m.Name }
 
+// VisibleWhen returns When, the condition that shows the menu; nil shows
+// it always.
+func (m *Menu) VisibleWhen() inkbase.Condition { return m.When }
+
+// Layer puts the menu on [widget.LayerMenu], over the HUD and dialogs.
+func (m *Menu) Layer() widget.Layer { return widget.LayerMenu }
+
+// TicksDuringScript reports true: the menu answers its keys even while a
+// script holds the game, so a pause menu works in a cutscene.
+func (m *Menu) TicksDuringScript() bool { return true }
+
+// BlocksClickAt reports whether p falls on the open menu's window, so a
+// click there does not reach the scene. A closed menu blocks nothing.
+func (m *Menu) BlocksClickAt(p inkbase.Point) bool { return m.open && m.frame.Contains(p) }
+
+// IsOpen reports whether the menu is showing.
+func (m *Menu) IsOpen() bool { return m.open }
+
+// Open shows the menu on its Root page, dropping any pages it had open.
 func (m *Menu) Open() {
 	m.open = true
 	m.pages = []menuPage{{source: m.Root}}
 }
 
+// Close hides the menu and forgets its open pages, so the next Open starts
+// at the Root again.
 func (m *Menu) Close() {
 	m.open = false
 	m.pages = nil
 }
 
+// Toggle closes an open menu and opens a closed one.
 func (m *Menu) Toggle() {
 	if m.open {
 		m.Close()
@@ -123,6 +195,8 @@ func (m *Menu) Toggle() {
 	m.Open()
 }
 
+// Tick opens a Sticky menu or toggles on ToggleKey, then, while the menu is
+// open, rebuilds the current page and handles its keys and the mouse.
 func (m *Menu) Tick(ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {
@@ -149,6 +223,8 @@ func (m *Menu) Tick(ctx *widget.UICtx) {
 	}
 }
 
+// Draw paints the open menu onto dst: the window, the title bar with its
+// breadcrumb, the visible rows or paragraph lines, and the key help.
 func (m *Menu) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	if !m.open || len(m.pages) == 0 {
 		return

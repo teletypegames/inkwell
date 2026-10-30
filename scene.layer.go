@@ -8,6 +8,8 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase"
 )
 
+// SceneLayer is one plane of a scene's picture at a depth Z, the cast
+// standing at 0; see [inkbase.SceneLayer].
 type SceneLayer = inkbase.SceneLayer
 
 // sortedLayers is a scene's layers back to front.

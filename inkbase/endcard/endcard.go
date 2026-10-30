@@ -12,6 +12,8 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// Colors is the palette an [EndCard] draws with: BG fills the screen, Text
+// is the message.
 type Colors struct {
 	BG   color.Color
 	Text color.Color
@@ -25,15 +27,28 @@ type host interface {
 	EndCardColors() Colors
 }
 
+// EndCard is a fullscreen overlay with the host's end text centred on it,
+// shown whenever that text is not empty. While it is up it swallows every
+// click, so nothing underneath reacts.
 type EndCard struct {
+	// Name is the key the widget is registered under.
 	Name string
+	// When gates the widget; nil shows it always.
 	When inkbase.Condition
 }
 
-func (e *EndCard) GetName() string                { return e.Name }
-func (e *EndCard) VisibleWhen() inkbase.Condition { return e.When }
-func (e *EndCard) Layer() widget.Layer            { return widget.LayerCurtain }
+// GetName returns the end card's Name, the key it is registered under.
+func (e *EndCard) GetName() string { return e.Name }
 
+// VisibleWhen returns When, the condition that shows the end card; nil shows
+// it always.
+func (e *EndCard) VisibleWhen() inkbase.Condition { return e.When }
+
+// Layer puts the end card on [widget.LayerCurtain], over everything but the cursor.
+func (e *EndCard) Layer() widget.Layer { return widget.LayerCurtain }
+
+// Tick consumes this frame's left and right clicks while the end text is
+// set.
 func (e *EndCard) Tick(ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {
@@ -51,6 +66,8 @@ func (e *EndCard) Tick(ctx *widget.UICtx) {
 	}
 }
 
+// Draw fills the screen and prints the end text centred on it; with no end
+// text it draws nothing.
 func (e *EndCard) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {

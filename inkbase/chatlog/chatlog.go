@@ -11,14 +11,24 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// SpeakerStyle says how a [ChatLog] names who is talking.
 type SpeakerStyle int
 
 const (
+	// SpeakerInline puts the speaker's label and a colon in front of every
+	// reply.
 	SpeakerInline SpeakerStyle = iota
+	// SpeakerHeader names only the latest speaker, once, above a rule at the
+	// top of the box.
 	SpeakerHeader
+	// SpeakerNone names nobody.
 	SpeakerNone
 )
 
+// Colors is the palette a [ChatLog] draws with: BG fills the box, Border
+// outlines it and draws the header rule, Prompt colors the player's commands,
+// Response a reply whose speaker has no color of their own, and System every
+// other line.
 type Colors struct {
 	BG       color.Color
 	Border   color.Color
@@ -36,22 +46,46 @@ type host interface {
 	ChatLogColors() Colors
 }
 
+// ChatLog renders the game's message log (player commands, in-world replies
+// and system lines) as a box with the newest line at the bottom; older lines
+// scroll up out of view. It draws nothing on a host that does not provide
+// the messages, speaker lookups and [Colors].
 type ChatLog struct {
-	Name       string
-	When       inkbase.Condition
-	Bounds     inkbase.Rectangle
+	// Name is the key the widget is registered under.
+	Name string
+	// When gates the widget; nil shows it always.
+	When inkbase.Condition
+	// Bounds is the box; a zero width or height draws nothing.
+	Bounds inkbase.Rectangle
+	// LineHeight is a line's height in pixels; 0 means 10.
 	LineHeight int
-	Padding    int
+	// Padding is the inner margin in pixels; 0 means 3.
+	Padding int
+	// ShowBorder draws a thin border around the box.
 	ShowBorder bool
-	Speaker    SpeakerStyle
+	// Speaker says how a reply names who said it.
+	Speaker SpeakerStyle
+	// Deliveries, when set, keeps only the replies spoken in one of these
+	// voices; commands and system lines are kept either way. Nil keeps
+	// everything.
 	Deliveries []inkbase.Delivery
-	Resting    string
+	// Resting is the speaker name the header carries before anybody this log
+	// listens to has spoken. Only SpeakerHeader reads it.
+	Resting string
 }
 
-func (c *ChatLog) GetName() string                { return c.Name }
+// GetName returns the chat log's Name, the key it is registered under.
+func (c *ChatLog) GetName() string { return c.Name }
+
+// VisibleWhen returns When, the condition that shows the chat log; nil shows
+// it always.
 func (c *ChatLog) VisibleWhen() inkbase.Condition { return c.When }
-func (c *ChatLog) Layer() widget.Layer            { return widget.LayerHUD }
-func (c *ChatLog) Tick(ctx *widget.UICtx)         {}
+
+// Layer puts the chat log on [widget.LayerHUD].
+func (c *ChatLog) Layer() widget.Layer { return widget.LayerHUD }
+
+// Tick does nothing: the log; the messages live in the host has no state of its own to advance.
+func (c *ChatLog) Tick(ctx *widget.UICtx) {}
 
 func (c *ChatLog) hears(h host, speaker string) bool {
 	if len(c.Deliveries) == 0 {
@@ -76,6 +110,8 @@ func (c *ChatLog) latest(h host) string {
 	return c.Resting
 }
 
+// Draw paints the box, the speaker header when Speaker is SpeakerHeader, and
+// as many of the latest wrapped lines as fit, each in its kind's color.
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {
@@ -152,4 +188,6 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	}
 }
 
+// BlocksClickAt reports whether p falls inside Bounds, so a click on the log
+// does not reach the scene.
 func (c *ChatLog) BlocksClickAt(p inkbase.Point) bool { return c.Bounds.Contains(p) }

@@ -43,10 +43,24 @@ type RadialVerbs struct {
 	pendingHotspot *Hotspot // remembered hotspot when HotspotOnly opens the coin
 }
 
-func (r *RadialVerbs) GetName() string        { return r.Name }
-func (r *RadialVerbs) VisibleWhen() Condition { return r.When }
-func (r *RadialVerbs) Layer() Layer           { return LayerMenu }
+// GetName returns the name the wheel is registered under.
+func (r *RadialVerbs) GetName() string { return r.Name }
 
+// VisibleWhen returns the condition that switches the wheel on; nil means
+// always.
+func (r *RadialVerbs) VisibleWhen() Condition { return r.When }
+
+// Layer puts the wheel on [LayerMenu], so it takes clicks before the HUD.
+func (r *RadialVerbs) Layer() Layer { return LayerMenu }
+
+// Tick runs the wheel. It sets Radius to 40 when it is zero. With
+// AlwaysVisible, a left click on a slice selects that verb. Otherwise the
+// Trigger button opens the wheel at the pointer, unless HotspotOnly finds no
+// hotspot there or a visible widget's BlocksClickAt claims the point; while
+// it is open, a left click selects the slice under the pointer, invokes it
+// on the remembered hotspot in HotspotOnly mode, and closes the wheel, and
+// the Trigger button closes it without picking. Every click it acts on is
+// consumed.
 func (r *RadialVerbs) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if r.Radius <= 0 {
@@ -206,8 +220,8 @@ func (r *RadialVerbs) hitTest(g *Game, p Point) int {
 	return idx
 }
 
-// BlocksClickAt — when the wheel is open (or always visible), clicks on
-// it should not pass through to the scene underneath.
+// BlocksClickAt reports whether p falls within the wheel's reach, 1.4 times
+// Radius from its centre, while it is open or AlwaysVisible.
 func (r *RadialVerbs) BlocksClickAt(p Point) bool {
 	if !r.visible && !r.AlwaysVisible {
 		return false
@@ -223,6 +237,9 @@ func (r *RadialVerbs) BlocksClickAt(p Point) bool {
 	return d <= radius*radius
 }
 
+// Draw paints the open wheel: a translucent disc, one label per verb, a halo
+// behind the selected verb and the one under the pointer, and a dot at the
+// centre.
 func (r *RadialVerbs) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !r.visible {
 		return

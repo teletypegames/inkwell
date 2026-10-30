@@ -6,13 +6,19 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase"
 )
 
+// Delivery is where a Character's or a Speaker's lines reach the player;
+// see [inkbase.Delivery].
 type Delivery = inkbase.Delivery
 
+// The ways a line can be delivered.
 const (
-	DeliveryBubble = inkbase.DeliveryBubble
-	DeliveryLog    = inkbase.DeliveryLog
+	DeliveryBubble = inkbase.DeliveryBubble // a speech bubble over the scene, and the log
+	DeliveryLog    = inkbase.DeliveryLog    // the message log alone
 )
 
+// Character is someone with a body: drawn in a scene with its Poses,
+// walking through the walkboxes at Speed, and speaking like a Speaker.
+// Game.Player names the one the player steers.
 type Character struct {
 	Name string
 	// Label is what the UI shows instead of Name — a code name, a title,
@@ -25,8 +31,11 @@ type Character struct {
 	// Poses are the sprites the character is drawn with, one per Pose the
 	// artwork covers. Nil, or a Pose with no entry, falls back to Idle; no
 	// Idle draws the placeholder figure sized W by H.
-	Poses       map[Pose]*Sprite
-	Speed       float64
+	Poses map[Pose]*Sprite
+	// Speed is how fast the character walks, in pixels per second.
+	Speed float64
+	// SpeechColor is the colour of the character's lines; nil, or a
+	// fully transparent color.RGBA, leaves the theme's.
 	SpeechColor color.Color
 	// Delivery decides where Say puts this character's lines.
 	Delivery Delivery
@@ -37,6 +46,7 @@ type Character struct {
 	W, H float64
 }
 
+// GetName returns the character's Name, its key in the CharacterManager.
 func (c Character) GetName() string { return c.Name }
 
 // DisplayName is the Label if there is one, the Name otherwise.
@@ -46,4 +56,6 @@ func (c Character) DisplayName() Text {
 	}
 	return plain(c.Name)
 }
+
+// TypeLabel returns "character", the kind a Character is registered as.
 func (c Character) TypeLabel() string { return "character" }

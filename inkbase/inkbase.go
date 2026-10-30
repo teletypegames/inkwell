@@ -1,6 +1,3 @@
-// Package inkbase is the generic foundation of inkwell: registries, i18n,
-// state, action/condition framework, and the data types any Ebitengine game
-// can build on without pulling in adventure-game machinery.
 package inkbase
 
 // Named is implemented by every entity that can be registered into a Manager.
@@ -23,6 +20,7 @@ type Manager[T Named] struct {
 	order []string
 }
 
+// NewManager returns an empty registry for entities of type T.
 func NewManager[T Named]() *Manager[T] {
 	return &Manager[T]{items: make(map[string]T)}
 }
@@ -57,11 +55,15 @@ func (m *Manager[T]) Set(v T) {
 	m.items[name] = v
 }
 
+// Get returns the entry registered under name and true, or the zero T and
+// false when there is none.
 func (m *Manager[T]) Get(name string) (T, bool) {
 	v, ok := m.items[name]
 	return v, ok
 }
 
+// MustGet returns the entry registered under name. It panics when there is
+// none, so use it only for names the game itself registered.
 func (m *Manager[T]) MustGet(name string) T {
 	v, ok := m.items[name]
 	if !ok {
@@ -70,11 +72,13 @@ func (m *Manager[T]) MustGet(name string) T {
 	return v
 }
 
+// Has reports whether an entry is registered under name.
 func (m *Manager[T]) Has(name string) bool {
 	_, ok := m.items[name]
 	return ok
 }
 
+// Len returns the number of registered entries.
 func (m *Manager[T]) Len() int { return len(m.items) }
 
 // Names returns the registered names in insertion order.
@@ -91,6 +95,7 @@ func (m *Manager[T]) All() []T {
 	return out
 }
 
+// Each calls fn on every registered entry in insertion order.
 func (m *Manager[T]) Each(fn func(T)) {
 	for _, n := range m.order {
 		fn(m.items[n])

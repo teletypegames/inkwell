@@ -10,6 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+// AssetManager is the registry of a game's Assets, keyed by name; see
+// [Manager].
 type AssetManager = Manager[*Asset]
 
 // loadedAssets is the runtime cache for decoded image/audio resources.

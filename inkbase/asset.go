@@ -7,7 +7,10 @@ type Asset struct {
 	Path string
 }
 
-func (a Asset) GetName() string   { return a.Name }
+// GetName returns the asset's Name, its key in the registry.
+func (a Asset) GetName() string { return a.Name }
+
+// TypeLabel returns "asset", the kind used in log and panic messages.
 func (a Asset) TypeLabel() string { return "asset" }
 
 // SceneLayer is one plane of a scene's picture at a depth Z. The cast

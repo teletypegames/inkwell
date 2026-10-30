@@ -10,6 +10,8 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// Colors is the fallback palette a [Panel] reads from its host when its own
+// BG or BorderColor is nil.
 type Colors struct {
 	BG     color.Color
 	Border color.Color
@@ -19,21 +21,41 @@ type host interface {
 	PanelColors() Colors
 }
 
+// Panel is a colored rectangle: a backdrop for grouping other widgets or a
+// frame for a log.
 type Panel struct {
-	Name        string
-	When        inkbase.Condition
-	Bounds      inkbase.Rectangle
-	BG          color.Color
-	Border      int
+	// Name is the key the widget is registered under.
+	Name string
+	// When gates the widget; nil shows it always.
+	When inkbase.Condition
+	// Bounds is the rectangle filled.
+	Bounds inkbase.Rectangle
+	// BG fills it; nil takes the host's [Colors].BG, and black without one.
+	BG color.Color
+	// Border is the outline's thickness in pixels; 0 draws none.
+	Border int
+	// BorderColor is the outline's color; nil takes the host's
+	// [Colors].Border, and no outline without one.
 	BorderColor color.Color
-	Blocks      bool
+	// Blocks makes the panel swallow clicks inside Bounds.
+	Blocks bool
 }
 
-func (p *Panel) GetName() string                { return p.Name }
-func (p *Panel) VisibleWhen() inkbase.Condition { return p.When }
-func (p *Panel) Layer() widget.Layer            { return widget.LayerPanel }
-func (p *Panel) Tick(ctx *widget.UICtx)         {}
+// GetName returns the panel's Name, the key it is registered under.
+func (p *Panel) GetName() string { return p.Name }
 
+// VisibleWhen returns When, the condition that shows the panel; nil shows
+// it always.
+func (p *Panel) VisibleWhen() inkbase.Condition { return p.When }
+
+// Layer puts the panel on [widget.LayerPanel], under the HUD.
+func (p *Panel) Layer() widget.Layer { return widget.LayerPanel }
+
+// Tick does nothing: the panel has no state of its own to advance.
+func (p *Panel) Tick(ctx *widget.UICtx) {}
+
+// Draw fills Bounds with the background and strokes the border when one
+// is set.
 func (p *Panel) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	bg := p.BG
 	bc := p.BorderColor
@@ -60,6 +82,8 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	}
 }
 
+// BlocksClickAt reports whether the panel swallows a click at pt: only when
+// Blocks is set and pt is inside Bounds.
 func (p *Panel) BlocksClickAt(pt inkbase.Point) bool {
 	return p.Blocks && p.Bounds.Contains(pt)
 }

@@ -26,7 +26,7 @@ type Game struct {
 	StageManager     *StageManager
 	// AchievementManager holds what the player can be recognised for. Its
 	// entries are evaluated on the world stage and reported through the
-	// Extensions — see achievement.def.go and extension.def.go.
+	// [Extension]s — see [Achievement] and [Extension].
 	AchievementManager *AchievementManager
 
 	// Extensions live beside the game for the whole run: started before the
@@ -37,7 +37,7 @@ type Game struct {
 
 	// SceneRect is the part of the window the picture occupies. Zero means
 	// the whole window. A game with a HUD along the foot sets it, so that
-	// generated exit strips (see scene.exit.go) land inside the painting.
+	// generated exit strips (see [Exit]) land inside the painting.
 	SceneRect Rectangle
 
 	// ExitLook and ExitTake supply the default look and take responses for
@@ -272,11 +272,16 @@ func NewGame(title string, w, h int) *Game {
 	})
 }
 
+// StartAt sets StartScene, the scene a new session opens in, and hands the
+// game back for chaining.
 func (g *Game) StartAt(scene *Scene) *Game { g.StartScene = scene; return g }
 
-// CurrentScene is the scene the player is in, empty before the first one is
-// entered. PreviousScene is the one before it, which is where Back() leads.
-func (g *Game) CurrentScene() string  { return g.currentScene }
+// CurrentScene is the name of the scene the player is in, empty before the
+// first one is entered.
+func (g *Game) CurrentScene() string { return g.currentScene }
+
+// PreviousScene is the name of the scene before the current one, which is
+// where Back leads; empty if there was none.
 func (g *Game) PreviousScene() string { return g.previousScene }
 
 // SceneArea is SceneRect, or the whole window when it was never set.
@@ -324,18 +329,35 @@ func (g *Game) OnFinale(script *Script) *Game { g.FinaleScript = script; return 
 
 // ----- theme + UI conveniences ------------------------------------------
 
-func (g *Game) Theme() *Theme            { return g.ThemeManager.MustGet(g.activeTheme) }
-func (g *Game) UseTheme(theme *Theme)    { g.activeTheme = theme.Name }
-func (g *Game) SelectedVerb() string     { return g.selectedVerb }
-func (g *Game) SetSelectedVerb(s string) { g.selectedVerb = s }
-func (g *Game) HoverLabel() string       { return g.hoverLabel }
-func (g *Game) SetHoverLabel(s string)   { g.hoverLabel = s }
+// Theme returns the active Theme. It panics if the active theme's name is
+// not registered in the ThemeManager.
+func (g *Game) Theme() *Theme { return g.ThemeManager.MustGet(g.activeTheme) }
 
-// SetSpeech / ClearSpeech are called by the Say action; widgets render
-// whatever the current state says.
+// UseTheme makes theme the active one, by its Name; it is not saved to the
+// settings (the UseTheme action does that). A nil theme panics.
+func (g *Game) UseTheme(theme *Theme) { g.activeTheme = theme.Name }
+
+// SelectedVerb returns the name of the verb the player has picked, or ""
+// for none.
+func (g *Game) SelectedVerb() string { return g.selectedVerb }
+
+// SetSelectedVerb picks the verb with the name s; "" picks none.
+func (g *Game) SetSelectedVerb(s string) { g.selectedVerb = s }
+
+// HoverLabel returns the label of what the pointer is over, as the engine
+// set it this frame, for a widget to show.
+func (g *Game) HoverLabel() string { return g.hoverLabel }
+
+// SetHoverLabel sets the label HoverLabel returns.
+func (g *Game) SetHoverLabel(s string) { g.hoverLabel = s }
+
+// SetSpeech puts up text as the line speaker is saying; the Say action
+// calls it, and the speech widgets draw whatever it holds.
 func (g *Game) SetSpeech(speaker, text string) {
 	g.speech = speechState{Active: true, Speaker: speaker, Text: text}
 }
+
+// ClearSpeech takes the line SetSpeech put up down again.
 func (g *Game) ClearSpeech() { g.speech = speechState{} }
 
 // itemFrame is the frame an item's sprite shows now: items animate on the
@@ -443,9 +465,11 @@ type pendingChange struct {
 
 var noChange = pendingChange{load: -1}
 
-// CurrentStage is the screen showing, PreviousStage the one before it —
-// which is where a "back" row leads.
-func (g *Game) CurrentStage() *Stage  { return g.currentStage }
+// CurrentStage is the screen showing, nil before the first frame.
+func (g *Game) CurrentStage() *Stage { return g.currentStage }
+
+// PreviousStage is the screen shown before the current one, which is where
+// a "back" row leads ([GoBack]); nil if there was none.
 func (g *Game) PreviousStage() *Stage { return g.previousStage }
 
 // Started reports whether a session exists: the world has been begun or

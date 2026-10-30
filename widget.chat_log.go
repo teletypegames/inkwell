@@ -52,10 +52,18 @@ type ChatLog struct {
 	Resting Talker
 }
 
-func (c *ChatLog) GetName() string        { return c.Name }
+// GetName returns the name the log is registered under.
+func (c *ChatLog) GetName() string { return c.Name }
+
+// VisibleWhen returns the condition that switches the log on; nil means
+// always.
 func (c *ChatLog) VisibleWhen() Condition { return c.When }
-func (c *ChatLog) Layer() Layer           { return LayerHUD }
-func (c *ChatLog) Tick(ctx *UICtx)        {}
+
+// Layer puts the log on [LayerHUD].
+func (c *ChatLog) Layer() Layer { return LayerHUD }
+
+// Tick does nothing; the log reads the game's messages when it draws.
+func (c *ChatLog) Tick(ctx *UICtx) {}
 
 // hears reports whether a reply from this speaker belongs in the log.
 func (c *ChatLog) hears(g *Game, speaker string) bool {
@@ -88,6 +96,9 @@ func (c *ChatLog) latest(g *Game) string {
 	return talkerName(c.Resting)
 }
 
+// Draw paints the box in Bounds, the speaker header when Speaker is
+// SpeakerHeader, and as many of the newest wrapped messages as fit, each in
+// its kind's colour or its speaker's. A zero-sized Bounds draws nothing.
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()
@@ -163,6 +174,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt — the log is non-interactive, but it sits over the bottom
-// of the scene; treat it as opaque so RadialVerbs doesn't pop up over it.
+// BlocksClickAt reports whether p falls inside Bounds. The log takes no
+// clicks, but it sits over the scene, so the verb coin is kept from opening
+// over it.
 func (c *ChatLog) BlocksClickAt(p Point) bool { return c.Bounds.Contains(p) }

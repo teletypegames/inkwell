@@ -11,6 +11,8 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
+// Colors is the palette a [TextCard] draws with: BG for the backdrop, Text
+// for the lines.
 type Colors struct {
 	BG   color.Color
 	Text color.Color
@@ -22,19 +24,38 @@ type host interface {
 	TextCardColors() Colors
 }
 
+// TextCard is a block of lines centred on the screen: a title card, a
+// credits page, a notice. It draws nothing on a host that does not provide
+// the screen size, text drawing and [Colors].
 type TextCard struct {
-	Name       string
-	When       inkbase.Condition
-	Lines      []inkbase.Text
-	Align      inkbase.Align
+	// Name is the key the widget is registered under.
+	Name string
+	// When gates the widget; nil shows it always.
+	When inkbase.Condition
+	// Lines are printed one under another, each resolved into the player's
+	// language; an empty Text is a blank line.
+	Lines []inkbase.Text
+	// Align is how each line sits against the widest one; the block itself
+	// is always centred, and AlignCenter centres each line on the screen.
+	Align inkbase.Align
+	// LineHeight is a line's height in pixels; 0 means the glyph height + 2.
 	LineHeight int
-	Backdrop   bool
+	// Backdrop fills the whole screen with [Colors].BG behind the block.
+	Backdrop bool
 }
 
-func (c *TextCard) GetName() string                { return c.Name }
+// GetName returns the card's Name, the key it is registered under.
+func (c *TextCard) GetName() string { return c.Name }
+
+// VisibleWhen returns When, the condition that shows the card; nil shows
+// it always.
 func (c *TextCard) VisibleWhen() inkbase.Condition { return c.When }
-func (c *TextCard) Layer() widget.Layer            { return widget.LayerHUD }
-func (c *TextCard) Tick(ctx *widget.UICtx)         {}
+
+// Layer puts the card on [widget.LayerHUD].
+func (c *TextCard) Layer() widget.Layer { return widget.LayerHUD }
+
+// Tick does nothing: the card has no state of its own to advance.
+func (c *TextCard) Tick(ctx *widget.UICtx) {}
 
 func (c *TextCard) lineHeight() int {
 	if c.LineHeight > 0 {
@@ -43,6 +64,8 @@ func (c *TextCard) lineHeight() int {
 	return font.GlyphH + 2
 }
 
+// Draw paints the backdrop when asked for and the lines, centred as a block
+// both ways.
 func (c *TextCard) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	h, ok := ctx.Game.(host)
 	if !ok {

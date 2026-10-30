@@ -39,9 +39,15 @@ type HotspotPanel struct {
 	Hotspots func(g *Game) []Hotspot
 }
 
-func (p *HotspotPanel) GetName() string        { return p.Name }
+// GetName returns the name the panel is registered under.
+func (p *HotspotPanel) GetName() string { return p.Name }
+
+// VisibleWhen returns the condition that switches the panel on; nil means
+// always.
 func (p *HotspotPanel) VisibleWhen() Condition { return p.When }
-func (p *HotspotPanel) Layer() Layer           { return LayerHUD }
+
+// Layer puts the panel on [LayerHUD].
+func (p *HotspotPanel) Layer() Layer { return LayerHUD }
 
 // DebugTargets is the panel's hotspots as the debug overlay sees them: one
 // plate per target, named as the hotspot is.
@@ -60,8 +66,12 @@ func (p *HotspotPanel) DebugTargets(g *Game) []DebugTarget {
 	return out
 }
 
+// Draw does nothing; a game that wants the slots painted embeds the panel
+// and declares its own Draw.
 func (p *HotspotPanel) Draw(dst *ebiten.Image, ctx *UICtx) {}
 
+// BlocksClickAt reports whether pt falls inside Bounds, so the verb coin
+// does not open over the panel.
 func (p *HotspotPanel) BlocksClickAt(pt Point) bool { return p.Bounds.Contains(pt) }
 
 // at is the topmost hotspot containing pt, resolved the same way the
@@ -79,6 +89,9 @@ func (p *HotspotPanel) at(g *Game, pt Point) *Hotspot {
 	return nil
 }
 
+// Tick sets the hover label to the hotspot under the pointer and, on a left
+// click, consumes it and invokes the selected verb on that hotspot through
+// [Game.InvokeVerb].
 func (p *HotspotPanel) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	spot := p.at(g, g.Input.Point())

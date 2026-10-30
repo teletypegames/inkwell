@@ -1,6 +1,3 @@
-// Package cond holds adventure-specific conditions that need *Game access
-// through narrow host interfaces. Each condition type-asserts ctx.Game to the
-// slice it requires.
 package cond
 
 // InventoryChecker is the slice of *Game that HasItem and SelectedItem need.

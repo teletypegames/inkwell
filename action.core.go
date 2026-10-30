@@ -2,16 +2,26 @@ package inkwell
 
 import "git.teletypegames.org/engines/inkwell/inkbase"
 
+// Status is what one tick of a Runner says about it; see [inkbase.Status].
 type Status = inkbase.Status
 
+// The outcomes of a tick.
 const (
-	StatusRunning = inkbase.StatusRunning
-	StatusDone    = inkbase.StatusDone
-	StatusFailed  = inkbase.StatusFailed
+	StatusRunning = inkbase.StatusRunning // not finished; tick it again next frame
+	StatusDone    = inkbase.StatusDone    // finished
+	StatusFailed  = inkbase.StatusFailed  // gave up; a sequence stops here
 )
 
+// Ctx is what a Runner is handed each tick: the frame's time step, the
+// State, and the *Game; see [inkbase.Ctx].
 type Ctx = inkbase.Ctx
+
+// Action is an immutable spec of work, started fresh into a Runner every
+// time it runs; see [inkbase.Action].
 type Action = inkbase.Action
+
+// Runner is one running execution of an Action, ticked once a frame until
+// it is done or failed; see [inkbase.Runner].
 type Runner = inkbase.Runner
 
 // Condition is a question about the game as it stands: a flag, an item in

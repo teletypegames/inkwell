@@ -24,9 +24,16 @@ var Lang string
 // reaches the player rather than vanishing.
 var Fallback string
 
+// Translation is one language's wording of one string, with its Voice
+// recording if there is one; see [inkbase.Translation].
 type Translation = inkbase.Translation
+
+// Text is a string in as many languages as somebody has written it in; it
+// resolves against [Lang] and [Fallback] when read. See [inkbase.Text].
 type Text = inkbase.Text
 
+// Format composes a Text around other Texts, each part resolving in the
+// language of the frame it is read in; see [inkbase.Format].
 var Format = inkbase.Format
 
 // plain wraps a string that is not really a translation of anything — a

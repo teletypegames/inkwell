@@ -12,10 +12,17 @@ type EndCard struct {
 	When Condition
 }
 
-func (e *EndCard) GetName() string        { return e.Name }
-func (e *EndCard) VisibleWhen() Condition { return e.When }
-func (e *EndCard) Layer() Layer           { return LayerCurtain }
+// GetName returns the name the card is registered under.
+func (e *EndCard) GetName() string { return e.Name }
 
+// VisibleWhen returns the condition that switches the card on; nil means
+// always.
+func (e *EndCard) VisibleWhen() Condition { return e.When }
+
+// Layer puts the card on [LayerCurtain], over the whole game.
+func (e *EndCard) Layer() Layer { return LayerCurtain }
+
+// Tick consumes every left and right click while the end card is up.
 func (e *EndCard) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if g.endCard == "" {
@@ -30,6 +37,8 @@ func (e *EndCard) Tick(ctx *UICtx) {
 	}
 }
 
+// Draw fills the screen and prints the ShowEnd text centred on it, while the
+// end card is up.
 func (e *EndCard) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if g.endCard == "" {

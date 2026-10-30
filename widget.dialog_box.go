@@ -19,16 +19,26 @@ type DialogBox struct {
 	Padding    int
 }
 
-func (d *DialogBox) GetName() string        { return d.Name }
-func (d *DialogBox) VisibleWhen() Condition { return d.When }
-func (d *DialogBox) Layer() Layer           { return LayerDialog }
+// GetName returns the name the dialog box is registered under.
+func (d *DialogBox) GetName() string { return d.Name }
 
-// TicksDuringScript: the conversation *is* the running script. RunDialog
+// VisibleWhen returns the condition that switches the box on; nil means
+// always.
+func (d *DialogBox) VisibleWhen() Condition { return d.When }
+
+// Layer puts the dialog box on [LayerDialog].
+func (d *DialogBox) Layer() Layer { return LayerDialog }
+
+// TicksDuringScript reports true: the conversation is the running script. RunDialog
 // holds the frame for as long as the dialog is up, so the box has to tick
 // inside it — otherwise its lines never advance, no choice is ever clicked,
 // and the dialog can never reach the EndDialog that would let go.
 func (d *DialogBox) TicksDuringScript() bool { return true }
 
+// Tick does nothing unless a dialog is active. While one is, it consumes
+// every click: a left click advances to the next line, or, once the lines
+// are spent, picks the choice under the pointer, marks a Once choice as used
+// and queues the choice's actions.
 func (d *DialogBox) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if !g.dialogActive() {
@@ -97,7 +107,9 @@ func choiceKey(n *DialogNode, i int) string {
 	return n.Name + ":" + strconv.Itoa(i)
 }
 
-// BlocksClickAt — when a dialog is open, every click is ours.
+// BlocksClickAt reports whether p falls inside Bounds, so the verb coin does
+// not open over the box. It cannot see whether a dialog is open, and a zero
+// Bounds blocks nothing even though Draw then uses a default strip.
 func (d *DialogBox) BlocksClickAt(p Point) bool {
 	// without ctx we can't know if a dialog is active; conservatively block
 	// when the cursor is in the dialog bounds (used only by RadialVerbs).
@@ -108,6 +120,11 @@ func (d *DialogBox) BlocksClickAt(p Point) bool {
 	return b.Contains(p)
 }
 
+// Draw paints the box while a dialog is active: the current line under its
+// speaker's name, or, once the lines are spent, the choices the player can
+// see, the one under the pointer highlighted. It records each choice's
+// rectangle for Tick to hit-test. A zero Bounds is a 60-pixel strip from
+// y 140 across the screen.
 func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if !g.dialogActive() {

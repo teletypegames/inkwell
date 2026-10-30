@@ -136,10 +136,22 @@ func (page *menuPage) length() int {
 	return len(page.rows)
 }
 
-func (m *Menu) GetName() string            { return m.Name }
-func (m *Menu) VisibleWhen() Condition     { return m.When }
-func (m *Menu) Layer() Layer               { return LayerMenu }
-func (m *Menu) TicksDuringScript() bool    { return true }
+// GetName returns the name the menu is registered under.
+func (m *Menu) GetName() string { return m.Name }
+
+// VisibleWhen returns the condition that switches the menu on; nil means
+// always.
+func (m *Menu) VisibleWhen() Condition { return m.When }
+
+// Layer puts the menu on [LayerMenu], above the game it opens over.
+func (m *Menu) Layer() Layer { return LayerMenu }
+
+// TicksDuringScript reports true: a menu has to open, answer its keys and
+// close while a cutscene holds the frame.
+func (m *Menu) TicksDuringScript() bool { return true }
+
+// BlocksClickAt reports whether p falls inside the open window, so the verb
+// coin does not open over it. A closed menu blocks nothing.
 func (m *Menu) BlocksClickAt(p Point) bool { return m.open && m.frame.Contains(p) }
 
 // IsOpen reports whether the window is up.
@@ -152,11 +164,14 @@ func (m *Menu) Open() {
 	m.pages = []menuPage{{source: m.Root}}
 }
 
+// Close takes the window down and drops every open page.
 func (m *Menu) Close() {
 	m.open = false
 	m.pages = nil
 }
 
+// Toggle closes the window when it is open and opens it on its root page
+// when it is not.
 func (m *Menu) Toggle() {
 	if m.open {
 		m.Close()
@@ -165,6 +180,9 @@ func (m *Menu) Toggle() {
 	m.Open()
 }
 
+// Tick opens a Sticky menu, answers ToggleKey, and while the window is up
+// rebuilds the open page and handles its keys and the mouse, claiming what
+// it uses. A row entered by Enter or a click queues its Do on the game.
 func (m *Menu) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if m.Sticky {
@@ -186,6 +204,10 @@ func (m *Menu) Tick(ctx *UICtx) {
 	}
 }
 
+// Draw paints the open window: the title bar with its breadcrumb, back
+// arrow and close box, the visible rows or Body lines with the cursor row
+// highlighted, and the footer listing the keys. A closed menu draws
+// nothing.
 func (m *Menu) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if !m.open || len(m.pages) == 0 {
 		return

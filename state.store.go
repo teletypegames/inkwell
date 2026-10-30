@@ -18,10 +18,13 @@ type MemoryStore struct {
 	docs map[string][]byte
 }
 
+// NewMemoryStore returns an empty MemoryStore.
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{docs: make(map[string][]byte)}
 }
 
+// Read returns a copy of the document under key, or ErrNotStored if
+// nothing has been written there.
 func (m *MemoryStore) Read(key string) ([]byte, error) {
 	data, ok := m.docs[key]
 	if !ok {
@@ -30,6 +33,8 @@ func (m *MemoryStore) Read(key string) ([]byte, error) {
 	return append([]byte(nil), data...), nil
 }
 
+// Write keeps a copy of data under key, replacing what was there. It never
+// fails.
 func (m *MemoryStore) Write(key string, data []byte) error {
 	m.docs[key] = append([]byte(nil), data...)
 	return nil

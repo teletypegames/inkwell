@@ -5,8 +5,8 @@ import "git.teletypegames.org/engines/inkwell/inkbase"
 type showEndAction struct{ text inkbase.Text }
 
 // ShowEnd puts the end card up and never finishes: the game is over.
-func ShowEnd(text inkbase.Text) inkbase.Action    { return &showEndAction{text: text} }
-func (a *showEndAction) Start() inkbase.Runner    { return &showEndRunner{spec: a} }
+func ShowEnd(text inkbase.Text) inkbase.Action { return &showEndAction{text: text} }
+func (a *showEndAction) Start() inkbase.Runner { return &showEndRunner{spec: a} }
 
 type showEndRunner struct {
 	spec    *showEndAction

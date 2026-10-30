@@ -3,6 +3,7 @@
 # Linuxon cgo-t használ, tehát a fordításhoz X11/GL/ALSA fejlécek kellenek.
 # Az ebitengine-ttg ugyanez a builder, a TTG Go-moduljaival előtöltve (services/teletypegames
 # ci/ebitengine-ttg.Dockerfile), így a lépés nem tölti le őket újra; mozgó tag, ezért mindig pullolva.
+# Ugyanebben az image-ben van a doc2go és a revive is (a Go-doksi, CLAUDE.md).
 steps:
   - name: test
     image: git.teletypegames.org/build/ebitengine-ttg:latest
@@ -13,3 +14,38 @@ steps:
       - go build ./...
       - echo "==> go vet"
       - go vet ./...
+
+  # Minden exportált azonosítónak doc-kommentje van, és minden csomagnak csomagkommentje:
+  # bármelyik hiánya piros pipeline (revive.toml).
+  - name: doc-coverage
+    image: git.teletypegames.org/build/ebitengine-ttg:latest
+    pull: true
+    commands:
+      - revive -config revive.toml -set_exit_status ./...
+      - echo "==> minden exportált azonosító dokumentálva"
+
+  # vX.Y.Z tagre: a doc2go-val épült HTML a Gitea generic csomagba (engines/inkwell-godoc/<verzió>),
+  # ahonnan a wiki-fetcher kicsomagolja a wiki /godoc/inkwell/ alá (services/wiki-pages, fetcher/README.md).
+  - name: publish-godoc
+    image: git.teletypegames.org/build/ebitengine-ttg:latest
+    pull: true
+    depends_on: [test, doc-coverage]
+    environment:
+      GITEA_TOKEN:
+        from_secret: gitea_token
+    commands:
+      - V="$${CI_COMMIT_TAG#v}"
+      - doc2go -out doc -home git.teletypegames.org/engines/inkwell -pkg-version "$CI_COMMIT_TAG" -rel-link-style directory ./...
+      - |
+        printf '{"gem":"inkwell","version":"%s","commit":"%s","date":"%s","coverage":100}\n' "$$V" "$CI_COMMIT_SHA" "$(date -u +%F)" > doc/meta.json
+      - tar -czf godoc.tar.gz -C doc .
+      - |
+        curl --fail-with-body -sS -X PUT \
+          -H "Authorization: token $(printf '%s' "$GITEA_TOKEN" | tr -d '[:space:]')" \
+          -H "Content-Type: application/octet-stream" \
+          --upload-file godoc.tar.gz \
+          "https://git.teletypegames.org/api/packages/engines/generic/inkwell-godoc/$$V/godoc.tar.gz"
+      - echo "==> inkwell-godoc $$V feltöltve"
+    when:
+      - event: tag
+        ref: refs/tags/v*

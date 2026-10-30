@@ -22,5 +22,9 @@ type Achievement struct {
 	When inkbase.Condition
 }
 
-func (a Achievement) GetName() string   { return a.Name }
+// GetName returns the achievement's Name, the key it is registered under.
+func (a Achievement) GetName() string { return a.Name }
+
+// TypeLabel returns "achievement", the kind that tells an achievement apart from
+// other entities of the same Name in saved state and in panic messages.
 func (a Achievement) TypeLabel() string { return "achievement" }

@@ -97,18 +97,30 @@ func LayerOf(w Widget) Layer {
 	return ibwidget.LayerOf(w)
 }
 
+// MouseButton names the mouse button a widget answers to, such as
+// [RadialVerbs.Trigger]; see [inkbase.MouseButton].
 type MouseButton = inkbase.MouseButton
 
 const (
-	MouseButtonLeft  = inkbase.MouseButtonLeft
+	// MouseButtonLeft is the primary button.
+	MouseButtonLeft = inkbase.MouseButtonLeft
+	// MouseButtonRight is the secondary button.
 	MouseButtonRight = inkbase.MouseButtonRight
 )
 
+// Size is a width and height in screen pixels, such as the size of a
+// [VerbBar] button; see [inkbase.Size].
 type Size = inkbase.Size
+
+// Align is how a single line of text sits horizontally in the space a
+// widget gives it; see [inkbase.Align].
 type Align = inkbase.Align
 
 const (
-	AlignLeft   = inkbase.AlignLeft
+	// AlignLeft puts the line against the left edge.
+	AlignLeft = inkbase.AlignLeft
+	// AlignCenter centres the line.
 	AlignCenter = inkbase.AlignCenter
-	AlignRight  = inkbase.AlignRight
+	// AlignRight puts the line against the right edge.
+	AlignRight = inkbase.AlignRight
 )

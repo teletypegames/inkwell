@@ -57,5 +57,8 @@ type Stage struct {
 	OnLeave Action
 }
 
-func (s Stage) GetName() string   { return s.Name }
+// GetName returns the stage's Name, its key in the StageManager.
+func (s Stage) GetName() string { return s.Name }
+
+// TypeLabel returns "stage", the kind a Stage is registered as.
 func (s Stage) TypeLabel() string { return "stage" }

@@ -21,15 +21,23 @@ type TextCard struct {
 	Align Align
 	// LineHeight is a line's height; 0 gives GlyphH + 2.
 	LineHeight int
-	// Backdrop fills the screen behind the block. Nil leaves whatever the
+	// Backdrop fills the screen behind the block. False leaves whatever the
 	// Stage put there.
 	Backdrop bool
 }
 
-func (c *TextCard) GetName() string        { return c.Name }
+// GetName returns the name the card is registered under.
+func (c *TextCard) GetName() string { return c.Name }
+
+// VisibleWhen returns the condition that switches the card on; nil means
+// always.
 func (c *TextCard) VisibleWhen() Condition { return c.When }
-func (c *TextCard) Layer() Layer           { return LayerHUD }
-func (c *TextCard) Tick(ctx *UICtx)        {}
+
+// Layer puts the card on [LayerHUD].
+func (c *TextCard) Layer() Layer { return LayerHUD }
+
+// Tick does nothing; the card only displays.
+func (c *TextCard) Tick(ctx *UICtx) {}
 
 func (c *TextCard) lineHeight() int {
 	if c.LineHeight > 0 {
@@ -38,6 +46,8 @@ func (c *TextCard) lineHeight() int {
 	return GlyphH + 2
 }
 
+// Draw paints the Backdrop when asked, then the Lines as a block centred on
+// the screen, each placed by Align within the width of the widest.
 func (c *TextCard) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()

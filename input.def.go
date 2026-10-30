@@ -37,12 +37,27 @@ func (i *Input) poll() {
 	i.keysConsumed = i.keysConsumed[:0]
 }
 
-func (i *Input) Pos() (int, int)    { return i.mouseX, i.mouseY }
-func (i *Input) Point() Point       { return Point{X: float64(i.mouseX), Y: float64(i.mouseY)} }
-func (i *Input) LeftClicked() bool  { return i.leftPressed && !i.leftConsumed }
+// Pos returns the mouse position on this frame, in screen pixels.
+func (i *Input) Pos() (int, int) { return i.mouseX, i.mouseY }
+
+// Point returns the mouse position on this frame as a Point.
+func (i *Input) Point() Point { return Point{X: float64(i.mouseX), Y: float64(i.mouseY)} }
+
+// LeftClicked reports whether the left button went down on this frame and
+// nobody has consumed the click yet.
+func (i *Input) LeftClicked() bool { return i.leftPressed && !i.leftConsumed }
+
+// RightClicked reports whether the right button went down on this frame
+// and nobody has consumed the click yet.
 func (i *Input) RightClicked() bool { return i.rightPressed && !i.rightConsumed }
-func (i *Input) ConsumeLeft()       { i.leftConsumed = true }
-func (i *Input) ConsumeRight()      { i.rightConsumed = true }
+
+// ConsumeLeft claims this frame's left click, so later LeftClicked calls
+// read false.
+func (i *Input) ConsumeLeft() { i.leftConsumed = true }
+
+// ConsumeRight claims this frame's right click, so later RightClicked calls
+// read false.
+func (i *Input) ConsumeRight() { i.rightConsumed = true }
 
 // Wheel is the mouse wheel's travel on this frame, in ebiten's own units.
 // Nothing consumes it — a widget that scrolls checks that the pointer is

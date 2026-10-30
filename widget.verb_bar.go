@@ -15,13 +15,19 @@ type VerbBar struct {
 	Button Size
 	Gap    Point
 
-	// PanelBG, if non-nil, paints a backdrop behind the buttons. nil = use Theme.PanelBG.
+	// PanelBG paints a Theme.PanelBG backdrop behind the buttons.
 	PanelBG bool
 }
 
-func (v *VerbBar) GetName() string        { return v.Name }
+// GetName returns the name the bar is registered under.
+func (v *VerbBar) GetName() string { return v.Name }
+
+// VisibleWhen returns the condition that switches the bar on; nil means
+// always.
 func (v *VerbBar) VisibleWhen() Condition { return v.When }
-func (v *VerbBar) Layer() Layer           { return LayerHUD }
+
+// Layer puts the bar on [LayerHUD].
+func (v *VerbBar) Layer() Layer { return LayerHUD }
 
 func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 	g := gameOfUI(ctx)
@@ -46,6 +52,8 @@ func (v *VerbBar) buttons(ctx *UICtx) []verbButton {
 	return out
 }
 
+// Tick selects the verb whose button is left-clicked and consumes the
+// click.
 func (v *VerbBar) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if !g.Input.LeftClicked() {
@@ -61,6 +69,9 @@ func (v *VerbBar) Tick(ctx *UICtx) {
 	}
 }
 
+// Draw paints the PanelBG backdrop when asked, then one button per
+// registered verb in a grid of Cols columns (2 when zero), the selected
+// verb's button highlighted.
 func (v *VerbBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()
@@ -97,8 +108,9 @@ type verbButton struct {
 	Bounds Rectangle
 }
 
-// BlocksClickAt is part of the clickBlocker contract — keeps the
-// RadialVerbs widget from popping up over the verb bar.
+// BlocksClickAt reports whether p falls inside the bar, so the verb coin
+// does not open over it. The bar is taken to be two rows high whatever the
+// number of verbs.
 func (v *VerbBar) BlocksClickAt(p Point) bool {
 	cols := v.Cols
 	if cols <= 0 {

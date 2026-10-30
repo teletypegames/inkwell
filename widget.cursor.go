@@ -7,17 +7,28 @@ import (
 
 // Cursor renders the mouse cursor. When the player has an inventory item
 // selected, the item's sprite is drawn at the cursor instead of the
-// default crosshair. Registered last so it draws on top.
+// default crosshair. It sits on LayerCursor, so it draws on top.
 type Cursor struct {
 	Name string
 	When Condition
 }
 
-func (c *Cursor) GetName() string        { return c.Name }
-func (c *Cursor) VisibleWhen() Condition { return c.When }
-func (c *Cursor) Layer() Layer           { return LayerCursor }
-func (c *Cursor) Tick(ctx *UICtx)        {}
+// GetName returns the name the cursor is registered under.
+func (c *Cursor) GetName() string { return c.Name }
 
+// VisibleWhen returns the condition that switches the cursor on; nil means
+// always.
+func (c *Cursor) VisibleWhen() Condition { return c.When }
+
+// Layer puts the cursor on [LayerCursor], above everything else.
+func (c *Cursor) Layer() Layer { return LayerCursor }
+
+// Tick does nothing; the cursor follows the pointer when it draws.
+func (c *Cursor) Tick(ctx *UICtx) {}
+
+// Draw paints the held item's sprite, 16 pixels square and centred on the
+// pointer, or, with nothing held or no sprite, a small crosshair in
+// Theme.CursorColor.
 func (c *Cursor) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	x, y := g.Input.Pos()

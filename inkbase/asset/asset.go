@@ -1,6 +1,3 @@
-// Package asset provides the filesystem abstraction and image cache for
-// inkbase. AssetFS must be set before use; images are loaded lazily and
-// cached by Asset pointer.
 package asset
 
 import (
@@ -17,8 +14,9 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase"
 )
 
-// AssetFS, when non-nil, is the filesystem asset files are read from instead
-// of the OS filesystem. Set it to an embed.FS before Run.
+// AssetFS is the filesystem asset files are read from. While it is nil they
+// come from the OS filesystem; set it to an embed.FS before Run to ship
+// them inside the binary.
 var AssetFS fs.FS
 
 // OpenAsset opens an asset file honoring AssetFS.
@@ -37,6 +35,8 @@ type LoadedAssets struct {
 	defaultW, defaultH int
 }
 
+// NewLoadedAssets returns an empty image cache whose placeholders, for a
+// nil or unreadable asset, are w by h pixels.
 func NewLoadedAssets(w, h int) *LoadedAssets {
 	return &LoadedAssets{
 		images:       make(map[*inkbase.Asset]*ebiten.Image),
@@ -73,6 +73,9 @@ func (la *LoadedAssets) IsPlaceholder(a *inkbase.Asset) bool {
 	return a == nil || la.placeholders[a]
 }
 
+// LoadImageFile reads and decodes the PNG or JPEG at path through
+// [OpenAsset]. It returns nil when the file is missing or does not decode,
+// and does not cache.
 func LoadImageFile(path string) *ebiten.Image {
 	f, err := OpenAsset(path)
 	if err != nil {

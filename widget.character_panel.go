@@ -28,11 +28,23 @@ type CharacterPanel struct {
 	Stats     []CharStat
 }
 
-func (c *CharacterPanel) GetName() string        { return c.Name }
-func (c *CharacterPanel) VisibleWhen() Condition { return c.When }
-func (c *CharacterPanel) Layer() Layer           { return LayerHUD }
-func (c *CharacterPanel) Tick(ctx *UICtx)        {}
+// GetName returns the name the panel is registered under.
+func (c *CharacterPanel) GetName() string { return c.Name }
 
+// VisibleWhen returns the condition that switches the panel on; nil means
+// always.
+func (c *CharacterPanel) VisibleWhen() Condition { return c.When }
+
+// Layer puts the panel on [LayerHUD].
+func (c *CharacterPanel) Layer() Layer { return LayerHUD }
+
+// Tick does nothing; the panel only displays.
+func (c *CharacterPanel) Tick(ctx *UICtx) {}
+
+// Draw paints the panel in Bounds: the character's portrait on the left,
+// then the Title, the character's display name and one "Label: value" line
+// per stat. It draws nothing when Character is nil or not in the current
+// scene.
 func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	if c.Character == nil || !g.CharacterInScene(c.Character) {
@@ -70,8 +82,8 @@ func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt — the panel sits on top of the scene; clicks inside it
-// shouldn't trigger hotspots underneath.
+// BlocksClickAt reports whether p falls inside Bounds, so the verb coin does
+// not open over the panel.
 func (c *CharacterPanel) BlocksClickAt(p Point) bool {
 	return c.Bounds.Contains(p)
 }

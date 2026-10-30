@@ -20,9 +20,15 @@ type InventoryBar struct {
 	PanelBG bool
 }
 
-func (b *InventoryBar) GetName() string        { return b.Name }
+// GetName returns the name the bar is registered under.
+func (b *InventoryBar) GetName() string { return b.Name }
+
+// VisibleWhen returns the condition that switches the bar on; nil means
+// always.
 func (b *InventoryBar) VisibleWhen() Condition { return b.When }
-func (b *InventoryBar) Layer() Layer           { return LayerHUD }
+
+// Layer puts the bar on [LayerHUD].
+func (b *InventoryBar) Layer() Layer { return LayerHUD }
 
 func (b *InventoryBar) slotRect(idx int) Rectangle {
 	cols := b.Cols
@@ -48,6 +54,11 @@ func (b *InventoryBar) DebugTargets(g *Game) []DebugTarget {
 	return out
 }
 
+// Tick sets the hover label to the item under the pointer and handles a
+// left click on a filled slot, consuming it: under the look verb the player
+// says the item's Description; with another item held, a pairing found in
+// either item's OnUseWith is queued; otherwise the item is selected, or
+// deselected when it already was.
 func (b *InventoryBar) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	mp := g.Input.Point()
@@ -112,6 +123,9 @@ func (b *InventoryBar) combine(g *Game, clicked string) bool {
 	return true
 }
 
+// Draw paints the PanelBG backdrop when asked, then every slot, the
+// selected item's slot highlighted and each filled slot showing its item's
+// sprite, or a filled square when it has none.
 func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()
@@ -153,7 +167,8 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt — clickBlocker contract for the RadialVerbs widget.
+// BlocksClickAt reports whether p falls inside the rectangle the slots
+// span, so the verb coin does not open over the bar.
 func (b *InventoryBar) BlocksClickAt(p Point) bool {
 	if b.Slots <= 0 {
 		return false

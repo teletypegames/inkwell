@@ -40,11 +40,22 @@ type TopBar struct {
 	Notes map[string]Text
 }
 
-func (t *TopBar) GetName() string        { return t.Name }
-func (t *TopBar) VisibleWhen() Condition { return t.When }
-func (t *TopBar) Layer() Layer           { return LayerHUD }
-func (t *TopBar) Tick(ctx *UICtx)        {}
+// GetName returns the name the bar is registered under.
+func (t *TopBar) GetName() string { return t.Name }
 
+// VisibleWhen returns the condition that switches the bar on; nil means
+// always.
+func (t *TopBar) VisibleWhen() Condition { return t.When }
+
+// Layer puts the bar on [LayerHUD].
+func (t *TopBar) Layer() Layer { return LayerHUD }
+
+// Tick does nothing; the bar reads the game when it draws.
+func (t *TopBar) Tick(ctx *UICtx) {}
+
+// Draw paints the strip, Height pixels tall (12 when zero), with the left
+// text and its note, the score in the centre and the time at the right
+// edge, each read from State as the frame is drawn.
 func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()
@@ -96,8 +107,8 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt — the TopBar swallows clicks so the radial menu doesn't
-// pop up under it.
+// BlocksClickAt reports whether p lies above the bar's bottom edge, so the
+// verb coin does not open over it.
 func (t *TopBar) BlocksClickAt(p Point) bool {
 	h := t.Height
 	if h <= 0 {

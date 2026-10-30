@@ -16,11 +16,26 @@ type SpeechBubble struct {
 	FallbackY int
 }
 
-func (s *SpeechBubble) GetName() string        { return s.Name }
-func (s *SpeechBubble) VisibleWhen() Condition { return s.When }
-func (s *SpeechBubble) Layer() Layer           { return LayerSpeech }
-func (s *SpeechBubble) Tick(ctx *UICtx)        {}
+// GetName returns the name the bubble is registered under.
+func (s *SpeechBubble) GetName() string { return s.Name }
 
+// VisibleWhen returns the condition that switches the bubble on; nil means
+// always.
+func (s *SpeechBubble) VisibleWhen() Condition { return s.When }
+
+// Layer puts the bubble on [LayerSpeech], over the scene and the HUD.
+func (s *SpeechBubble) Layer() Layer { return LayerSpeech }
+
+// Tick does nothing; the game sets and clears the line, the bubble only
+// shows it.
+func (s *SpeechBubble) Tick(ctx *UICtx) {}
+
+// Draw paints the current line, wrapped to MaxWidth (200 when zero) on a
+// backdrop with Padding (3 when zero), centred OffsetY pixels above the
+// speaker's head and kept on screen, in the speaker's speech colour. A
+// speaker not in the scene gets the bubble at the screen's centre with its
+// bottom at FallbackY (14 when zero). It draws nothing when no line is
+// being said.
 func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	sp := g.speech

@@ -4,6 +4,7 @@ package inkwell
 // no Area of its own.
 type ExitSide int
 
+// The edges an Exit can sit on.
 const (
 	ExitLeft  ExitSide = iota // off the left edge
 	ExitRight                 // off the right edge

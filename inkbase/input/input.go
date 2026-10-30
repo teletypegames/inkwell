@@ -1,4 +1,3 @@
-// Package input provides consume-on-use input polling for inkbase widgets.
 package input
 
 import (
@@ -21,8 +20,13 @@ type Input struct {
 	keysConsumed   []ebiten.Key
 }
 
+// New returns an empty Input; call [Input.Poll] at the start of each
+// Update before reading it.
 func New() *Input { return &Input{} }
 
+// Poll reads the cursor position, this frame's fresh mouse clicks, the
+// wheel and the newly pressed keys from Ebitengine, and clears every
+// consumed mark from the previous frame. Call it once per Update.
 func (i *Input) Poll() {
 	i.mouseX, i.mouseY = ebiten.CursorPosition()
 	i.leftPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
@@ -34,12 +38,30 @@ func (i *Input) Poll() {
 	i.keysConsumed = i.keysConsumed[:0]
 }
 
-func (i *Input) Pos() (int, int)       { return i.mouseX, i.mouseY }
-func (i *Input) Point() inkbase.Point  { return inkbase.Point{X: float64(i.mouseX), Y: float64(i.mouseY)} }
-func (i *Input) LeftClicked() bool     { return i.leftPressed && !i.leftConsumed }
-func (i *Input) RightClicked() bool    { return i.rightPressed && !i.rightConsumed }
-func (i *Input) ConsumeLeft()          { i.leftConsumed = true }
-func (i *Input) ConsumeRight()         { i.rightConsumed = true }
+// Pos returns the cursor position in screen pixels as of the last Poll.
+func (i *Input) Pos() (int, int) { return i.mouseX, i.mouseY }
+
+// Point returns the cursor position as of the last Poll as an
+// [inkbase.Point].
+func (i *Input) Point() inkbase.Point {
+	return inkbase.Point{X: float64(i.mouseX), Y: float64(i.mouseY)}
+}
+
+// LeftClicked reports whether the left button went down this frame and
+// nobody has consumed the click yet. It does not consume it.
+func (i *Input) LeftClicked() bool { return i.leftPressed && !i.leftConsumed }
+
+// RightClicked reports whether the right button went down this frame and
+// nobody has consumed the click yet. It does not consume it.
+func (i *Input) RightClicked() bool { return i.rightPressed && !i.rightConsumed }
+
+// ConsumeLeft claims this frame's left click, so [Input.LeftClicked]
+// reports false until the next Poll.
+func (i *Input) ConsumeLeft() { i.leftConsumed = true }
+
+// ConsumeRight claims this frame's right click, so [Input.RightClicked]
+// reports false until the next Poll.
+func (i *Input) ConsumeRight() { i.rightConsumed = true }
 
 // Wheel is the mouse wheel's travel on this frame.
 func (i *Input) Wheel() (float64, float64) { return i.wheelX, i.wheelY }

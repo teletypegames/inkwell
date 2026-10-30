@@ -22,6 +22,10 @@ type Given struct {
 	Is  any
 }
 
+// Eval reports whether every set field of given holds in ctx: the flags
+// raised or not on ctx.State, the items in the inventory or not, and the
+// variable equal to Is. An Item or NotItem condition is false when
+// ctx.Game cannot answer [InventoryChecker].
 func (given Given) Eval(ctx *inkbase.Ctx) bool {
 	state := ctx.State
 	if given.Flag != "" && !state.Flag(given.Flag) {

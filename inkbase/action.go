@@ -3,10 +3,11 @@ package inkbase
 // Status is the outcome of one tick of a Runner.
 type Status int
 
+// The outcomes of a tick.
 const (
-	StatusRunning Status = iota
-	StatusDone
-	StatusFailed
+	StatusRunning Status = iota // not finished; tick it again next frame
+	StatusDone                  // finished; a sequence moves on
+	StatusFailed                // gave up; a sequence stops here
 )
 
 // Ctx is the per-tick context passed to running actions. State is available

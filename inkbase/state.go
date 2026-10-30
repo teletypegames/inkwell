@@ -1,5 +1,9 @@
 package inkbase
 
+// State is the game's progress: flags, variables, how often each scene was
+// visited and each dialog node talked, and the entities the player has come
+// to know. It is what a save file holds; the zero value is not usable, make
+// one with [NewState].
 type State struct {
 	flags   map[string]bool
 	vars    map[string]any
@@ -8,6 +12,7 @@ type State struct {
 	known   map[string]int
 }
 
+// NewState returns an empty State with all of its maps made.
 func NewState() *State {
 	return &State{
 		flags:   make(map[string]bool),
@@ -24,6 +29,9 @@ func knownKey(entity Knowable) string { return entity.TypeLabel() + "/" + entity
 // from 1, or 0 for one they have not.
 func (s *State) Known(entity Knowable) int { return s.known[knownKey(entity)] }
 
+// NoteKnown records that the player now knows entity, giving it the next
+// number in the order [State.Known] reports. An entity already known keeps
+// its number.
 func (s *State) NoteKnown(entity Knowable) {
 	key := knownKey(entity)
 	if s.known[key] > 0 {
@@ -32,15 +40,32 @@ func (s *State) NoteKnown(entity Knowable) {
 	s.known[key] = len(s.known) + 1
 }
 
-func (s *State) Flag(name string) bool     { return s.flags[name] }
-func (s *State) SetFlag(name string)       { s.flags[name] = true }
-func (s *State) ClearFlag(name string)     { delete(s.flags, name) }
-func (s *State) Var(name string) any       { return s.vars[name] }
+// Flag reports whether the flag name is set.
+func (s *State) Flag(name string) bool { return s.flags[name] }
+
+// SetFlag sets the flag name.
+func (s *State) SetFlag(name string) { s.flags[name] = true }
+
+// ClearFlag unsets the flag name.
+func (s *State) ClearFlag(name string) { delete(s.flags, name) }
+
+// Var returns the variable name, or nil when it was never set.
+func (s *State) Var(name string) any { return s.vars[name] }
+
+// SetVar sets the variable name to v.
 func (s *State) SetVar(name string, v any) { s.vars[name] = v }
-func (s *State) Visited(name string) int   { return s.visited[name] }
-func (s *State) NoteVisit(name string)     { s.visited[name]++ }
-func (s *State) Talked(node string) int    { return s.talked[node] }
-func (s *State) NoteTalked(node string)    { s.talked[node]++ }
+
+// Visited returns how many times the scene name has been entered.
+func (s *State) Visited(name string) int { return s.visited[name] }
+
+// NoteVisit counts one more visit to the scene name.
+func (s *State) NoteVisit(name string) { s.visited[name]++ }
+
+// Talked returns how many times the dialog node has been played.
+func (s *State) Talked(node string) int { return s.talked[node] }
+
+// NoteTalked counts one more playing of the dialog node.
+func (s *State) NoteTalked(node string) { s.talked[node]++ }
 
 // Flags returns a copy of the underlying flag map — for serialization.
 func (s *State) Flags() map[string]bool {

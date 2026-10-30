@@ -26,11 +26,21 @@ type Panel struct {
 	Blocks bool
 }
 
-func (p *Panel) GetName() string        { return p.Name }
-func (p *Panel) VisibleWhen() Condition { return p.When }
-func (p *Panel) Layer() Layer           { return LayerPanel }
-func (p *Panel) Tick(ctx *UICtx)        {}
+// GetName returns the name the panel is registered under.
+func (p *Panel) GetName() string { return p.Name }
 
+// VisibleWhen returns the condition that switches the panel on; nil means
+// always.
+func (p *Panel) VisibleWhen() Condition { return p.When }
+
+// Layer puts the panel on [LayerPanel], under the HUD mounted on it.
+func (p *Panel) Layer() Layer { return LayerPanel }
+
+// Tick does nothing; the panel only displays.
+func (p *Panel) Tick(ctx *UICtx) {}
+
+// Draw fills Bounds with BG and, when Border is positive, outlines it in
+// BorderColor.
 func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	bg := p.BG
@@ -52,7 +62,8 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt — a Panel swallows a click only when it was asked to.
+// BlocksClickAt reports whether p falls inside Bounds of a panel that has
+// Blocks set, so the verb coin does not open over it.
 func (p *Panel) BlocksClickAt(pt Point) bool {
 	return p.Blocks && p.Bounds.Contains(pt)
 }

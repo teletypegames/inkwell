@@ -1,33 +1,3 @@
-// Package steam is inkwell's Steamworks layer: one inkwell.Extension that
-// initialises the Steam API before the window opens, pumps its callbacks
-// every frame, reports achievements, keeps the save slots in Steam Cloud and
-// offers the client's language as the game's SystemLang. It binds through
-// github.com/bogdannbv/go-steamworks, which is purego rather than cgo, and
-// runs on 64-bit Windows, Linux and macOS only.
-//
-// The root inkwell package does not import this one, so a game that never
-// names it links none of it. A game switches Steam on by putting a *Steam in
-// its Game literal:
-//
-//	Extensions: []inkwell.Extension{
-//		&steam.Steam{
-//			AppID: 480,
-//			Languages: map[string]string{
-//				"english":   "en",
-//				"hungarian": "hu",
-//			},
-//			Cloud: []string{inkwell.SlotsKey},
-//		},
-//	},
-//
-// At runtime the Steam client must be running and the redistributable —
-// steam_api64.dll, libsteam_api.so or libsteam_api.dylib — must sit in the
-// working directory, which is where Steam launches a game from; the
-// STEAMWORKS_LIB_PATH environment variable names another location. A run
-// outside Steam needs steam_appid.txt beside the binary. When the library
-// cannot be loaded or the API does not initialise, the extension logs the
-// reason and stands down: the game runs without Steam rather than not at
-// all.
 package steam
 
 import (

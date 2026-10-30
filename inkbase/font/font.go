@@ -1,5 +1,3 @@
-// Package font provides the built-in glyph atlas and text rendering
-// functions for inkbase widgets.
 package font
 
 import (

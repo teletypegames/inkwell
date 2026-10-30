@@ -11,5 +11,9 @@ type Verb struct {
 	Default inkbase.Action
 }
 
-func (v Verb) GetName() string   { return v.Name }
+// GetName returns the verb's Name, the key it is registered under.
+func (v Verb) GetName() string { return v.Name }
+
+// TypeLabel returns "verb", the kind that tells a verb apart from
+// other entities of the same Name in saved state and in panic messages.
 func (v Verb) TypeLabel() string { return "verb" }

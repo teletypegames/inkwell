@@ -13,6 +13,7 @@ type Voice struct {
 	Path string
 }
 
+// Source returns the recording's Path, which makes a Voice [Audible].
 func (v *Voice) Source() string { return v.Path }
 
 // Music is a track a Scene or a Stage plays while it is showing.
@@ -22,9 +23,14 @@ type Music struct {
 	Loop bool
 }
 
-func (m Music) GetName() string   { return m.Name }
+// GetName returns the track's Name, its key in the registry.
+func (m Music) GetName() string { return m.Name }
+
+// TypeLabel returns "music", the kind used in log and panic messages.
 func (m Music) TypeLabel() string { return "music" }
-func (m *Music) Source() string   { return m.Path }
+
+// Source returns the track's Path, which makes a *Music [Audible].
+func (m *Music) Source() string { return m.Path }
 
 // Sound is a noise: a door, a latch, a cassette clicking home.
 type Sound struct {
@@ -32,6 +38,11 @@ type Sound struct {
 	Path string
 }
 
-func (s Sound) GetName() string   { return s.Name }
+// GetName returns the sound's Name, its key in the registry.
+func (s Sound) GetName() string { return s.Name }
+
+// TypeLabel returns "sound", the kind used in log and panic messages.
 func (s Sound) TypeLabel() string { return "sound" }
-func (s *Sound) Source() string   { return s.Path }
+
+// Source returns the sound's Path, which makes a *Sound [Audible].
+func (s *Sound) Source() string { return s.Path }

@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-// AssetFS, when non-nil, is the filesystem asset files (images, audio)
+// AssetFS is, when non-nil, the filesystem asset files (images, audio)
 // are read from instead of the OS filesystem. Set it to an embed.FS
 // before Run to ship assets inside the binary — required for js/wasm
 // builds, where there is no OS filesystem and every asset would fall

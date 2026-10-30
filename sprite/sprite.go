@@ -32,7 +32,9 @@ type Sprite struct {
 type Facing int
 
 const (
+	// FacingRight is artwork that looks to the right; the zero value.
 	FacingRight Facing = iota
+	// FacingLeft is artwork that looks to the left.
 	FacingLeft
 )
 
@@ -44,15 +46,21 @@ const (
 type Pose int
 
 const (
+	// PoseIdle is standing still; the fallback for every other pose.
 	PoseIdle Pose = iota
+	// PoseWalk is moving along a path.
 	PoseWalk
+	// PoseTalk is speaking a line.
 	PoseTalk
+	// PoseWait is standing still for longer than [WaitAfter].
 	PoseWait
 )
 
 // WaitAfter is how long a character stands still before Wait replaces Idle.
 const WaitAfter = 8.0
 
+// FrameCount is the number of frames in the sprite: len(Frames), 1 when
+// Frames is empty, and 0 for a nil Sprite.
 func (s *Sprite) FrameCount() int {
 	if s == nil {
 		return 0
@@ -79,6 +87,9 @@ func (s *Sprite) FrameAt(elapsed float64) int {
 	return frame
 }
 
+// FrameRect is the rectangle of img that frame cuts out, clipped to img's
+// bounds. With no Frames, or a frame index out of range, it is the whole of
+// img.
 func (s *Sprite) FrameRect(img *ebiten.Image, frame int) image.Rectangle {
 	if len(s.Frames) == 0 || frame < 0 || frame >= len(s.Frames) {
 		return img.Bounds()
