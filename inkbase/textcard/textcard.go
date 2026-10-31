@@ -18,43 +18,48 @@ type Colors struct {
 	Text color.Color
 }
 
-type host interface {
-	ScreenSize() (int, int)
-	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
+// Host is what a [TextCard] needs from the game it is drawn for, the
+// UICtx's Game. On a Game that does not implement it the card draws nothing.
+type Host interface {
+	widget.Screen
+	// TextCardColors is the palette the card draws with.
 	TextCardColors() Colors
 }
 
-// TextCard is a block of lines centred on the screen: a title card, a
-// credits page, a notice. It draws nothing on a host that does not provide
-// the screen size, text drawing and [Colors].
+// TextCard is a block of lines centred on the screen — a credits roll that
+// does not roll, a title card, an apology. It is the plainest thing a Stage
+// that is not the world can be made of, and it needs no tree, no rows and no
+// navigation to be one.
 type TextCard struct {
 	// Name is the key the widget is registered under.
 	Name string
 	// When gates the widget; nil shows it always.
 	When inkbase.Condition
 	// Lines are printed one under another, each resolved into the player's
-	// language; an empty Text is a blank line.
+	// language. An empty Text is a blank line, which is how a block is
+	// spaced.
 	Lines []inkbase.Text
-	// Align is how each line sits against the widest one; the block itself
-	// is always centred, and AlignCenter centres each line on the screen.
+	// Align is how each line sits against the others; the block itself is
+	// always centred on the screen.
 	Align inkbase.Align
-	// LineHeight is a line's height in pixels; 0 means the glyph height + 2.
+	// LineHeight is a line's height in pixels; 0 gives the glyph height + 2.
 	LineHeight int
-	// Backdrop fills the whole screen with [Colors].BG behind the block.
+	// Backdrop fills the screen behind the block with [Colors].BG. False
+	// leaves whatever the Stage put there.
 	Backdrop bool
 }
 
-// GetName returns the card's Name, the key it is registered under.
+// GetName returns the name the card is registered under.
 func (c *TextCard) GetName() string { return c.Name }
 
-// VisibleWhen returns When, the condition that shows the card; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the card on; nil means
+// always.
 func (c *TextCard) VisibleWhen() inkbase.Condition { return c.When }
 
 // Layer puts the card on [widget.LayerHUD].
 func (c *TextCard) Layer() widget.Layer { return widget.LayerHUD }
 
-// Tick does nothing: the card has no state of its own to advance.
+// Tick does nothing; the card only displays.
 func (c *TextCard) Tick(ctx *widget.UICtx) {}
 
 func (c *TextCard) lineHeight() int {
@@ -64,10 +69,10 @@ func (c *TextCard) lineHeight() int {
 	return font.GlyphH + 2
 }
 
-// Draw paints the backdrop when asked for and the lines, centred as a block
-// both ways.
+// Draw paints the Backdrop when asked, then the Lines as a block centred on
+// the screen, each placed by Align within the width of the widest.
 func (c *TextCard) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}

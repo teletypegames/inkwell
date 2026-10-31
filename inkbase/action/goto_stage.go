@@ -1,17 +1,20 @@
 package action
 
-import "git.teletypegames.org/engines/inkwell/inkbase"
+import (
+	"git.teletypegames.org/engines/inkwell/inkbase"
+	"git.teletypegames.org/engines/inkwell/inkbase/stage"
+)
 
 // StageHost provides stage navigation.
 type StageHost interface {
-	GoToStage(stage *inkbase.Stage)
-	PreviousStage() *inkbase.Stage
+	GoToStage(s *stage.Stage)
+	PreviousStage() *stage.Stage
 }
 
-type gotoStageAction struct{ stage *inkbase.Stage }
+type gotoStageAction struct{ stage *stage.Stage }
 
 // GoToStage shows another Stage.
-func GoToStage(stage *inkbase.Stage) inkbase.Action { return &gotoStageAction{stage: stage} }
+func GoToStage(s *stage.Stage) inkbase.Action { return &gotoStageAction{stage: s} }
 
 func (a *gotoStageAction) Start() inkbase.Runner { return a }
 

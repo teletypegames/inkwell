@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"git.teletypegames.org/engines/inkwell/inkbase"
@@ -42,4 +44,24 @@ type Gated interface {
 // Awake is implemented by a widget that ticks even during a running script.
 type Awake interface {
 	TicksDuringScript() bool
+}
+
+// ClickBlocker is the optional widget contract for "the screen under me is
+// mine": a visible widget that reports p as blocked keeps a click there from
+// reaching whatever the host puts behind its widgets — in inkwell the scene,
+// with its hotspots and its walk — and keeps a widget that pops up where the
+// pointer is (a verb coin) from opening over it. The widget's own Tick still
+// gets the click first.
+type ClickBlocker interface {
+	BlocksClickAt(ctx *UICtx, p inkbase.Point) bool
+}
+
+// Screen is the drawing surface most widgets need from their host: the
+// logical screen size and text drawing in the host's font. The widget
+// packages embed it in their own Host interfaces.
+type Screen interface {
+	// ScreenSize is the logical screen's width and height in pixels.
+	ScreenSize() (width, height int)
+	// DrawText draws s in colour c with its top-left corner at x, y.
+	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
 }

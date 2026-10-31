@@ -19,6 +19,19 @@
 //     them. A widget that does not implement Gated is always live.
 //   - [Awake]: the widget ticks even while a script holds the frame.
 //     [WidgetAwake] reports it.
+//   - [ClickBlocker]: the widget owns part of the screen. A host asks every
+//     visible widget's BlocksClickAt before it hands a click to whatever lies
+//     behind the widgets (in inkwell the scene), so a click on the HUD does
+//     not also walk the player or fire a hotspot.
+//
+// # Hosts
+//
+// The Game in a UICtx is whatever the host loop put there. A widget that
+// needs more than DT type-asserts it to an interface of its own; the widget
+// packages of inkbase each call theirs Host, and most embed [Screen] — the
+// screen size and text drawing. A Game that does not implement a widget's
+// Host leaves the widget inert rather than panicking. inkwell's *Game
+// implements every one of them.
 //
 // # Z-order and input
 //

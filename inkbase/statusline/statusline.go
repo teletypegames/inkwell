@@ -17,19 +17,24 @@ type Colors struct {
 	Status color.Color
 }
 
-type host interface {
-	ScreenSize() (int, int)
-	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
-	FlashText() (string, float64)
-	SetFlash(text string, timer float64)
+// Host is what a [StatusLine] needs from the game it is drawn for, the
+// UICtx's Game. On a Game that does not implement it the line draws nothing.
+type Host interface {
+	widget.Screen
+	// FlashText is the flash message up now, or "" when there is none. The
+	// host owns it and its expiry; the line only shows it.
+	FlashText() string
+	// HoverHint is what the line says when there is no flash: in inkwell
+	// the verb and the target under the cursor.
 	HoverHint() string
+	// StatusLineColors is the palette the line draws with.
 	StatusLineColors() Colors
 }
 
-// StatusLine renders a single line of text: the host's flash message while
-// one is up, otherwise the hover hint for what is under the cursor. It does
-// nothing on a host that does not provide them, the screen size, text
-// drawing and [Colors].
+// StatusLine renders a single line: either the host's flash message while
+// one is up, or the hover hint (verb + target under the cursor). It only
+// displays: the flash expires on the host's clock whether a StatusLine is
+// registered, visible or not.
 type StatusLine struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -44,38 +49,24 @@ type StatusLine struct {
 	ScreenWidth int
 }
 
-// GetName returns the status line's Name, the key it is registered under.
+// GetName returns the name the status line is registered under.
 func (s *StatusLine) GetName() string { return s.Name }
 
-// VisibleWhen returns When, the condition that shows the status line; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the line on; nil means
+// always.
 func (s *StatusLine) VisibleWhen() inkbase.Condition { return s.When }
 
-// Layer puts the status line on [widget.LayerHUD].
+// Layer puts the line on [widget.LayerHUD].
 func (s *StatusLine) Layer() widget.Layer { return widget.LayerHUD }
 
-// Tick counts the host's flash timer down by the frame's time and clears
-// the flash message when it runs out.
-func (s *StatusLine) Tick(ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
-	if !ok {
-		return
-	}
-	text, timer := h.FlashText()
-	if timer > 0 {
-		timer -= ctx.DT
-		if timer <= 0 {
-			text = ""
-			timer = 0
-		}
-		h.SetFlash(text, timer)
-	}
-}
+// Tick does nothing; the line reads the host when it draws.
+func (s *StatusLine) Tick(ctx *widget.UICtx) {}
 
 // Draw prints the flash message, or the hover hint when there is none, at
-// Y; with neither it draws nothing.
+// height Y, placed by Align across ScreenWidth. It draws nothing when both
+// are empty.
 func (s *StatusLine) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}
@@ -84,7 +75,7 @@ func (s *StatusLine) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	if w == 0 {
 		w, _ = h.ScreenSize()
 	}
-	text, _ := h.FlashText()
+	text := h.FlashText()
 	col := colors.Flash
 	if text == "" {
 		text = h.HoverHint()

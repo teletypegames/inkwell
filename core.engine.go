@@ -20,6 +20,7 @@ func (e *engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func (e *engine) Update() error {
 	syncLang()
+	syncStrings()
 	g := e.g
 	dt := 1.0 / 60.0
 
@@ -35,7 +36,8 @@ func (e *engine) Update() error {
 	}
 
 	g.clock += dt
-	g.Input.poll()
+	g.tickFlash(dt)
+	g.Input.Poll()
 	g.transition.update(dt)
 	g.pumpQueue()
 

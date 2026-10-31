@@ -3,7 +3,7 @@ package inkwell
 import (
 	"image/color"
 
-	iwtransition "git.teletypegames.org/engines/inkwell/transition"
+	iwtransition "git.teletypegames.org/engines/inkwell/inkbase/transition"
 )
 
 // Fade is a Transition through black: the old picture darkens over the

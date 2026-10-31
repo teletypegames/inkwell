@@ -1,7 +1,41 @@
 package inkwell
 
+import (
+	ibaction "git.teletypegames.org/engines/inkwell/inkbase/action"
+	"git.teletypegames.org/engines/inkwell/inkbase/chatlog"
+	ibcond "git.teletypegames.org/engines/inkwell/inkbase/condition"
+	"git.teletypegames.org/engines/inkwell/inkbase/endcard"
+	"git.teletypegames.org/engines/inkwell/inkbase/keybinding"
+	"git.teletypegames.org/engines/inkwell/inkbase/letterbox"
+	"git.teletypegames.org/engines/inkwell/inkbase/menu"
+	"git.teletypegames.org/engines/inkwell/inkbase/panel"
+	"git.teletypegames.org/engines/inkwell/inkbase/statusline"
+	"git.teletypegames.org/engines/inkwell/inkbase/textcard"
+	"git.teletypegames.org/engines/inkwell/inkbase/topbar"
+)
+
 // host.go adds exported methods to *Game that satisfy the host interfaces
-// act/ and cond/ actions type-assert to from ctx.Game.
+// act/ and cond/ actions type-assert to from ctx.Game. The host methods of
+// the inkbase widgets live next to their re-exports in the widget.*.go
+// files; the assertions below keep *Game satisfying every one of them, and
+// the widgets that own part of the screen satisfying ClickBlocker.
+var (
+	_ ibaction.StageHost = (*Game)(nil)
+	_ ibcond.StageReader = (*Game)(nil)
+	_ chatlog.Host       = (*Game)(nil)
+	_ endcard.Host       = (*Game)(nil)
+	_ keybinding.Host    = (*Game)(nil)
+	_ letterbox.Host     = (*Game)(nil)
+	_ menu.Host          = (*Game)(nil)
+	_ panel.Host         = (*Game)(nil)
+	_ statusline.Host    = (*Game)(nil)
+	_ textcard.Host      = (*Game)(nil)
+	_ topbar.Host        = (*Game)(nil)
+	_ ClickBlocker       = (*ChatLog)(nil)
+	_ ClickBlocker       = (*Menu)(nil)
+	_ ClickBlocker       = (*Panel)(nil)
+	_ ClickBlocker       = (*TopBar)(nil)
+)
 
 // UseThemeByName satisfies inkbase/action.ThemeHost: it makes the theme
 // registered under name the active one; an unknown name changes nothing.
@@ -56,7 +90,7 @@ func (g *Game) PlayVoice(v *Voice) float64 { return g.Audio.PlayVoice(v) }
 func (g *Game) StopVoice() { g.Audio.StopVoice() }
 
 // ConsumedClick reports (and consumes) a left click for skip-line.
-func (g *Game) ConsumedClick() bool { return g.Input.consumedClick() }
+func (g *Game) ConsumedClick() bool { return g.Input.ConsumedClick() }
 
 // ChangeScene transitions to the named scene.
 func (g *Game) ChangeScene(name string) { g.changeScene(name) }

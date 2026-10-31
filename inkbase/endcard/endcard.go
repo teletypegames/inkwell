@@ -19,17 +19,24 @@ type Colors struct {
 	Text color.Color
 }
 
-type host interface {
-	ScreenSize() (int, int)
-	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
+// Host is what an [EndCard] needs from the game it is ticked and drawn for,
+// the UICtx's Game. On a Game that does not implement it the card does
+// nothing.
+type Host interface {
+	widget.Screen
+	// WidgetInput is the frame's consume-on-use input; the card swallows
+	// its clicks.
 	WidgetInput() *input.Input
+	// EndCardText is the end text; "" means the card is down.
 	EndCardText() string
+	// EndCardColors is the palette the card draws with.
 	EndCardColors() Colors
 }
 
 // EndCard is a fullscreen overlay with the host's end text centred on it,
-// shown whenever that text is not empty. While it is up it swallows every
-// click, so nothing underneath reacts.
+// up whenever that text is not empty — in inkwell, once the ShowEnd action
+// fires. While it is up it consumes every click so nothing underneath
+// reacts.
 type EndCard struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -37,20 +44,19 @@ type EndCard struct {
 	When inkbase.Condition
 }
 
-// GetName returns the end card's Name, the key it is registered under.
+// GetName returns the name the card is registered under.
 func (e *EndCard) GetName() string { return e.Name }
 
-// VisibleWhen returns When, the condition that shows the end card; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the card on; nil means
+// always.
 func (e *EndCard) VisibleWhen() inkbase.Condition { return e.When }
 
-// Layer puts the end card on [widget.LayerCurtain], over everything but the cursor.
+// Layer puts the card on [widget.LayerCurtain], over the whole game.
 func (e *EndCard) Layer() widget.Layer { return widget.LayerCurtain }
 
-// Tick consumes this frame's left and right clicks while the end text is
-// set.
+// Tick consumes every left and right click while the end card is up.
 func (e *EndCard) Tick(ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}
@@ -66,10 +72,10 @@ func (e *EndCard) Tick(ctx *widget.UICtx) {
 	}
 }
 
-// Draw fills the screen and prints the end text centred on it; with no end
-// text it draws nothing.
+// Draw fills the screen and prints the end text centred on it, while the
+// end card is up.
 func (e *EndCard) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}

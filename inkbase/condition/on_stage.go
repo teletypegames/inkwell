@@ -1,17 +1,20 @@
 package condition
 
-import "git.teletypegames.org/engines/inkwell/inkbase"
+import (
+	"git.teletypegames.org/engines/inkwell/inkbase"
+	"git.teletypegames.org/engines/inkwell/inkbase/stage"
+)
 
 // StageReader provides the current stage for conditions.
 type StageReader interface {
-	CurrentStage() *inkbase.Stage
+	CurrentStage() *stage.Stage
 	OnWorldStage() bool
 }
 
-type onStageCond struct{ stage *inkbase.Stage }
+type onStageCond struct{ stage *stage.Stage }
 
 // OnStage is true while the given Stage is the one showing.
-func OnStage(stage *inkbase.Stage) inkbase.Condition { return &onStageCond{stage: stage} }
+func OnStage(s *stage.Stage) inkbase.Condition { return &onStageCond{stage: s} }
 func (o *onStageCond) Eval(ctx *inkbase.Ctx) bool {
 	if h, ok := ctx.Game.(StageReader); ok {
 		return h.CurrentStage() == o.stage

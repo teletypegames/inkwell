@@ -7,8 +7,14 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase"
 )
 
-// Input is read once per Update() and exposes a "consume on use" API so that
-// one click can be authoritative.
+// Input is read once per Update() and exposes a tiny "consume on use" API
+// so that one click can be authoritative — e.g. clicking on a hotspot
+// while a Say is active should only skip the Say, not also fire the
+// hotspot underneath.
+//
+// Keys work the same way. A widget that binds the arrow keys claims them,
+// so a menu walking a list does not also drive whatever else listens for
+// the same key on the same frame.
 type Input struct {
 	mouseX, mouseY int
 	leftPressed    bool
@@ -63,7 +69,9 @@ func (i *Input) ConsumeLeft() { i.leftConsumed = true }
 // reports false until the next Poll.
 func (i *Input) ConsumeRight() { i.rightConsumed = true }
 
-// Wheel is the mouse wheel's travel on this frame.
+// Wheel is the mouse wheel's travel on this frame, in ebiten's own units.
+// Nothing consumes it — a widget that scrolls checks that the pointer is
+// over it first.
 func (i *Input) Wheel() (float64, float64) { return i.wheelX, i.wheelY }
 
 // KeyPressed is edge-triggered: the key went down this frame and nobody
@@ -87,7 +95,9 @@ func (i *Input) ConsumeKey(key ebiten.Key) {
 	i.keysConsumed = append(i.keysConsumed, key)
 }
 
-// ClaimKey is KeyPressed followed by ConsumeKey.
+// ClaimKey is KeyPressed followed by ConsumeKey — the shape a widget that
+// binds half a dozen keys wants, so its own navigation does not leak to
+// whatever else reads the same key.
 func (i *Input) ClaimKey(key ebiten.Key) bool {
 	if !i.KeyPressed(key) {
 		return false
@@ -96,7 +106,8 @@ func (i *Input) ClaimKey(key ebiten.Key) bool {
 	return true
 }
 
-// ConsumedClick probes whether the user clicked to skip, consuming the click.
+// ConsumedClick is the Say-style "did the player click to skip?" probe: it
+// reports whether there is an unconsumed left click, and consumes it.
 func (i *Input) ConsumedClick() bool {
 	if i.LeftClicked() {
 		i.ConsumeLeft()

@@ -3,8 +3,8 @@
 // goes. It is a widget like any other, on the menu layer, gated by When, and
 // it is the whole of the menu system: a debug menu, a pause menu, a main menu
 // and an in-fiction device screen are this one widget with a different Root.
-// The root inkwell package carries the same widget wired to its Game and
-// theme, plus the debug menu and the explorer built on it.
+// The root inkwell package re-exports it — its *Game is the menu's [Host] —
+// and builds the debug menu and the explorer on it.
 //
 // # Rows and pages
 //
@@ -76,9 +76,17 @@
 //
 // # The host
 //
-// The host provides ScreenSize, DrawText, WidgetInput, DoAction, MakeCtx and
-// MenuColors() [Colors]. In inkwell the colours come from the active theme's
-// dialog tokens — the background and border, the speaker colour for the
-// title bar, the choice colours for the cursor row, the top bar's accent for
-// the value column — so a menu needs no theme work to match the game.
+// The menu reaches its game through [Host], which the UICtx's Game must
+// implement: ScreenSize and DrawText (widget.Screen), WidgetInput, Do,
+// MakeCtx and MenuColors() [Colors]. On a Game that does not, the menu does
+// nothing. inkwell's *Game is a Host, and there the colours come from the
+// active theme's dialog tokens — the background and border, the speaker
+// colour for the title bar, the choice colours for the cursor row, the top
+// bar's accent for the value column — so a menu needs no theme work to match
+// the game.
+//
+// [MenuEmpty], [MenuKeys] and [MenuKeysSticky] are package variables a game
+// may replace before the first frame. In an inkwell game the root package's
+// variables of the same names are the ones to change: the engine copies them
+// here every frame.
 package menu

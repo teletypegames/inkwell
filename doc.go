@@ -248,7 +248,8 @@
 // engine and read by widgets: the selected verb ([Game.SelectedVerb]), the
 // hover label and the composed "verb + target" hint ([Game.HoverHint]), the
 // line being spoken ([Game.SetSpeech]) and the two-second status banner
-// ([Game.FlashLine]).
+// ([Game.FlashLine]), which the game loop expires whether or not a
+// [StatusLine] shows it.
 //
 // The chat log is a buffer of [LogMessage] values, each a [LogKind]: player
 // commands ([Game.LogAction]), in-world replies ([Game.LogResponse]) and
@@ -811,6 +812,8 @@
 // while a dialog is open, the top bar, the character panel while its
 // character is in the scene, the chat log, a blocking panel, the hotspot
 // panel, an open menu and the radial menu itself while it is visible.
+// ClickBlocker is the inkbase widget contract of the same name, so a widget
+// from the inkbase widget packages blocks the same way.
 //
 // [git.teletypegames.org/engines/inkwell/inkbase/widget] documents the contract in full. A
 // custom widget reaches the Game by type assertion:
@@ -829,7 +832,12 @@
 //
 // # Built-in widgets
 //
-// Fields left at their zero value fall back to a sensible default.
+// Fields left at their zero value fall back to a sensible default. The
+// generic ones — [Menu], [Panel], [TextCard], [KeyBinding], [Letterbox],
+// [EndCard], [StatusLine], [TopBar] and [ChatLog] — are the inkbase widgets,
+// re-exported: the Game is their host, and draws them with the active theme
+// (MenuColors, ChatLogColors and the like are the theme's tokens handed to
+// them). The rest need the adventure and live here.
 //
 //   - [Panel]: a coloured rectangle, optionally bordered, as a backdrop; with
 //     Blocks it is opaque to clicks.
@@ -972,7 +980,8 @@
 //	tick the extensions
 //	apply the pending screen change          GoToStage, Restart, LoadSlot
 //	if quitting: stop
-//	poll input, advance the transition, start the next queued action
+//	count the flash down, poll input, advance the transition,
+//	start the next queued action
 //	if a transition is covering the picture: stop here
 //	on the world Stage: evaluate the achievements
 //	if an action is running:
@@ -1004,7 +1013,7 @@
 // queued, the current scene changes, the visit is counted, the actors are
 // placed, the new scene's music plays and its OnEnter is queued; input is
 // frozen while the old picture is going. The opening scene is entered
-// without a transition. See [git.teletypegames.org/engines/inkwell/transition].
+// without a transition. See [git.teletypegames.org/engines/inkwell/inkbase/transition].
 //
 // # Validation
 //
@@ -1099,16 +1108,19 @@
 //     facing.
 //   - [git.teletypegames.org/engines/inkwell/verb]: verbs and the SCUMM set.
 //   - [git.teletypegames.org/engines/inkwell/theme]: themes and the presets.
-//   - [git.teletypegames.org/engines/inkwell/transition]: transitions.
 //   - [git.teletypegames.org/engines/inkwell/achievement]: achievements.
 //   - [git.teletypegames.org/engines/inkwell/steam]: the Steamworks extension,
 //     which a game imports itself.
 //
 // The generic foundation is [git.teletypegames.org/engines/inkwell/inkbase]
-// and its sub-packages: font, input and asset (Ebitengine services), action
-// and condition (the generic actions and conditions), widget (the widget
-// contract), and stand-alone widgets for a non-adventure host — menu, panel,
-// textcard, keybinding, letterbox, endcard, statusline, topbar and chatlog.
+// and its sub-packages: font, input, asset and transition (Ebitengine
+// services), stage (the Stage), action and condition (the generic actions
+// and conditions), widget (the widget contract) and the generic widgets —
+// menu, panel, textcard, keybinding, letterbox, endcard, statusline, topbar
+// and chatlog. Those widgets are the ones this package re-exports (Menu,
+// ChatLog, TopBar, …): *Game implements each widget package's Host, drawing
+// them with the active theme, so the same widget serves an adventure and a
+// game built on inkbase alone.
 //
 // The library is MIT licensed; see LICENSE.md.
 package inkwell

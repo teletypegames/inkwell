@@ -4,6 +4,8 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"git.teletypegames.org/engines/inkwell/inkbase/input"
 )
 
 // Game is the root aggregate. It carries every Manager plus the runtime
@@ -236,7 +238,7 @@ func New(spec Game) *Game {
 	g.State = NewState()
 	g.Inventory = NewInventory()
 	g.Audio = NewAudioPlayer()
-	g.Input = newInput()
+	g.Input = input.New()
 	g.loaded = newLoadedAssets(g.Width, g.Height)
 	g.chars = make(map[string]*runtimeChar)
 	g.unlocked = make(map[string]bool)
@@ -391,7 +393,10 @@ func itemFrame(g *Game, s *Sprite) int {
 	return s.FrameAt(g.clock)
 }
 
-// FlashLine shows a status-line message for ~2 seconds.
+// FlashLine puts up a status-line message for about two seconds of game
+// time, replacing the one up now. The game loop counts it down every frame
+// and clears it, so it expires whether or not a [StatusLine] is showing it;
+// [Game.FlashText] reads it.
 func (g *Game) FlashLine(text Text) {
 	g.flash = text.String()
 	g.flashTimer = 2.0

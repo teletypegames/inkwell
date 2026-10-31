@@ -17,12 +17,16 @@ type Colors struct {
 	Border color.Color
 }
 
-type host interface {
+// Host is the optional part of the game a [Panel] reads its fallback
+// colours from, the UICtx's Game. A Panel on a Game that does not implement
+// it still draws, with its own colours only.
+type Host interface {
+	// PanelColors is the fallback palette.
 	PanelColors() Colors
 }
 
-// Panel is a colored rectangle: a backdrop for grouping other widgets or a
-// frame for a log.
+// Panel is a generic background widget — a colored rectangle. Useful as a
+// backdrop for grouping other widgets or as a chat/notebook frame.
 type Panel struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -30,36 +34,42 @@ type Panel struct {
 	When inkbase.Condition
 	// Bounds is the rectangle filled.
 	Bounds inkbase.Rectangle
-	// BG fills it; nil takes the host's [Colors].BG, and black without one.
+	// BG fills it; nil takes the host's [Colors].BG (in inkwell the active
+	// theme's PanelBG), and black without one.
 	BG color.Color
 	// Border is the outline's thickness in pixels; 0 draws none.
 	Border int
-	// BorderColor is the outline's color; nil takes the host's
-	// [Colors].Border, and no outline without one.
+	// BorderColor is the outline's colour; nil takes the host's
+	// [Colors].Border (in inkwell the theme's DialogBorder), and no outline
+	// without one.
 	BorderColor color.Color
-	// Blocks makes the panel swallow clicks inside Bounds.
+	// Blocks makes the panel opaque to clicks, so a widget that pops up
+	// where the pointer is — the verb coin — does not open over it. A
+	// plate the HUD is mounted on wants this; a rule drawn on top of one
+	// does not, since the plate underneath has already said so.
 	Blocks bool
 }
 
-// GetName returns the panel's Name, the key it is registered under.
+// GetName returns the name the panel is registered under.
 func (p *Panel) GetName() string { return p.Name }
 
-// VisibleWhen returns When, the condition that shows the panel; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the panel on; nil means
+// always.
 func (p *Panel) VisibleWhen() inkbase.Condition { return p.When }
 
-// Layer puts the panel on [widget.LayerPanel], under the HUD.
+// Layer puts the panel on [widget.LayerPanel], under the HUD mounted on
+// it.
 func (p *Panel) Layer() widget.Layer { return widget.LayerPanel }
 
-// Tick does nothing: the panel has no state of its own to advance.
+// Tick does nothing; the panel only displays.
 func (p *Panel) Tick(ctx *widget.UICtx) {}
 
-// Draw fills Bounds with the background and strokes the border when one
-// is set.
+// Draw fills Bounds with BG and, when Border is positive, outlines it in
+// BorderColor.
 func (p *Panel) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	bg := p.BG
 	bc := p.BorderColor
-	if h, ok := ctx.Game.(host); ok {
+	if h, ok := ctx.Game.(Host); ok {
 		colors := h.PanelColors()
 		if bg == nil {
 			bg = colors.BG
@@ -82,8 +92,8 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	}
 }
 
-// BlocksClickAt reports whether the panel swallows a click at pt: only when
-// Blocks is set and pt is inside Bounds.
-func (p *Panel) BlocksClickAt(pt inkbase.Point) bool {
+// BlocksClickAt reports whether pt falls inside Bounds of a panel that has
+// Blocks set; such a panel keeps clicks off the scene behind it.
+func (p *Panel) BlocksClickAt(ctx *widget.UICtx, pt inkbase.Point) bool {
 	return p.Blocks && p.Bounds.Contains(pt)
 }

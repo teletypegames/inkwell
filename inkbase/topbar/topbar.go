@@ -26,19 +26,22 @@ var ScoreLabel = inkbase.Text{
 	{Lang: "hu", Text: "Pont"},
 }
 
-type host interface {
-	ScreenSize() (int, int)
-	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
+// Host is what a [TopBar] needs from the game it is drawn for, the UICtx's
+// Game. On a Game that does not implement it the bar draws nothing.
+type Host interface {
+	widget.Screen
+	// SceneTitle is the left section when LeftText is empty; an empty Text
+	// leaves it blank.
 	SceneTitle() inkbase.Text
-	StateVar(string) any
+	// StateVar reads a state variable, nil when it was never set.
+	StateVar(name string) any
+	// TopBarColors is the palette the bar draws with.
 	TopBarColors() Colors
 }
 
 // TopBar is a thin strip across the top of the screen with three sections:
-// the scene title (and a note) on the left, a score in the center, and a
-// time string on the right. A section with nothing to show is skipped. It
-// draws nothing on a host that does not provide the screen size, text
-// drawing, scene title, state variables and [Colors].
+// scene title on the left, a score number in the center, and a day/time
+// string on the right. Empty fields are skipped.
 type TopBar struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -46,43 +49,47 @@ type TopBar struct {
 	When inkbase.Condition
 	// Height is the strip's height in pixels; 0 means 12.
 	Height int
-	// LeftText replaces the scene title on the left.
+	// LeftText overrides the auto-discovered scene Title/Name.
 	LeftText inkbase.Text
-	// ScoreVar is the state variable printed as the score; empty shows no
-	// score.
+	// ScoreVar is a State Var key whose value is fmt-printed as the
+	// center score; empty = no score shown.
 	ScoreVar string
 	// ScoreMax, when above 0, prints the score as "Score: X/MAX".
 	ScoreMax int
-	// ScoreLabel replaces [ScoreLabel] as the score's label.
+	// ScoreLabel overrides the engine's own word for it.
 	ScoreLabel inkbase.Text
-	// TimeVar is the state variable printed at the right edge; empty shows
-	// nothing there.
+	// TimeVar is a State Var key whose value is printed at the right
+	// edge (e.g. "Day 2 - 14:32"); empty = nothing on the right.
 	TimeVar string
-	// NoteVar is the state variable appended to the left text after an em
-	// dash; empty or unset adds nothing.
+	// NoteVar is a State Var key whose value is appended to the left
+	// text after an em dash — "ALLEY — paused". Empty or unset = no
+	// note, and the title stands alone.
 	NoteVar string
-	// Notes maps a value of NoteVar to the text printed for it. A value with
-	// no entry prints as it stands.
+	// Notes is what to print for each value NoteVar takes. The value
+	// itself is game state a Condition compares against, so it has to
+	// stay the same in every language; what the player reads does not.
+	// A value with no entry prints as it stands.
 	Notes map[string]inkbase.Text
 }
 
-// GetName returns the top bar's Name, the key it is registered under.
+// GetName returns the name the bar is registered under.
 func (t *TopBar) GetName() string { return t.Name }
 
-// VisibleWhen returns When, the condition that shows the top bar; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the bar on; nil means
+// always.
 func (t *TopBar) VisibleWhen() inkbase.Condition { return t.When }
 
-// Layer puts the top bar on [widget.LayerHUD].
+// Layer puts the bar on [widget.LayerHUD].
 func (t *TopBar) Layer() widget.Layer { return widget.LayerHUD }
 
-// Tick does nothing: the bar; it reads the state as it draws has no state of its own to advance.
+// Tick does nothing; the bar reads the game when it draws.
 func (t *TopBar) Tick(ctx *widget.UICtx) {}
 
-// Draw paints the strip and its three sections, reading the state
-// variables afresh each frame.
+// Draw paints the strip, Height pixels tall (12 when zero), with the left
+// text and its note, the score in the centre and the time at the right
+// edge, each read from State as the frame is drawn.
 func (t *TopBar) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}
@@ -135,9 +142,8 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	}
 }
 
-// BlocksClickAt reports whether p lies above the bottom edge of the strip,
-// so a click on the bar does not reach the scene.
-func (t *TopBar) BlocksClickAt(p inkbase.Point) bool {
+// BlocksClickAt reports whether p lies above the bar's bottom edge.
+func (t *TopBar) BlocksClickAt(ctx *widget.UICtx, p inkbase.Point) bool {
 	barH := t.Height
 	if barH <= 0 {
 		barH = 12

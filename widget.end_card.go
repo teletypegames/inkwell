@@ -1,51 +1,19 @@
 package inkwell
 
-import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
-)
+import "git.teletypegames.org/engines/inkwell/inkbase/endcard"
 
 // EndCard is a fullscreen overlay shown when the ShowEnd action fires.
-// While active it consumes every input so nothing underneath reacts.
-type EndCard struct {
-	Name string
-	When Condition
-}
+// While active it consumes every click so nothing underneath reacts. It
+// draws in the active theme's end card colours; see [endcard.EndCard].
+type EndCard = endcard.EndCard
 
-// GetName returns the name the card is registered under.
-func (e *EndCard) GetName() string { return e.Name }
+// EndCardText is the text ShowEnd put up, or "" while the game is not over.
+// It satisfies [endcard.Host].
+func (g *Game) EndCardText() string { return g.endCard }
 
-// VisibleWhen returns the condition that switches the card on; nil means
-// always.
-func (e *EndCard) VisibleWhen() Condition { return e.When }
-
-// Layer puts the card on [LayerCurtain], over the whole game.
-func (e *EndCard) Layer() Layer { return LayerCurtain }
-
-// Tick consumes every left and right click while the end card is up.
-func (e *EndCard) Tick(ctx *UICtx) {
-	g := gameOfUI(ctx)
-	if g.endCard == "" {
-		return
-	}
-	// swallow every click while the end card is up
-	if g.Input.LeftClicked() {
-		g.Input.ConsumeLeft()
-	}
-	if g.Input.RightClicked() {
-		g.Input.ConsumeRight()
-	}
-}
-
-// Draw fills the screen and prints the ShowEnd text centred on it, while the
-// end card is up.
-func (e *EndCard) Draw(dst *ebiten.Image, ctx *UICtx) {
-	g := gameOfUI(ctx)
-	if g.endCard == "" {
-		return
-	}
+// EndCardColors is the palette an [EndCard] draws with: the active theme's
+// EndCardBG and EndCardText. It satisfies [endcard.Host].
+func (g *Game) EndCardColors() endcard.Colors {
 	th := g.Theme()
-	vector.DrawFilledRect(dst, 0, 0, float32(g.Width), float32(g.Height), th.EndCardBG, false)
-	w := TextWidth(g.endCard)
-	g.DrawText(dst, g.endCard, (g.Width-w)/2, g.Height/2-8, th.EndCardText)
+	return endcard.Colors{BG: th.EndCardBG, Text: th.EndCardText}
 }

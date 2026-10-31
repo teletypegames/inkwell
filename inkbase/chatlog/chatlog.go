@@ -11,12 +11,12 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
-// SpeakerStyle says how a [ChatLog] names who is talking.
+// SpeakerStyle says how a ChatLog names who is talking.
 type SpeakerStyle int
 
 const (
-	// SpeakerInline puts the speaker's label and a colon in front of every
-	// reply.
+	// SpeakerInline puts "DEX: " in front of every reply, which is what a
+	// log of a conversation between several people needs.
 	SpeakerInline SpeakerStyle = iota
 	// SpeakerHeader names only the latest speaker, once, above a rule at the
 	// top of the box.
@@ -37,19 +37,32 @@ type Colors struct {
 	System   color.Color
 }
 
-type host interface {
-	DrawText(dst *ebiten.Image, s string, x, y int, c color.Color)
+// Host is what a [ChatLog] needs from the game it is drawn for, the UICtx's
+// Game. On a Game that does not implement it the log draws nothing.
+type Host interface {
+	widget.Screen
+	// Messages is the log, oldest first.
 	Messages() []inkbase.LogMessage
-	SpeakerDelivery(name string) inkbase.Delivery
-	SpeakerColor(name string, fallback color.Color) color.Color
+	// DeliveryOf is how the voice behind a speaker's name delivers its
+	// lines, which is what Deliveries filters on.
+	DeliveryOf(name string) inkbase.Delivery
+	// SpeechColor is the colour of a speaker's lines, or fallback when the
+	// speaker has none.
+	SpeechColor(name string, fallback color.Color) color.Color
+	// SpeakerLabel is what the log calls a speaker.
 	SpeakerLabel(name string) inkbase.Text
+	// ChatLogColors is the palette the log draws with.
 	ChatLogColors() Colors
 }
 
-// ChatLog renders the game's message log (player commands, in-world replies
-// and system lines) as a box with the newest line at the bottom; older lines
-// scroll up out of view. It draws nothing on a host that does not provide
-// the messages, speaker lookups and [Colors].
+// ChatLog renders the in-game message log (player commands + in-world
+// replies) as a scrolling box. The newest message is at the bottom; older
+// messages scroll up out of view as the buffer fills.
+//
+// A log can be given over to part of the conversation rather than all of
+// it: Deliveries keeps only the replies spoken in one of the voices it lists,
+// which is how a game with a radio, a tape or a narrator hands that voice
+// a panel of its own without the widget having to know what the thing is.
 type ChatLog struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -66,32 +79,33 @@ type ChatLog struct {
 	// Speaker says how a reply names who said it.
 	Speaker SpeakerStyle
 	// Deliveries, when set, keeps only the replies spoken in one of these
-	// voices; commands and system lines are kept either way. Nil keeps
-	// everything.
+	// voices. Player commands and system lines are not a character's, so
+	// they are kept either way. Nil keeps everything.
 	Deliveries []inkbase.Delivery
-	// Resting is the speaker name the header carries before anybody this log
-	// listens to has spoken. Only SpeakerHeader reads it.
-	Resting string
+	// Resting names the character the header carries before anybody this
+	// log listens to has spoken. Only SpeakerHeader reads it.
+	Resting inkbase.Talker
 }
 
-// GetName returns the chat log's Name, the key it is registered under.
+// GetName returns the name the log is registered under.
 func (c *ChatLog) GetName() string { return c.Name }
 
-// VisibleWhen returns When, the condition that shows the chat log; nil shows
-// it always.
+// VisibleWhen returns the condition that switches the log on; nil means
+// always.
 func (c *ChatLog) VisibleWhen() inkbase.Condition { return c.When }
 
-// Layer puts the chat log on [widget.LayerHUD].
+// Layer puts the log on [widget.LayerHUD].
 func (c *ChatLog) Layer() widget.Layer { return widget.LayerHUD }
 
-// Tick does nothing: the log; the messages live in the host has no state of its own to advance.
+// Tick does nothing; the log reads the game's messages when it draws.
 func (c *ChatLog) Tick(ctx *widget.UICtx) {}
 
-func (c *ChatLog) hears(h host, speaker string) bool {
+// hears reports whether a reply from this speaker belongs in the log.
+func (c *ChatLog) hears(h Host, speaker string) bool {
 	if len(c.Deliveries) == 0 {
 		return true
 	}
-	delivery := h.SpeakerDelivery(speaker)
+	delivery := h.DeliveryOf(speaker)
 	for _, d := range c.Deliveries {
 		if d == delivery {
 			return true
@@ -100,20 +114,25 @@ func (c *ChatLog) hears(h host, speaker string) bool {
 	return false
 }
 
-func (c *ChatLog) latest(h host) string {
+// latest is the last speaker the log heard, for the header.
+func (c *ChatLog) latest(h Host) string {
 	msgs := h.Messages()
 	for i := len(msgs) - 1; i >= 0; i-- {
 		if msgs[i].Kind == inkbase.LogResponse && msgs[i].Speaker != "" && c.hears(h, msgs[i].Speaker) {
 			return msgs[i].Speaker
 		}
 	}
-	return c.Resting
+	if c.Resting == nil {
+		return ""
+	}
+	return c.Resting.TalkerName()
 }
 
-// Draw paints the box, the speaker header when Speaker is SpeakerHeader, and
-// as many of the latest wrapped lines as fit, each in its kind's color.
+// Draw paints the box in Bounds, the speaker header when Speaker is
+// SpeakerHeader, and as many of the newest wrapped messages as fit, each in
+// its kind's colour or its speaker's. A zero-sized Bounds draws nothing.
 func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}
@@ -140,7 +159,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	if c.Speaker == SpeakerHeader {
 		if who := c.latest(h); who != "" {
 			h.DrawText(dst, h.SpeakerLabel(who).String(), int(b.X)+pad, top,
-				h.SpeakerColor(who, colors.Response))
+				h.SpeechColor(who, colors.Response))
 		}
 		ruleY := float32(top+lh) + 2
 		vector.StrokeLine(dst, float32(b.X)+float32(pad), ruleY,
@@ -148,6 +167,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 		top += lh + 6
 	}
 
+	// Wrap each message; collect rendered lines (color + text).
 	type line struct {
 		text string
 		col  color.Color
@@ -164,7 +184,7 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 			if !c.hears(h, m.Speaker) {
 				continue
 			}
-			col = h.SpeakerColor(m.Speaker, colors.Response)
+			col = h.SpeechColor(m.Speaker, colors.Response)
 			if c.Speaker == SpeakerInline && m.Speaker != "" {
 				txt = h.SpeakerLabel(m.Speaker).String() + ": " + txt
 			}
@@ -188,6 +208,6 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	}
 }
 
-// BlocksClickAt reports whether p falls inside Bounds, so a click on the log
-// does not reach the scene.
-func (c *ChatLog) BlocksClickAt(p inkbase.Point) bool { return c.Bounds.Contains(p) }
+// BlocksClickAt reports whether p falls inside Bounds. The log takes no
+// clicks itself, but the screen under it is the log's, not the scene's.
+func (c *ChatLog) BlocksClickAt(ctx *widget.UICtx, p inkbase.Point) bool { return c.Bounds.Contains(p) }

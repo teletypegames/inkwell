@@ -131,10 +131,9 @@ const (
 // coin from opening over it. The widget's own Tick still gets the click
 // first. VerbBar, InventoryBar, DialogBox (while a dialog is open),
 // CharacterPanel (while its character is in the scene), HotspotPanel,
-// Panel (with Blocks), TopBar, ChatLog and the open RadialVerbs implement it.
-type ClickBlocker interface {
-	BlocksClickAt(ctx *UICtx, p Point) bool
-}
+// Panel (with Blocks), TopBar, ChatLog, the open Menu and the open
+// RadialVerbs implement it. See [ibwidget.ClickBlocker].
+type ClickBlocker = ibwidget.ClickBlocker
 
 // ClickBlockedAt reports whether a visible widget other than except claims
 // p through [ClickBlocker]. except may be nil.
@@ -151,3 +150,16 @@ func (g *Game) ClickBlockedAt(ctx *UICtx, p Point, except Widget) bool {
 	}
 	return false
 }
+
+// ScreenSize returns the logical screen, Width by Height; it is how a
+// widget from the inkbase widget packages learns the screen it draws on
+// (see [ibwidget.Screen]).
+func (g *Game) ScreenSize() (width, height int) { return g.Width, g.Height }
+
+// WidgetInput returns the frame's consume-on-use input, [Game.Input], for
+// the inkbase widgets that claim keys and clicks.
+func (g *Game) WidgetInput() *Input { return g.Input }
+
+// MakeCtx returns a Ctx over the game's State for one frame, the kind a
+// Condition or a Menu row's Value and Expand is evaluated with.
+func (g *Game) MakeCtx() *Ctx { return g.makeCtx() }

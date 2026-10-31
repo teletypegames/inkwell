@@ -1,8 +1,10 @@
 package inkwell
 
+import ibaction "git.teletypegames.org/engines/inkwell/inkbase/action"
+
 // action.game.go holds the adventure actions that access *Game directly and
 // have not yet moved to a sub-package — either because they reference root
-// types the sub-package cannot import (Stage, Scene, Script, AudioPlayer)
+// types the sub-package cannot import (Scene, AudioPlayer)
 // or because the AudioPlayer type split prevents delegation to inkbase.
 
 // ----- audio --------------------------------------------------------------
@@ -40,30 +42,13 @@ func (a *stopMusicAction) Tick(ctx *Ctx) Status { gameOf(ctx).Audio.StopMusic();
 
 // ----- stages -------------------------------------------------------------
 
-type gotoStageAction struct{ stage *Stage }
-
 // GoToStage is an Action that shows stage, at the top of the next frame;
-// see [Game.GoToStage]. It is done at once.
-func GoToStage(stage *Stage) Action      { return &gotoStageAction{stage: stage} }
-func (a *gotoStageAction) Start() Runner { return a }
-func (a *gotoStageAction) Tick(ctx *Ctx) Status {
-	gameOf(ctx).GoToStage(a.stage)
-	return StatusDone
-}
-
-type goBackAction struct{}
+// see [Game.GoToStage] and [ibaction.GoToStage]. It is done at once.
+func GoToStage(stage *Stage) Action { return ibaction.GoToStage(stage) }
 
 // GoBack is an Action that returns to the previous Stage, or does nothing
-// when there is none; see [Game.PreviousStage].
-func GoBack() Action                  { return &goBackAction{} }
-func (a *goBackAction) Start() Runner { return a }
-func (a *goBackAction) Tick(ctx *Ctx) Status {
-	game := gameOf(ctx)
-	if previous := game.PreviousStage(); previous != nil {
-		game.GoToStage(previous)
-	}
-	return StatusDone
-}
+// when there is none; see [Game.PreviousStage] and [ibaction.GoBack].
+func GoBack() Action { return ibaction.GoBack() }
 
 // ----- lifecycle ----------------------------------------------------------
 
@@ -142,24 +127,7 @@ func (a *useThemeAction) Tick(ctx *Ctx) Status {
 
 // ----- script runner ------------------------------------------------------
 
-type runScriptAction struct{ script *Script }
-
 // RunScript is an Action that runs the script's Actions to the end and
-// takes their Status; a nil script, or one with no Actions, fails.
-func RunScript(script *Script) Action    { return &runScriptAction{script: script} }
-func (a *runScriptAction) Start() Runner { return &runScriptRunner{spec: a} }
-
-type runScriptRunner struct {
-	spec  *runScriptAction
-	inner Runner
-}
-
-func (r *runScriptRunner) Tick(ctx *Ctx) Status {
-	if r.inner == nil {
-		if r.spec.script == nil || r.spec.script.Actions == nil {
-			return StatusFailed
-		}
-		r.inner = r.spec.script.Actions.Start()
-	}
-	return r.inner.Tick(ctx)
-}
+// takes their Status; a nil script, or one with no Actions, fails. See
+// [ibaction.RunScript].
+func RunScript(script *Script) Action { return ibaction.RunScript(script) }

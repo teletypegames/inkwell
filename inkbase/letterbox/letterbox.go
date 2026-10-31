@@ -10,12 +10,17 @@ import (
 	"git.teletypegames.org/engines/inkwell/inkbase/widget"
 )
 
-type host interface {
-	ScreenSize() (int, int)
+// Host is what a [Letterbox] needs from the game it is drawn for, the
+// UICtx's Game. On a Game that does not implement it the bars are not drawn.
+type Host interface {
+	// ScreenSize is the logical screen's width and height in pixels.
+	ScreenSize() (width, height int)
 }
 
 // Letterbox is the pair of bars that crop the picture top and bottom while
-// a cutscene plays. It draws over the scene and under the HUD.
+// a cutscene plays. It draws over the scene and under the HUD, so a game
+// that also hides its HUD for a cutscene gets the whole convention out of
+// two registrations with the same condition.
 type Letterbox struct {
 	// Name is the key the widget is registered under.
 	Name string
@@ -23,25 +28,26 @@ type Letterbox struct {
 	When inkbase.Condition
 	// Bar is each bar's height in pixels; 0 means 18.
 	Bar float64
-	// Color fills the bars; nil means black.
+	// Color, if nil, is black.
 	Color color.Color
 }
 
-// GetName returns the letterbox's Name, the key it is registered under.
+// GetName returns the name the letterbox is registered under.
 func (l *Letterbox) GetName() string { return l.Name }
 
-// VisibleWhen returns When, the condition that shows the letterbox; nil shows
-// it always.
+// VisibleWhen returns the condition that brings the bars in, typically
+// "a cutscene is playing"; nil means always.
 func (l *Letterbox) VisibleWhen() inkbase.Condition { return l.When }
 
-// Layer puts the letterbox on [widget.LayerScene], with the scene.
+// Layer puts the bars on [widget.LayerScene], over the picture and under
+// the HUD.
 func (l *Letterbox) Layer() widget.Layer { return widget.LayerScene }
 
-// Tick does nothing: the letterbox has no state of its own to advance.
+// Tick does nothing; the bars only display.
 func (l *Letterbox) Tick(ctx *widget.UICtx) {}
 
-// Draw fills a bar across the top and one across the bottom of the screen.
-// It draws nothing on a host that does not report the screen size.
+// Draw paints one bar of height Bar across the top of the screen and one
+// across the bottom.
 func (l *Letterbox) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	bar := l.Bar
 	if bar <= 0 {
@@ -51,7 +57,7 @@ func (l *Letterbox) Draw(dst *ebiten.Image, ctx *widget.UICtx) {
 	if fill == nil {
 		fill = color.Black
 	}
-	h, ok := ctx.Game.(host)
+	h, ok := ctx.Game.(Host)
 	if !ok {
 		return
 	}

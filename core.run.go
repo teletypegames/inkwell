@@ -29,6 +29,7 @@ func Run(g *Game) error {
 		Lang = Fallback
 	}
 	syncLang()
+	syncStrings()
 	if err := g.Validate(); err != nil {
 		return err
 	}
