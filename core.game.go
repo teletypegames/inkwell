@@ -329,13 +329,35 @@ func (g *Game) OnFinale(script *Script) *Game { g.FinaleScript = script; return 
 
 // ----- theme + UI conveniences ------------------------------------------
 
-// Theme returns the active Theme. It panics if the active theme's name is
-// not registered in the ThemeManager.
-func (g *Game) Theme() *Theme { return g.ThemeManager.MustGet(g.activeTheme) }
+// Theme returns the active Theme. When the active name is not registered —
+// a settings file or a save written by another build of the game — it
+// falls back to classic-scumm, then to the first registered theme. It
+// panics only when the ThemeManager is empty, which [Game.Validate]
+// rejects at start.
+func (g *Game) Theme() *Theme {
+	if t, ok := g.ThemeManager.Get(g.activeTheme); ok {
+		return t
+	}
+	if t, ok := g.ThemeManager.Get("classic-scumm"); ok {
+		return t
+	}
+	if names := g.ThemeManager.Names(); len(names) > 0 {
+		return g.ThemeManager.MustGet(names[0])
+	}
+	panic("inkwell: no theme registered")
+}
 
 // UseTheme makes theme the active one, by its Name; it is not saved to the
-// settings (the UseTheme action does that). A nil theme panics.
-func (g *Game) UseTheme(theme *Theme) { g.activeTheme = theme.Name }
+// settings (the UseTheme action does that). A nil theme, or one not
+// registered in the ThemeManager, leaves the active theme as it is and
+// reports false.
+func (g *Game) UseTheme(theme *Theme) bool {
+	if theme == nil || !g.ThemeManager.Has(theme.Name) {
+		return false
+	}
+	g.activeTheme = theme.Name
+	return true
+}
 
 // SelectedVerb returns the name of the verb the player has picked, or ""
 // for none.

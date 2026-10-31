@@ -208,7 +208,7 @@ func (g *Game) applySave(sf *saveFile) error {
 	if sf.SelectedVerb != "" {
 		g.selectedVerb = sf.SelectedVerb
 	}
-	if sf.ActiveTheme != "" {
+	if sf.ActiveTheme != "" && g.ThemeManager.Has(sf.ActiveTheme) {
 		g.activeTheme = sf.ActiveTheme
 	}
 

@@ -70,9 +70,9 @@ func (p *HotspotPanel) DebugTargets(g *Game) []DebugTarget {
 // and declares its own Draw.
 func (p *HotspotPanel) Draw(dst *ebiten.Image, ctx *UICtx) {}
 
-// BlocksClickAt reports whether pt falls inside Bounds, so the verb coin
-// does not open over the panel.
-func (p *HotspotPanel) BlocksClickAt(pt Point) bool { return p.Bounds.Contains(pt) }
+// BlocksClickAt reports whether pt falls inside Bounds: a click there that
+// misses every hotspot is still the panel's, and never reaches the scene.
+func (p *HotspotPanel) BlocksClickAt(ctx *UICtx, pt Point) bool { return p.Bounds.Contains(pt) }
 
 // at is the topmost hotspot containing pt, resolved the same way the
 // scene's are: first area to contain the point wins.

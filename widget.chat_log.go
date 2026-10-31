@@ -175,6 +175,5 @@ func (c *ChatLog) Draw(dst *ebiten.Image, ctx *UICtx) {
 }
 
 // BlocksClickAt reports whether p falls inside Bounds. The log takes no
-// clicks, but it sits over the scene, so the verb coin is kept from opening
-// over it.
-func (c *ChatLog) BlocksClickAt(p Point) bool { return c.Bounds.Contains(p) }
+// clicks itself, but the screen under it is the log's, not the scene's.
+func (c *ChatLog) BlocksClickAt(ctx *UICtx, p Point) bool { return c.Bounds.Contains(p) }

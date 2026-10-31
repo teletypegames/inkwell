@@ -3,8 +3,13 @@ package inkwell
 // host.go adds exported methods to *Game that satisfy the host interfaces
 // act/ and cond/ actions type-assert to from ctx.Game.
 
-// UseThemeByName satisfies inkbase/action.ThemeHost.
-func (g *Game) UseThemeByName(name string) { g.activeTheme = name }
+// UseThemeByName satisfies inkbase/action.ThemeHost: it makes the theme
+// registered under name the active one; an unknown name changes nothing.
+func (g *Game) UseThemeByName(name string) {
+	if g.ThemeManager.Has(name) {
+		g.activeTheme = name
+	}
+}
 
 // SetQuitting satisfies inkbase/action.Quitter.
 func (g *Game) SetQuitting() { g.quitting = true }

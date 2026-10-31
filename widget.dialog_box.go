@@ -107,17 +107,22 @@ func choiceKey(n *DialogNode, i int) string {
 	return n.Name + ":" + strconv.Itoa(i)
 }
 
-// BlocksClickAt reports whether p falls inside Bounds, so the verb coin does
-// not open over the box. It cannot see whether a dialog is open, and a zero
-// Bounds blocks nothing even though Draw then uses a default strip.
-func (d *DialogBox) BlocksClickAt(p Point) bool {
-	// without ctx we can't know if a dialog is active; conservatively block
-	// when the cursor is in the dialog bounds (used only by RadialVerbs).
-	b := d.Bounds
-	if b.W == 0 {
+// BlocksClickAt reports whether p falls inside the box while a dialog is
+// open; a zero Bounds is the strip Draw uses.
+func (d *DialogBox) BlocksClickAt(ctx *UICtx, p Point) bool {
+	g := gameOfUI(ctx)
+	if !g.dialogActive() {
 		return false
 	}
-	return b.Contains(p)
+	return d.rect(g).Contains(p)
+}
+
+// rect is Bounds, or the default strip when Bounds is zero.
+func (d *DialogBox) rect(g *Game) Rectangle {
+	if d.Bounds.W == 0 {
+		return Rect(0, 140, float64(g.Width), 60)
+	}
+	return d.Bounds
 }
 
 // Draw paints the box while a dialog is active: the current line under its
@@ -131,10 +136,7 @@ func (d *DialogBox) Draw(dst *ebiten.Image, ctx *UICtx) {
 		return
 	}
 	th := g.Theme()
-	b := d.Bounds
-	if b.W == 0 {
-		b = Rect(0, 140, float64(g.Width), 60)
-	}
+	b := d.rect(g)
 	pad := d.Padding
 	if pad <= 0 {
 		pad = 6

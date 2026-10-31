@@ -82,9 +82,13 @@ func (c *CharacterPanel) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt reports whether p falls inside Bounds, so the verb coin does
-// not open over the panel.
-func (c *CharacterPanel) BlocksClickAt(p Point) bool {
+// BlocksClickAt reports whether p falls inside Bounds while the panel is
+// shown, that is while its character is in the current scene.
+func (c *CharacterPanel) BlocksClickAt(ctx *UICtx, p Point) bool {
+	g := gameOfUI(ctx)
+	if c.Character == nil || !g.CharacterInScene(c.Character) {
+		return false
+	}
 	return c.Bounds.Contains(p)
 }
 

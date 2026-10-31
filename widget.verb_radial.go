@@ -100,7 +100,7 @@ func (r *RadialVerbs) Tick(ctx *UICtx) {
 		}
 		// Don't open over a widget that would also claim this click —
 		// e.g. an InventoryBar. Each widget can declare its dead-zone
-		// via the optional clickBlocker interface.
+		// through ClickBlocker.
 		if r.blockedAt(ctx, mp) {
 			return
 		}
@@ -153,46 +153,10 @@ func (r *RadialVerbs) consumeTrigger(g *Game) {
 	g.Input.ConsumeRight()
 }
 
-// blockedAt walks the registered widgets and asks any clickBlocker
-// whether its area covers the cursor — so the radial menu doesn't open
-// over an InventoryBar that would also want this click.
+// blockedAt reports whether another widget claims p, so the wheel does
+// not open over an InventoryBar that would also want this click.
 func (r *RadialVerbs) blockedAt(ctx *UICtx, p Point) bool {
-	g := gameOfUI(ctx)
-	for _, name := range g.WidgetManager.Names() {
-		if name == r.Name {
-			continue
-		}
-		w := g.WidgetManager.MustGet(name)
-		if !WidgetVisible(g.makeCtx(), w) {
-			continue
-		}
-		// DialogBox advertises its bounds via clickBlocker even when no
-		// dialog is open, so the verb-coin would refuse to pop up over
-		// scenery that happens to sit under the dialog rect. Skip the
-		// dialog when it's actually inactive.
-		if _, isDialog := w.(*DialogBox); isDialog && !g.dialogActive() {
-			continue
-		}
-		// CharacterPanel auto-hides when its character isn't in the
-		// current scene; treat the hidden panel as transparent so the
-		// coin can open over the empty space it would occupy.
-		if cp, isCP := w.(*CharacterPanel); isCP {
-			if cp.Character == nil || !g.CharacterInScene(cp.Character) {
-				continue
-			}
-		}
-		if b, ok := w.(clickBlocker); ok && b.BlocksClickAt(p) {
-			return true
-		}
-	}
-	return false
-}
-
-// clickBlocker is the optional widget contract for "if the cursor is on
-// me, claim the click — don't let modal pop-ups open over me." Implemented
-// by VerbBar, InventoryBar, DialogBox by default.
-type clickBlocker interface {
-	BlocksClickAt(p Point) bool
+	return gameOfUI(ctx).ClickBlockedAt(ctx, p, r)
 }
 
 func (r *RadialVerbs) hitTest(g *Game, p Point) int {
@@ -222,7 +186,7 @@ func (r *RadialVerbs) hitTest(g *Game, p Point) int {
 
 // BlocksClickAt reports whether p falls within the wheel's reach, 1.4 times
 // Radius from its centre, while it is open or AlwaysVisible.
-func (r *RadialVerbs) BlocksClickAt(p Point) bool {
+func (r *RadialVerbs) BlocksClickAt(ctx *UICtx, p Point) bool {
 	if !r.visible && !r.AlwaysVisible {
 		return false
 	}

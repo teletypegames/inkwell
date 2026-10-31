@@ -127,12 +127,15 @@ func (a *useLangAction) Tick(ctx *Ctx) Status {
 type useThemeAction struct{ theme *Theme }
 
 // UseTheme is an Action that makes theme the active one and saves the
-// settings; see [Game.UseTheme]. A failed save is ignored.
+// settings; see [Game.UseTheme]. A nil or unregistered theme fails it; a
+// failed save is ignored.
 func UseTheme(theme *Theme) Action      { return &useThemeAction{theme: theme} }
 func (a *useThemeAction) Start() Runner { return a }
 func (a *useThemeAction) Tick(ctx *Ctx) Status {
 	game := gameOf(ctx)
-	game.UseTheme(a.theme)
+	if !game.UseTheme(a.theme) {
+		return StatusFailed
+	}
 	_ = game.SaveSettings()
 	return StatusDone
 }

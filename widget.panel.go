@@ -63,7 +63,7 @@ func (p *Panel) Draw(dst *ebiten.Image, ctx *UICtx) {
 }
 
 // BlocksClickAt reports whether p falls inside Bounds of a panel that has
-// Blocks set, so the verb coin does not open over it.
-func (p *Panel) BlocksClickAt(pt Point) bool {
+// Blocks set; such a panel keeps clicks off the scene behind it.
+func (p *Panel) BlocksClickAt(ctx *UICtx, pt Point) bool {
 	return p.Blocks && p.Bounds.Contains(pt)
 }

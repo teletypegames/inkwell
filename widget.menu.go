@@ -152,7 +152,7 @@ func (m *Menu) TicksDuringScript() bool { return true }
 
 // BlocksClickAt reports whether p falls inside the open window, so the verb
 // coin does not open over it. A closed menu blocks nothing.
-func (m *Menu) BlocksClickAt(p Point) bool { return m.open && m.frame.Contains(p) }
+func (m *Menu) BlocksClickAt(ctx *UICtx, p Point) bool { return m.open && m.frame.Contains(p) }
 
 // IsOpen reports whether the window is up.
 func (m *Menu) IsOpen() bool { return m.open }

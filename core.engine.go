@@ -98,7 +98,7 @@ func (e *engine) Update() error {
 	// world Stage has one, so a click that falls through a menu reaches
 	// nothing rather than the alley behind it.
 	if world {
-		e.handleSceneInput()
+		e.handleSceneInput(uictx)
 		g.tickCharacters(dt)
 	}
 	return nil
@@ -117,15 +117,19 @@ func (g *Game) tickAwakeWidgets(dt float64) {
 }
 
 // handleSceneInput is the "click on hotspot with active verb" flow, running
-// only when no widget has claimed the input. With Game.WalkOnClick, a click
-// that lands on no hotspot is a walk: Game.Player goes there, routed
-// through the walkboxes.
-func (e *engine) handleSceneInput() {
+// only when no widget has claimed the input. A left click on a widget that
+// blocks the point (see [ClickBlocker]) is swallowed: the HUD over the
+// scene is not the scene. With Game.WalkOnClick, a click that lands on no
+// hotspot is a walk: Game.Player goes there, routed through the walkboxes.
+func (e *engine) handleSceneInput(uictx *UICtx) {
 	g := e.g
 	mp := g.Input.Point()
+	blocked := g.ClickBlockedAt(uictx, mp, nil)
 	// hover label resolution: pointer over a hotspot in the current scene
-	if h := e.hotspotAt(mp); h != nil {
-		g.SetHoverLabel(hotspotLabel(h).String())
+	if !blocked {
+		if h := e.hotspotAt(mp); h != nil {
+			g.SetHoverLabel(hotspotLabel(h).String())
+		}
 	}
 
 	if g.Input.RightClicked() {
@@ -141,6 +145,9 @@ func (e *engine) handleSceneInput() {
 		return
 	}
 	g.Input.ConsumeLeft()
+	if blocked {
+		return
+	}
 	h := e.hotspotAt(mp)
 	if h == nil {
 		// Empty floor: with WalkOnClick, the player walks there. This

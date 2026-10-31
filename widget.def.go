@@ -124,3 +124,30 @@ const (
 	// AlignRight puts the line against the right edge.
 	AlignRight = inkbase.AlignRight
 )
+
+// ClickBlocker is the optional widget contract for "the screen under me is
+// mine": a visible widget that reports p as blocked keeps a click there from
+// reaching the scene behind it — no hotspot, no walk — and keeps the verb
+// coin from opening over it. The widget's own Tick still gets the click
+// first. VerbBar, InventoryBar, DialogBox (while a dialog is open),
+// CharacterPanel (while its character is in the scene), HotspotPanel,
+// Panel (with Blocks), TopBar, ChatLog and the open RadialVerbs implement it.
+type ClickBlocker interface {
+	BlocksClickAt(ctx *UICtx, p Point) bool
+}
+
+// ClickBlockedAt reports whether a visible widget other than except claims
+// p through [ClickBlocker]. except may be nil.
+func (g *Game) ClickBlockedAt(ctx *UICtx, p Point, except Widget) bool {
+	cctx := g.makeCtx()
+	for _, name := range g.WidgetManager.Names() {
+		w := g.WidgetManager.MustGet(name)
+		if w == except || !WidgetVisible(cctx, w) {
+			continue
+		}
+		if b, ok := w.(ClickBlocker); ok && b.BlocksClickAt(ctx, p) {
+			return true
+		}
+	}
+	return false
+}

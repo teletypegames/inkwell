@@ -586,10 +586,11 @@
 // known; [TakeAway] removes it. Item.OnUseWith is an item used on another
 // item: with one in hand, clicking another in the [InventoryBar] runs
 // whichever of the two pairs them, and OnUseSelf answers an item used on its
-// own. UseWithFail is the same shape as ExitLook and ExitTake: the pair the
-// author never wrote is still content, and only the game knows what its
-// characters say about it. The Inventory is pure runtime state owned by the
-// Game, changed by actions and by the InventoryBar.
+// own — the held item clicked again. UseWithFail is the same shape as
+// ExitLook and ExitTake: the pair the author never wrote is still content,
+// and only the game knows what its characters say about it. The Inventory is
+// pure runtime state owned by the Game, changed by actions and by the
+// InventoryBar.
 //
 // # Characters and speakers
 //
@@ -794,18 +795,21 @@
 // draws nor blocks a click, so a HUD hides for a cutscene by saying so on its
 // widgets. A running script has the frame to itself except for the widgets
 // that implement [Awake] — [Menu] and [DialogBox] — which tick before the
-// script's runner. Whatever click survives the widgets reaches the scene.
+// script's runner. Whatever click survives the widgets reaches the scene,
+// unless a visible widget claims the point as its own (see below).
 //
 // Besides the inkbase layers, this package adds LayerDebug, between the
 // dialog and the menus, for the [HotspotDebug] overlay. A wrapper widget that
 // forwards to an inner one should return [LayerOf] the inner one from its
 // own Layer, so that wrapping does not move it.
 //
-// A widget that occupies a fixed area and should not have the [RadialVerbs]
-// coin pop up over it implements one more optional method,
-// BlocksClickAt(p Point) bool, reporting whether p is inside it. The
-// built-ins that do are the verb bar, the inventory, the dialog box, the top
-// bar, the character panel, the chat log, a blocking panel, the hotspot
+// A widget that occupies an area of the screen implements [ClickBlocker]:
+// BlocksClickAt(ctx *UICtx, p Point) bool, reporting whether p is its own.
+// A left click there that the widget's Tick did not take never reaches the
+// scene (no hotspot, no walk), and the [RadialVerbs] coin does not open over
+// it. The built-ins that do are the verb bar, the inventory, the dialog box
+// while a dialog is open, the top bar, the character panel while its
+// character is in the scene, the chat log, a blocking panel, the hotspot
 // panel, an open menu and the radial menu itself while it is visible.
 //
 // [git.teletypegames.org/engines/inkwell/inkbase/widget] documents the contract in full. A

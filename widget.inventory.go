@@ -8,6 +8,9 @@ import (
 // InventoryBar shows the player's items as clickable slots. Left-click on
 // a slot under the "look" verb prints the item's description; under any
 // other verb, it toggles selection (the cursor "picks up" the item).
+// Clicking the item already held uses it on itself: its OnUseSelf runs
+// when it has one, otherwise the click puts it back. A bar with no Slots
+// shows and claims nothing.
 type InventoryBar struct {
 	Name     string
 	When     Condition
@@ -33,7 +36,7 @@ func (b *InventoryBar) Layer() Layer { return LayerHUD }
 func (b *InventoryBar) slotRect(idx int) Rectangle {
 	cols := b.Cols
 	if cols <= 0 {
-		cols = b.Slots
+		cols = max(b.Slots, 1)
 	}
 	step := b.SlotSize + b.Gap
 	col := idx % cols
@@ -57,14 +60,15 @@ func (b *InventoryBar) DebugTargets(g *Game) []DebugTarget {
 // Tick sets the hover label to the item under the pointer and handles a
 // left click on a filled slot, consuming it: under the look verb the player
 // says the item's Description; with another item held, a pairing found in
-// either item's OnUseWith is queued; otherwise the item is selected, or
-// deselected when it already was.
+// either item's OnUseWith is queued; with the same item held, its
+// OnUseSelf is queued; otherwise the item is selected, or deselected when
+// it already was.
 func (b *InventoryBar) Tick(ctx *UICtx) {
 	g := gameOfUI(ctx)
 	mp := g.Input.Point()
 	items := g.Inventory.Items()
 
-	// hover label: when over a slot with an item, show its description
+	// hover label: the label of the item under the pointer
 	for i := 0; i < min(b.Slots, len(items)); i++ {
 		if b.slotRect(i).Contains(mp) {
 			g.SetHoverLabel(g.ItemLabel(items[i]).String())
@@ -85,7 +89,7 @@ func (b *InventoryBar) Tick(ctx *UICtx) {
 					return
 				}
 			}
-			if b.combine(g, name) {
+			if b.combine(g, name) || b.useSelf(g, name) {
 				return
 			}
 			if g.Inventory.Selected() == name {
@@ -123,6 +127,22 @@ func (b *InventoryBar) combine(g *Game, clicked string) bool {
 	return true
 }
 
+// useSelf is the held item clicked again: an item with an OnUseSelf is
+// used on its own and put back. It reports whether it ran one.
+func (b *InventoryBar) useSelf(g *Game, clicked string) bool {
+	if g.Inventory.Selected() != clicked {
+		return false
+	}
+	it, ok := g.ItemManager.Get(clicked)
+	if !ok || it.OnUseSelf == nil {
+		return false
+	}
+	g.LogAction("> " + Format(HintVerb, verbLabel(g, "use"), g.ItemLabel(it.Name)).String())
+	g.queueAction(it.OnUseSelf, "useSelf")
+	g.Inventory.Select("")
+	return true
+}
+
 // Draw paints the PanelBG backdrop when asked, then every slot, the
 // selected item's slot highlighted and each filled slot showing its item's
 // sprite, or a filled square when it has none.
@@ -130,6 +150,9 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	g := gameOfUI(ctx)
 	th := g.Theme()
 	items := g.Inventory.Items()
+	if b.Slots <= 0 {
+		return
+	}
 
 	if b.PanelBG {
 		last := b.slotRect(b.Slots - 1)
@@ -168,8 +191,8 @@ func (b *InventoryBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 }
 
 // BlocksClickAt reports whether p falls inside the rectangle the slots
-// span, so the verb coin does not open over the bar.
-func (b *InventoryBar) BlocksClickAt(p Point) bool {
+// span, empty ones included.
+func (b *InventoryBar) BlocksClickAt(ctx *UICtx, p Point) bool {
 	if b.Slots <= 0 {
 		return false
 	}

@@ -108,20 +108,19 @@ type verbButton struct {
 	Bounds Rectangle
 }
 
-// BlocksClickAt reports whether p falls inside the bar, so the verb coin
-// does not open over it. The bar is taken to be two rows high whatever the
-// number of verbs.
-func (v *VerbBar) BlocksClickAt(p Point) bool {
-	cols := v.Cols
-	if cols <= 0 {
-		cols = 2
+// BlocksClickAt reports whether p falls inside the bar: the grid of its
+// buttons, as many rows as the registered verbs fill.
+func (v *VerbBar) BlocksClickAt(ctx *UICtx, p Point) bool {
+	bs := v.buttons(ctx)
+	if len(bs) == 0 {
+		return false
 	}
-	// rough bounding box: rows = ceil(verbCount/cols), but without a Game
-	// reference we approximate by assuming the bar is small (at most 2 rows
-	// in the default SCUMM layout).
-	x := v.Origin.X
-	y := v.Origin.Y
-	w := float64(cols*(v.Button.W+int(v.Gap.X)) - int(v.Gap.X))
-	h := float64(2*(v.Button.H+int(v.Gap.Y)) - int(v.Gap.Y))
-	return Rect(x, y, w, h).Contains(p)
+	r := bs[0].Bounds
+	for _, b := range bs[1:] {
+		x2 := max(r.X+r.W, b.Bounds.X+b.Bounds.W)
+		y2 := max(r.Y+r.H, b.Bounds.Y+b.Bounds.H)
+		r.X, r.Y = min(r.X, b.Bounds.X), min(r.Y, b.Bounds.Y)
+		r.W, r.H = x2-r.X, y2-r.Y
+	}
+	return r.Contains(p)
 }

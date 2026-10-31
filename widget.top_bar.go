@@ -107,9 +107,8 @@ func (t *TopBar) Draw(dst *ebiten.Image, ctx *UICtx) {
 	}
 }
 
-// BlocksClickAt reports whether p lies above the bar's bottom edge, so the
-// verb coin does not open over it.
-func (t *TopBar) BlocksClickAt(p Point) bool {
+// BlocksClickAt reports whether p lies above the bar's bottom edge.
+func (t *TopBar) BlocksClickAt(ctx *UICtx, p Point) bool {
 	h := t.Height
 	if h <= 0 {
 		h = 12

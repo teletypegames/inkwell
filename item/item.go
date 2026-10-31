@@ -23,7 +23,8 @@ type Item struct {
 	// screen.
 	Lore inkbase.Text
 
-	// OnUseSelf is the action for using the item on its own.
+	// OnUseSelf is the action for using the item on its own: the player
+	// holds it and clicks it again in the inventory. Nil puts it back.
 	OnUseSelf inkbase.Action
 	// OnUseWith maps another item to the action that runs when the two are
 	// combined in the inventory; either item's map may hold the pairing. Using
