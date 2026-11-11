@@ -13,7 +13,9 @@ type gotoAction struct{ scene string }
 func GoTo(scene string) inkbase.Action { return gotoAction{scene: scene} }
 
 // Start returns the Runner of one scene change.
-func (a gotoAction) Start() inkbase.Runner { return &enterRunner{scene: func(SceneHost) string { return a.scene }} }
+func (a gotoAction) Start() inkbase.Runner {
+	return &enterRunner{scene: func(SceneHost) string { return a.scene }}
+}
 
 // enterRunner asks the host for the scene change on its first tick and
 // then ticks the Runner the host hands back.
