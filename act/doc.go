@@ -1,9 +1,10 @@
 // Package act holds the adventure actions: the ones that need more of the
 // game than the [inkbase.State] in the Ctx — speech, the inventory, dialogs,
-// scene changes, walking, poses, the voice setting and the end card. Each
-// action type-asserts ctx.Game to the narrow host interface it needs
-// ([SpeechHost], [InventoryHost], [DialogHost], [SceneHost], [MovementHost],
-// [PoseHost], [VoiceHost], [EndCardHost], [FlashHost]), and an inkwell *Game
+// scene changes, walking, poses, visibility, the voice setting and the end
+// card. Each action type-asserts ctx.Game to the narrow host interface it
+// needs ([SpeechHost], [InventoryHost], [DialogHost], [SceneHost],
+// [MovementHost], [PoseHost], [VisibilityHost], [VoiceHost], [EndCardHost],
+// [FlashHost]), and an inkwell *Game
 // satisfies all of them. Games normally use the re-exports in the root
 // inkwell package, which take the entities themselves (a *Scene, a
 // *Character) where these take names.
@@ -38,6 +39,9 @@
 //   - [Walk] sends a character to a point through the walkboxes and holds
 //     the script until it arrives.
 //   - [SetPose] holds a character in a pose until it next walks or speaks.
+//   - [Hide] takes a character out of the picture, in every scene, until
+//     [Show] brings it back; a cutscene that passes through a scene the
+//     player should not be standing in hides the player first.
 //   - [SetVoice] switches recorded lines on or off and saves the settings.
 //   - [Flash] puts a line in the status strip for about two seconds.
 //   - [ShowEnd] puts the end card up and never finishes: the game is over.

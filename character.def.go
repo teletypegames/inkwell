@@ -59,3 +59,10 @@ func (c Character) DisplayName() Text {
 
 // TypeLabel returns "character", the kind a Character is registered as.
 func (c Character) TypeLabel() string { return "character" }
+
+// Hide is the Action that takes the character out of the picture until
+// Show; see [Hide].
+func (c *Character) Hide() Action { return Hide(c) }
+
+// Show is the Action that brings the character back after Hide; see [Show].
+func (c *Character) Show() Action { return Show(c) }

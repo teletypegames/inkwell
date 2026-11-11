@@ -138,6 +138,20 @@ func (g *Game) SetCharacterPose(name string, pose Pose) {
 	}
 }
 
+// SetCharacterHidden takes the named character out of the picture, or puts
+// it back, in every scene until it is called again; see [Hide]. A hidden
+// character is not drawn and [Game.CharacterInScene] reports it absent.
+func (g *Game) SetCharacterHidden(name string, hidden bool) {
+	if hidden {
+		g.hidden[name] = true
+		return
+	}
+	delete(g.hidden, name)
+}
+
+// CharacterHidden reports whether the named character is hidden by [Hide].
+func (g *Game) CharacterHidden(name string) bool { return g.hidden[name] }
+
 // SetVoiceEnabled toggles voice recording playback.
 func (g *Game) SetVoiceEnabled(on bool) { g.settings.Voice = on }
 

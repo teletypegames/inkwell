@@ -124,6 +124,7 @@ type Game struct {
 	previousScene string
 	exitHotspots  map[string][]Hotspot
 	chars         map[string]*runtimeChar
+	hidden        map[string]bool
 	scriptRunner  Runner
 	scriptCtx     *Ctx
 	transition    *transition
@@ -241,6 +242,7 @@ func New(spec Game) *Game {
 	g.Input = input.New()
 	g.loaded = newLoadedAssets(g.Width, g.Height)
 	g.chars = make(map[string]*runtimeChar)
+	g.hidden = make(map[string]bool)
 	g.unlocked = make(map[string]bool)
 	g.transition = &transition{}
 	g.selectedVerb = "look"
@@ -426,6 +428,9 @@ func (g *Game) HotspotAt(p Point) *Hotspot {
 // it auto-hides when the character isn't in view.
 func (g *Game) CharacterInScene(character *Character) bool {
 	if g.currentScene == "" || character == nil {
+		return false
+	}
+	if g.hidden[character.Name] {
 		return false
 	}
 	for _, a := range g.sceneActors(g.SceneManager.MustGet(g.currentScene)) {
@@ -616,6 +621,7 @@ func (g *Game) startWorld() {
 	}
 	g.Inventory = NewInventory()
 	g.chars = make(map[string]*runtimeChar)
+	g.hidden = make(map[string]bool)
 	g.dialog = nil
 	g.ClearSpeech()
 	g.endCard = ""

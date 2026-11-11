@@ -55,6 +55,11 @@ type PoseHost interface {
 	SetCharacterPose(name string, pose sprite.Pose)
 }
 
+// VisibilityHost is the slice of *Game a Hide or Show action needs.
+type VisibilityHost interface {
+	SetCharacterHidden(name string, hidden bool)
+}
+
 // VoiceHost is the slice of *Game a SetVoice action needs.
 type VoiceHost interface {
 	SetVoiceEnabled(on bool)

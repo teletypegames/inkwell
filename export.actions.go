@@ -61,6 +61,12 @@ func SetPose(character *Character, pose Pose) Action {
 	return act.SetPose(character.Name, pose)
 }
 
+// Hide takes a character out of the picture until Show; see [act.Hide].
+func Hide(character *Character) Action { return act.Hide(character.Name) }
+
+// Show brings back a character taken out by Hide; see [act.Show].
+func Show(character *Character) Action { return act.Show(character.Name) }
+
 // SetVoice switches recorded lines on or off and saves the settings.
 func SetVoice(on bool) Action { return act.SetVoice(on) }
 

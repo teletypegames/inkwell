@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -24,6 +25,7 @@ type saveFile struct {
 	SelectedVerb  string               `json:"selected_verb"`
 	ActiveTheme   string               `json:"active_theme"`
 	Characters    map[string]savedChar `json:"characters"`
+	Hidden        []string             `json:"hidden,omitempty"`
 	Inventory     savedInventory       `json:"inventory"`
 	State         savedState           `json:"state"`
 }
@@ -174,6 +176,10 @@ func (g *Game) buildSave() saveFile {
 			Known:   g.State.KnownMap(),
 		},
 	}
+	for name := range g.hidden {
+		sf.Hidden = append(sf.Hidden, name)
+	}
+	sort.Strings(sf.Hidden)
 	for name, c := range g.chars {
 		sf.Characters[name] = savedChar{
 			Pos:    c.pos,
@@ -229,6 +235,10 @@ func (g *Game) applySave(sf *saveFile) error {
 	}
 	g.Inventory = inv
 
+	g.hidden = make(map[string]bool)
+	for _, name := range sf.Hidden {
+		g.hidden[name] = true
+	}
 	g.chars = make(map[string]*runtimeChar)
 	for name, ch := range sf.Characters {
 		if !g.CharacterManager.Has(name) {

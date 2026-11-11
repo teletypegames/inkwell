@@ -7,15 +7,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// The scene's cast, painted back to front: a character standing lower on
+// The scene's cast — its actors, less the hidden ones — painted back to
+// front: a character standing lower on
 // the picture is nearer the camera, so it is drawn last. A character with
 // no usable sprite falls back to one of the two placeholder shapes, which
 // is what keeps a game playable before any art exists.
 
-func sortedChars(g *Game) []*runtimeChar {
-	out := make([]*runtimeChar, 0, len(g.chars))
-	for _, c := range g.chars {
-		out = append(out, c)
+func sortedChars(g *Game, s *Scene) []*runtimeChar {
+	actors := g.sceneActors(s)
+	out := make([]*runtimeChar, 0, len(actors))
+	for _, a := range actors {
+		if c, ok := g.chars[a.Character.Name]; ok && !g.hidden[a.Character.Name] {
+			out = append(out, c)
+		}
 	}
 	for i := 1; i < len(out); i++ {
 		for j := i; j > 0 && out[j].pos.Y < out[j-1].pos.Y; j-- {

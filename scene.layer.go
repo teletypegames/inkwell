@@ -41,7 +41,7 @@ func drawScene(dst *ebiten.Image, g *Game, s *Scene) {
 	for next < len(layers) && layers[next].Z <= 0 {
 		paint()
 	}
-	for _, c := range sortedChars(g) {
+	for _, c := range sortedChars(g, s) {
 		drawCharacter(dst, g, c)
 	}
 	for next < len(layers) {

@@ -517,7 +517,22 @@
 // empty Layers leaves the theme's backdrop showing.
 //
 // A nil Actors means the usual cast, Game.Player at that character's Start;
-// an empty non-nil slice is an empty scene. Walkboxes work the same way: nil
+// an empty non-nil slice is an empty scene. Only the current scene's cast is
+// drawn, less anyone taken out with [Hide] — which lasts across scenes until
+// [Show], so a cutscene can pass through a scene without the player:
+//
+//	inkwell.Seq(
+//		inkwell.Hide(character.Paul),
+//		inkwell.GoTo(scene.Rooftop),
+//		inkwell.Say(speaker.Dex, inkwell.Text{{Lang: "en", Text: "He never saw it coming."}}),
+//		inkwell.GoTo(scene.Alley),
+//		inkwell.Show(character.Paul),
+//	)
+//
+// A Show after the GoTo brings the player in once the new picture is
+// uncovered; one before it has the player standing there as it uncovers,
+// but also in the old scene while it fades, when that scene's cast includes
+// the player. Until the Show the player stays hidden, and a save keeps it so. Walkboxes work the same way: nil
 // falls back to Game.Walkboxes, an empty slice turns routing off. With
 // walkboxes, a walk is routed by a breadth-first search over the polygons
 // that share an edge, through the midpoint of each shared edge, and a
