@@ -94,3 +94,28 @@ func TestHideLastsAcrossScenesAndDrawsOnlyTheCast(t *testing.T) {
 		t.Fatal("hidden lost through a save")
 	}
 }
+
+func TestSpeechBubbleSkipsCharactersNotShown(t *testing.T) {
+	g := NewGame("t", 320, 200)
+	paul := &Character{Name: "paul"}
+	g.CharacterManager.Register(paul)
+	street := &Scene{Name: "street", Actors: []SceneActor{{Character: paul}}}
+	empty := &Scene{Name: "empty", Actors: []SceneActor{}}
+	g.SceneManager.Register(street)
+	g.SceneManager.Register(empty)
+	g.currentScene = "street"
+	g.placeActors("street")
+
+	if _, ok := g.shownChar("paul"); !ok {
+		t.Fatal("paul in his scene not shown")
+	}
+	g.SetCharacterHidden("paul", true)
+	if _, ok := g.shownChar("paul"); ok {
+		t.Fatal("hidden paul shown")
+	}
+	g.SetCharacterHidden("paul", false)
+	g.currentScene = "empty"
+	if _, ok := g.shownChar("paul"); ok {
+		t.Fatal("paul shown in a scene without him")
+	}
+}

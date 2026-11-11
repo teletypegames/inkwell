@@ -6,7 +6,7 @@ import (
 )
 
 // SpeechBubble renders the line set by the Say action above the speaking
-// character (or at FallbackY if the speaker has no on-screen position).
+// character (or at FallbackY if the speaker is not on screen).
 type SpeechBubble struct {
 	Name      string
 	When      Condition
@@ -33,7 +33,8 @@ func (s *SpeechBubble) Tick(ctx *UICtx) {}
 // Draw paints the current line, wrapped to MaxWidth (200 when zero) on a
 // backdrop with Padding (3 when zero), centred OffsetY pixels above the
 // speaker's head and kept on screen, in the speaker's speech colour. A
-// speaker not in the scene gets the bubble at the screen's centre with its
+// speaker not drawn in the current scene — not in its cast, or hidden with
+// [Hide] — gets the bubble at the screen's centre with its
 // bottom at FallbackY (14 when zero). It draws nothing when no line is
 // being said.
 func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
@@ -65,7 +66,7 @@ func (s *SpeechBubble) Draw(dst *ebiten.Image, ctx *UICtx) {
 	if cy == 0 {
 		cy = 14
 	}
-	if c, ok := g.runtimeChar(sp.Speaker); ok {
+	if c, ok := g.shownChar(sp.Speaker); ok {
 		cx = int(c.pos.X)
 		cy = int(c.pos.Y-c.def.H) - s.OffsetY
 	}

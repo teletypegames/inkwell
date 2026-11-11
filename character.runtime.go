@@ -48,6 +48,20 @@ func (g *Game) placeActors(sceneName string) {
 	}
 }
 
+// shownChar is the named character if it is drawn in the current scene: in
+// its cast and not hidden.
+func (g *Game) shownChar(name string) (*runtimeChar, bool) {
+	if g.currentScene == "" || g.hidden[name] {
+		return nil, false
+	}
+	for _, a := range g.sceneActors(g.SceneManager.MustGet(g.currentScene)) {
+		if a.Character.Name == name {
+			return g.runtimeChar(name)
+		}
+	}
+	return nil, false
+}
+
 func (g *Game) runtimeChar(name string) (*runtimeChar, bool) {
 	c, ok := g.chars[name]
 	return c, ok
