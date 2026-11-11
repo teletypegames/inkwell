@@ -30,8 +30,11 @@
 //   - [RunDialog] opens a dialog and holds the script until it closes;
 //     [EndDialog] closes the open one, and [GotoNode] moves it to another of
 //     its nodes.
-//   - [GoTo] changes scene through the scene fade; [Back] returns to the
-//     previous scene, and does nothing when there is none.
+//   - [GoTo] changes scene through the scene fade and holds the script until
+//     the new scene is showing, running the old scene's OnLeave and the new
+//     scene's OnEnter on the way, so one script can lead the player through
+//     several scenes; [Back] returns to the previous scene the same way, and
+//     does nothing when there is none.
 //   - [Walk] sends a character to a point through the walkboxes and holds
 //     the script until it arrives.
 //   - [SetPose] holds a character in a pose until it next walks or speaks.

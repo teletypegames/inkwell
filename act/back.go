@@ -4,13 +4,11 @@ import "git.teletypegames.org/engines/inkwell/inkbase"
 
 type backAction struct{}
 
-// Back returns to the scene the player came from.
-func Back() inkbase.Action                 { return backAction{} }
-func (a backAction) Start() inkbase.Runner { return a }
-func (a backAction) Tick(ctx *inkbase.Ctx) inkbase.Status {
-	host := ctx.Game.(SceneHost)
-	if prev := host.PreviousScene(); prev != "" {
-		host.ChangeScene(prev)
-	}
-	return inkbase.StatusDone
+// Back returns to the scene the player came from and, like [GoTo], holds
+// the script until it is showing. It does nothing when there is none.
+func Back() inkbase.Action { return backAction{} }
+
+// Start returns the Runner of one return to the previous scene.
+func (a backAction) Start() inkbase.Runner {
+	return &enterRunner{scene: func(h SceneHost) string { return h.PreviousScene() }}
 }

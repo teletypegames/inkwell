@@ -286,7 +286,7 @@
 // the engine starts the next one on the first frame the previous one is done,
 // so a widget, a trigger and a hotspot click can all hand work in without
 // any of them being dropped or racing the others. The engine's own hotspot
-// and OnEnter actions go through the same queue. The action running holds
+// actions go through the same queue. The action running holds
 // the frame — the script slot — so no ordinary widget ticks and the scene
 // takes no clicks until it is done; parallel work goes inside one action with
 // [Par]. See [git.teletypegames.org/engines/inkwell/act] and [git.teletypegames.org/engines/inkwell/inkbase/action] for the
@@ -1009,10 +1009,21 @@
 // old picture is covered, the change lands on the frame it is fully hidden,
 // and the new picture is uncovered. [Fade] and [FadeTo] are the ones the
 // library ships; a Stage names its own, and a scene change uses a quarter
-// second fade. At the midpoint of a scene change the old scene's OnLeave is
-// queued, the current scene changes, the visit is counted, the actors are
-// placed, the new scene's music plays and its OnEnter is queued; input is
-// frozen while the old picture is going. The opening scene is entered
+// second fade. At the midpoint of a scene change the current scene changes,
+// the visit is counted, the actors are placed and the new scene's music
+// plays; input is frozen while the old picture is going. A change made by
+// [GoTo] or [Back] runs the old scene's OnLeave and the new scene's OnEnter
+// inside that action, right after the swap, and the action is done when the
+// new picture is fully uncovered, so a script can go on in the new scene:
+//
+//	inkwell.Seq(
+//		inkwell.GoTo(scene.Harbour),
+//		inkwell.Say(paul, inkwell.Text{{Lang: "en", Text: "The boat is gone."}}),
+//		inkwell.GoTo(scene.Alley),
+//		inkwell.Say(paul, inkwell.Text{{Lang: "en", Text: "Back where I started."}}),
+//	)
+//
+// [Game.ChangeScene] queues the two hooks instead. The opening scene is entered
 // without a transition. See [git.teletypegames.org/engines/inkwell/inkbase/transition].
 //
 // # Validation

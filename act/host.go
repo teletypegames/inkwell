@@ -40,7 +40,7 @@ type DialogHost interface {
 
 // SceneHost is the slice of *Game a scene-change action needs.
 type SceneHost interface {
-	ChangeScene(name string)
+	EnterScene(name string) inkbase.Runner
 	PreviousScene() string
 }
 

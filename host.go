@@ -92,8 +92,24 @@ func (g *Game) StopVoice() { g.Audio.StopVoice() }
 // ConsumedClick reports (and consumes) a left click for skip-line.
 func (g *Game) ConsumedClick() bool { return g.Input.ConsumedClick() }
 
-// ChangeScene transitions to the named scene.
-func (g *Game) ChangeScene(name string) { g.changeScene(name) }
+// ChangeScene transitions to the named scene and queues the old scene's
+// OnLeave and the new scene's OnEnter; an unknown name logs and does
+// nothing. A script that has more to do in the new scene uses [GoTo], or
+// [Game.EnterScene].
+func (g *Game) ChangeScene(name string) { g.changeScene(name, nil) }
+
+// EnterScene starts a transition to the named scene and returns the Runner
+// that holds a script through it: the Runner waits for the swap, runs the
+// old scene's OnLeave and the new scene's OnEnter in its own place, and is
+// done when the new picture is fully uncovered, so what follows it in the
+// script happens in the new scene. An unknown name logs and returns nil.
+func (g *Game) EnterScene(name string) Runner {
+	change := &sceneChange{}
+	if !g.changeScene(name, change) {
+		return nil
+	}
+	return &sceneChangeRunner{g: g, change: change}
+}
 
 // StartDialog opens a dialog tree.
 func (g *Game) StartDialog(d *Dialog) { g.startDialog(d) }
